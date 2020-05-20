@@ -5,11 +5,14 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/server/api"
 	"google.golang.org/grpc"
+	"hash"
 	"log"
 	mathrand "math/rand"
 	"sync"
@@ -107,17 +110,42 @@ func OpenConnection(options *ConnectionOption) (*ConnData, error) {
 
 type blockchainDB struct {
 	dbName      string
-	userId       []byte
+	userId      []byte
 	connections []*ConnData
 	mu          sync.RWMutex
 	openTx      map[string]*txContext
 	isClosed    bool
-	userCrypto   *cryptoMaterials
+	userCrypto  *cryptoMaterials
 	*TxOptions
 }
 
 func (db *blockchainDB) Begin(options *TxOptions) (TxContext, error) {
-	panic("implement me")
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if db.isClosed {
+		return nil, errors.New("db closed")
+	}
+	txId, err := computeTxID(db.userId, sha256.New())
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't compute TxID")
+	}
+	ctx := &txContext{
+		db:            db,
+		snapshotBlock: 0,
+		wset:          make(map[string]*api.KVWrite),
+		rset:          make(map[string]*api.KVRead),
+		txId:          txId,
+		statements:    make([]*api.Statement, 0),
+		TxOptions:     options,
+	}
+	useServer := mathrand.Intn(len(db.connections))
+	ledgerHeight, err := db.connections[useServer].queryServer.GetBlockHeight(context.Background(), &empty.Empty{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't get ledger height")
+	}
+	ctx.snapshotBlock = ledgerHeight.Height
+	db.openTx[hex.EncodeToString(ctx.txId)] = ctx
+	return ctx, nil
 }
 
 func (db *blockchainDB) Close() error {
@@ -126,7 +154,12 @@ func (db *blockchainDB) Close() error {
 	db.mu.Unlock()
 	dbConnMutex.Lock()
 	defer dbConnMutex.Unlock()
+
+	for _, tx := range db.openTx {
+		tx.Abort()
+	}
 	db.openTx = nil
+
 	for _, conn := range db.connections {
 		conn.num -= 1
 		if conn.num == 0 {
@@ -196,7 +229,9 @@ func (db *blockchainDB) GetUsersForRole(role string) []*api.User {
 
 type txContext struct {
 	db         *blockchainDB
+	mu            sync.RWMutex
 	isClosed   bool
+	snapshotBlock uint64
 	wset       map[string]*api.KVWrite
 	rset       map[string]*api.KVRead
 	txId       []byte
@@ -205,7 +240,47 @@ type txContext struct {
 }
 
 func (ctx *txContext) Get(key string) ([]byte, error) {
-	panic("implement me")
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	if ctx.isClosed {
+		return nil, errors.New("transaction context not longer valid")
+	}
+	dq := &api.DataQuery{
+		Header: &api.QueryHeader{
+			User: &api.User{
+				UserID:          ctx.db.userId,
+				UserCertificate: nil,
+				Roles:           nil,
+			},
+			Signature: nil,
+			DbName:    ctx.db.dbName,
+		},
+		Key: key,
+	}
+	queryBytes, err := proto.Marshal(dq)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't marshal query message %v", dq)
+	}
+	dq.Header.Signature, err = Sign(ctx.db.userCrypto, queryBytes)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
+	}
+	val, err := getMultipleQueryValue(ctx.db, ctx.ro, dq)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't get value")
+	}
+	rset := &api.KVRead{
+		Key:     key,
+		Version: val.Metadata.Version,
+	}
+	ctx.rset[key] = rset
+	stmt := &api.Statement{
+		Operation: "GET",
+		Arguments: make([][]byte, 0),
+	}
+	stmt.Arguments = append(stmt.Arguments, []byte(key))
+	ctx.statements = append(ctx.statements, stmt)
+	return val.Value, nil
 }
 
 func (ctx *txContext) Put(key string, value []byte) error {
@@ -241,7 +316,47 @@ func (ctx *txContext) Commit() (*api.Digest, error) {
 }
 
 func (ctx *txContext) Abort() error {
-	panic("implement me")
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if ctx.isClosed {
+		return errors.New("transaction context not longer valid")
+	}
+	ctx.isClosed = true
+	ctx.db.mu.Lock()
+	delete(ctx.db.openTx, hex.EncodeToString(ctx.txId))
+	ctx.db.mu.Unlock()
+	return nil
+}
+
+const nonceSize = 24
+
+
+// GetRandomBytes returns len random looking bytes
+func GetRandomBytes(len int) ([]byte, error) {
+	key := make([]byte, len)
+
+	// TODO: rand could fill less bytes then len
+	_, err := rand.Read(key)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting random bytes")
+	}
+
+	return key, nil
+}
+
+func computeTxID(creator []byte, h hash.Hash) ([]byte, error) {
+	nonce, err := GetRandomBytes(nonceSize)
+	if err != nil {
+		return nil, err
+	}
+	b := append(nonce, creator...)
+
+	_, err = h.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	digest := h.Sum(nil)
+	return digest, nil
 }
 
 func Sign(userCrypto *cryptoMaterials, msgBytes []byte) ([]byte, error) {
@@ -285,7 +400,6 @@ func getMultipleQueryValue(db *blockchainDB, ro *ReadOptions, dq *api.DataQuery)
 	return nil, errors.Errorf("can't read %v copies of same value", ro.QuorumSize)
 }
 
-// Each
 func isNilValue(val *api.Value) bool {
 	if (val.Value == nil || len(val.Value) == 0) {
 		return true
