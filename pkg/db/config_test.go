@@ -35,5 +35,3 @@ func TestUserOptions_LoadCrypto(t *testing.T) {
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "failed to append ca certs")
 }
-
-

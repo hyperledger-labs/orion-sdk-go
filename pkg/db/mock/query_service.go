@@ -29,7 +29,7 @@ type dbStatus struct {
 	index  int
 }
 
-func (qs *queryServer) Get(ctx context.Context, req *api.DataQuery) (*api.Value, error) {
+func (qs *queryServer) GetState(ctx context.Context, req *api.DataQuery) (*api.Value, error) {
 	val, ok := qs.values[req.Key]
 	if !ok {
 		val = qs.defaultValue
@@ -42,8 +42,8 @@ func (qs *queryServer) Get(ctx context.Context, req *api.DataQuery) (*api.Value,
 	return val.values[len(val.values)-1], nil
 }
 
-func (qs *queryServer) GetDBStatus(ctx context.Context, req *api.DBName) (*api.DBStatus, error) {
-	val, ok := qs.dbStatuses[req.DbName]
+func (qs *queryServer) GetStatus(ctx context.Context, req *api.DB) (*api.DBStatus, error) {
+	val, ok := qs.dbStatuses[req.Name]
 	if !ok {
 		return &api.DBStatus{
 			Exist: false,
@@ -103,6 +103,21 @@ func NewQueryServer() (*queryServer, error) {
 			},
 		},
 	})
+
+	keyNilResult := &value{
+		values: make([]*api.Value, 0),
+		index:  0,
+	}
+	keyNilResult.values = append(keyNilResult.values, &api.Value{
+		Value: nil,
+		Metadata: &api.Metadata{
+			Version: &api.Version{
+				BlockNum: 0,
+				TxNum:    1,
+			},
+		},
+	})
+
 	defaultResult := &value{
 		values: make([]*api.Value, 0),
 		index:  0,
@@ -130,6 +145,7 @@ func NewQueryServer() (*queryServer, error) {
 	results := make(map[string]*value)
 	results["key1"] = key1result
 	results["key2"] = key2result
+	results["keynil"] = keyNilResult
 
 	dbStatusResults := make(map[string]*dbStatus)
 	testDBResult := &dbStatus{
