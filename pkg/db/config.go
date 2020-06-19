@@ -1,5 +1,9 @@
 package db
 
+type Options struct {
+	connectionOptions []*ConnectionOption
+	*TxOptions
+}
 
 type TransactionIsolation int
 
@@ -9,11 +13,15 @@ const (
 	RepeatableRead
 )
 
-
 type TxOptions struct {
 	txIsolation TransactionIsolation
 	ro          *ReadOptions
 	co          *CommitOptions
+}
+
+type ConnectionOption struct {
+	server string
+	port   int
 }
 
 type ReadOptions struct {
@@ -23,4 +31,3 @@ type ReadOptions struct {
 type CommitOptions struct {
 	QuorumSize int
 }
-
