@@ -9,9 +9,6 @@ import (
 	"time"
 )
 
-func init() {
-}
-
 func TestOpen(t *testing.T) {
 	startServer()
 	defer stopServer()
@@ -21,6 +18,7 @@ func TestOpen(t *testing.T) {
 	require.Equal(t, len(db.(*blockchainDB).connections), 1)
 	require.Equal(t, len(dbConnections), 1)
 	require.False(t, db.(*blockchainDB).isClosed)
+	require.EqualValues(t, db.(*blockchainDB).userId, options.user.UserID, "user ids are not equal")
 
 	val, err := db.Get("key1")
 	require.NotNil(t, val)
@@ -28,12 +26,18 @@ func TestOpen(t *testing.T) {
 
 	db, err = Open("testDB2", options)
 	require.Nil(t, db)
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	options.connectionOptions[0].port = 19999
 	db, err = Open("testDB", options)
 	require.Nil(t, db)
-	require.NotNil(t, err)
+	require.Error(t, err)
+
+	invalidOpt := createOptions()
+	invalidOpt.user.ca = "nonexist.crt"
+	db, err = Open("testDb", invalidOpt)
+	require.Nil(t, db)
+	require.Error(t, err)
 }
 
 func TestBlockchainDB_Close(t *testing.T) {
@@ -105,8 +109,15 @@ func createOptions() *Options {
 	}
 	connOpts := make([]*ConnectionOption, 0)
 	connOpts = append(connOpts, connOpt)
+	userOpt := &UserOptions{
+		UserID: []byte("testUser"),
+		ca:     "cert/ca.cert",
+		cert:   "cert/service.pem",
+		key:    "cert/service.key",
+	}
 	return &Options{
 		connectionOptions: connOpts,
+		user:              userOpt,
 		TxOptions: &TxOptions{
 			txIsolation: Serializable,
 			ro:          &ReadOptions{QuorumSize: 1},

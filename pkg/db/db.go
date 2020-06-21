@@ -2,11 +2,16 @@ package db
 
 import (
 	"context"
+	"crypto"
+	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/server/api"
 	"google.golang.org/grpc"
 	"log"
+	mathrand "math/rand"
 	"sync"
 	"time"
 )
@@ -42,6 +47,15 @@ func Open(dbName string, options *Options) (DB, error) {
 		openTx:      make(map[string]*txContext, 0),
 		isClosed:    false,
 		TxOptions:   options.TxOptions,
+	}
+	if options.user != nil {
+		userCrypto, err := options.user.LoadCrypto()
+		if err != nil {
+			return nil, err
+		}
+		db.userCrypto = userCrypto
+		db.userId = options.user.UserID
+
 	}
 	for _, serverOption := range options.connectionOptions {
 		conn, err := OpenConnection(serverOption)
@@ -93,10 +107,12 @@ func OpenConnection(options *ConnectionOption) (*ConnData, error) {
 
 type blockchainDB struct {
 	dbName      string
+	userId       []byte
 	connections []*ConnData
 	mu          sync.RWMutex
 	openTx      map[string]*txContext
 	isClosed    bool
+	userCrypto   *cryptoMaterials
 	*TxOptions
 }
 
@@ -130,7 +146,7 @@ func (db *blockchainDB) Get(key string) ([]byte, error) {
 	dq := &api.DataQuery{
 		Header: &api.QueryHeader{
 			User: &api.User{
-				UserID:          nil,
+				UserID:          db.userId,
 				UserCertificate: nil,
 				Roles:           nil,
 			},
@@ -139,9 +155,15 @@ func (db *blockchainDB) Get(key string) ([]byte, error) {
 		},
 		Key: key,
 	}
-
-	val, err := db.connections[0].queryServer.Get(context.Background(), dq)
-
+	queryBytes, err := proto.Marshal(dq)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't marshal query message %v", dq)
+	}
+	dq.Header.Signature, err = Sign(db.userCrypto, queryBytes)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
+	}
+	val, err := getMultipleQueryValue(db, db.ro, dq)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
@@ -220,4 +242,53 @@ func (ctx *txContext) Commit() (*api.Digest, error) {
 
 func (ctx *txContext) Abort() error {
 	panic("implement me")
+}
+
+func Sign(userCrypto *cryptoMaterials, msgBytes []byte) ([]byte, error) {
+	digest := sha256.New()
+	digest.Write(msgBytes)
+	singer, ok := userCrypto.tlsPair.PrivateKey.(crypto.Signer)
+	if !ok {
+		return nil, errors.New("can't sign using private key, not implement signer interface")
+	}
+	return singer.Sign(rand.Reader, digest.Sum(nil), crypto.SHA256)
+}
+
+// Trying to read exactly ReadOptions.serverNum copies of value from servers
+func getMultipleQueryValue(db *blockchainDB, ro *ReadOptions, dq *api.DataQuery) (*api.Value, error) {
+	startServer := mathrand.Intn(len(db.connections))
+	readValues := make([]*api.Value, 0)
+
+	for i := startServer; (i - startServer) < len(db.connections); i++ {
+
+		val, err := db.connections[i%len(db.connections)].queryServer.Get(context.Background(), dq)
+		if err != nil {
+			log.Println(fmt.Sprintf("Can't get value from service %v, moving to next server", err))
+		}
+		if val != nil {
+			sameValues := 1
+			for _, cVal := range readValues {
+				if isNilValue(val) || isNilValue(cVal) {
+					if isNilValue(val) && isNilValue(cVal) {
+						sameValues += 1
+					}
+				} else if proto.Equal(cVal, val) {
+					sameValues += 1
+				}
+			}
+			if sameValues >= ro.QuorumSize {
+				return val, nil
+			}
+			readValues = append(readValues, val)
+		}
+	}
+	return nil, errors.Errorf("can't read %v copies of same value", ro.QuorumSize)
+}
+
+// Each
+func isNilValue(val *api.Value) bool {
+	if (val.Value == nil || len(val.Value) == 0) {
+		return true
+	}
+	return false
 }
