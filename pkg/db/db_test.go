@@ -22,7 +22,7 @@ func TestOpen(t *testing.T) {
 	require.Equal(t, len(db.(*blockchainDB).connections), 1)
 	require.Equal(t, len(dbConnections), 1)
 	require.False(t, db.(*blockchainDB).isClosed)
-	require.EqualValues(t, db.(*blockchainDB).userId, options.user.UserID, "user ids are not equal")
+	require.EqualValues(t, db.(*blockchainDB).userId, options.User.UserID, "user ids are not equal")
 	val, err := db.Get("key1")
 	require.NotNil(t, val)
 	require.Nil(t, err)
@@ -31,13 +31,13 @@ func TestOpen(t *testing.T) {
 	require.Nil(t, db)
 	require.Error(t, err)
 
-	options.connectionOptions[0].port = 19999
+	options.ConnectionOptions[0].Port = 19999
 	db, err = Open("testDB", options)
 	require.Nil(t, db)
 	require.Error(t, err)
 
 	invalidOpt := createOptions()
-	invalidOpt.user.ca = "nonexist.crt"
+	invalidOpt.User.CA = "nonexist.crt"
 	db, err = Open("testDb", invalidOpt)
 	require.Nil(t, db)
 	require.Error(t, err)
@@ -79,9 +79,9 @@ func TestBlockchainDB_Begin(t *testing.T) {
 	require.NoError(t, err)
 
 	txOptions := &TxOptions{
-		txIsolation: RepeatableRead,
-		ro:          &ReadOptions{QuorumSize: 1},
-		co:          &CommitOptions{QuorumSize: 1},
+		TxIsolation:   RepeatableRead,
+		ReadOptions:   &ReadOptions{QuorumSize: 1},
+		CommitOptions: &CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -114,9 +114,9 @@ func TestTxContext_Get(t *testing.T) {
 	require.NoError(t, err)
 
 	txOptions := &TxOptions{
-		txIsolation: RepeatableRead,
-		ro:          &ReadOptions{QuorumSize: 1},
-		co:          &CommitOptions{QuorumSize: 1},
+		TxIsolation:   RepeatableRead,
+		ReadOptions:   &ReadOptions{QuorumSize: 1},
+		CommitOptions: &CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -175,9 +175,9 @@ func TestTxContext_PutDelete(t *testing.T) {
 	require.NoError(t, err)
 
 	txOptions := &TxOptions{
-		txIsolation: Serializable,
-		ro:          &ReadOptions{QuorumSize: 1},
-		co:          &CommitOptions{QuorumSize: 1},
+		TxIsolation:   Serializable,
+		ReadOptions:   &ReadOptions{QuorumSize: 1},
+		CommitOptions: &CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -252,9 +252,9 @@ func TestTxContext_Commit(t *testing.T) {
 	require.NoError(t, err)
 
 	txOptions := &TxOptions{
-		txIsolation: Serializable,
-		ro:          &ReadOptions{QuorumSize: 1},
-		co:          &CommitOptions{QuorumSize: 1},
+		TxIsolation:   Serializable,
+		ReadOptions:   &ReadOptions{QuorumSize: 1},
+		CommitOptions: &CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -292,9 +292,9 @@ func TestTxContext_Abort(t *testing.T) {
 	require.NoError(t, err)
 
 	txOptions := &TxOptions{
-		txIsolation: RepeatableRead,
-		ro:          &ReadOptions{QuorumSize: 1},
-		co:          &CommitOptions{QuorumSize: 1},
+		TxIsolation:   RepeatableRead,
+		ReadOptions:   &ReadOptions{QuorumSize: 1},
+		CommitOptions: &CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -316,9 +316,9 @@ func TestTxContext_TxIsolation_DifferentReads(t *testing.T) {
 	require.NoError(t, err)
 
 	txOptions := &TxOptions{
-		txIsolation: Serializable,
-		ro:          &ReadOptions{QuorumSize: 1},
-		co:          &CommitOptions{QuorumSize: 1},
+		TxIsolation:   Serializable,
+		ReadOptions:   &ReadOptions{QuorumSize: 1},
+		CommitOptions: &CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -330,7 +330,7 @@ func TestTxContext_TxIsolation_DifferentReads(t *testing.T) {
 
 	key1res, err = txCtx.Get("key1")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "key value version changed during tx")
+	require.Contains(t, err.Error(), "Key value version changed during tx")
 }
 
 func TestTxContext_TxIsolation_DirtyReads(t *testing.T) {
@@ -341,9 +341,9 @@ func TestTxContext_TxIsolation_DirtyReads(t *testing.T) {
 	require.NoError(t, err)
 
 	txOptions := &TxOptions{
-		txIsolation: Serializable,
-		ro:          &ReadOptions{QuorumSize: 1},
-		co:          &CommitOptions{QuorumSize: 1},
+		TxIsolation:   Serializable,
+		ReadOptions:   &ReadOptions{QuorumSize: 1},
+		CommitOptions: &CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -354,25 +354,25 @@ func TestTxContext_TxIsolation_DirtyReads(t *testing.T) {
 
 	_, err = txCtx.Get("key1")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "key value already changed inside this tx")
+	require.Contains(t, err.Error(), "Key value already changed inside this tx")
 }
 
 func TestTxContext_GetMultipleValues(t *testing.T) {
 	startServer()
 	defer stopServer()
 	options := createOptions()
-	// Connect twice to same server, as it another server
-	options.connectionOptions = append(options.connectionOptions, &ConnectionOption{
-		server: "localhost",
-		port:   9999,
+	// Connect twice to same Server, as it another Server
+	options.ConnectionOptions = append(options.ConnectionOptions, &ConnectionOption{
+		Server: "localhost",
+		Port:   9999,
 	})
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
 	txOptions := &TxOptions{
-		txIsolation: Serializable,
-		ro:          &ReadOptions{QuorumSize: 2},
-		co:          &CommitOptions{QuorumSize: 2},
+		TxIsolation:   Serializable,
+		ReadOptions:   &ReadOptions{QuorumSize: 2},
+		CommitOptions: &CommitOptions{QuorumSize: 2},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -430,24 +430,24 @@ func stopServer() {
 
 func createOptions() *Options {
 	connOpt := &ConnectionOption{
-		server: "localhost",
-		port:   9999,
+		Server: "localhost",
+		Port:   9999,
 	}
 	connOpts := make([]*ConnectionOption, 0)
 	connOpts = append(connOpts, connOpt)
 	userOpt := &UserOptions{
 		UserID: []byte("testUser"),
-		ca:     "cert/ca.cert",
-		cert:   "cert/service.pem",
-		key:    "cert/service.key",
+		CA:     "cert/ca.cert",
+		Cert:   "cert/service.pem",
+		Key:    "cert/service.key",
 	}
 	return &Options{
-		connectionOptions: connOpts,
-		user:              userOpt,
+		ConnectionOptions: connOpts,
+		User:              userOpt,
 		TxOptions: &TxOptions{
-			txIsolation: Serializable,
-			ro:          &ReadOptions{QuorumSize: 1},
-			co:          &CommitOptions{QuorumSize: 1},
+			TxIsolation:   Serializable,
+			ReadOptions:   &ReadOptions{QuorumSize: 1},
+			CommitOptions: &CommitOptions{QuorumSize: 1},
 		},
 	}
 }

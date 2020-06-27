@@ -27,9 +27,9 @@ type DB interface {
 // TxContext provides APIs to both query and modify states
 type TxContext interface {
 	DataQuerier
-	// Put stores the given key and value
+	// Put stores the given Key and value
 	Put(key string, value []byte) error
-	// Delete deletes the given key
+	// Delete deletes the given Key
 	Delete(key string) error
 	// Users provides APIs for user management
 	Users
@@ -59,10 +59,10 @@ type DataQuerier interface {
 
 // Provide access to historical data and dat integrity proofs
 type Provenance interface {
-	// GetValueAtTime returns the value of a key at a given time
+	// GetValueAtTime returns the value of a Key at a given time
 	GetValueAtTime(key string, date time.Time) (*api.HistoricalData, error)
 	// GetHistoryIterator returns an iterator to iter over the historical
-	// value of a given key.
+	// value of a given Key.
 	GetHistoryIterator(key string, opt QueryOption) (HistoryIterator, error)
 	// GetTxProof return a proof for a given txId so that the caller can
 	// validate the authenticity of the transaction.

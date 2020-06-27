@@ -51,16 +51,16 @@ func Open(dbName string, options *Options) (DB, error) {
 		isClosed:    false,
 		TxOptions:   options.TxOptions,
 	}
-	if options.user != nil {
-		userCrypto, err := options.user.LoadCrypto()
+	if options.User != nil {
+		userCrypto, err := options.User.LoadCrypto()
 		if err != nil {
 			return nil, err
 		}
 		db.userCrypto = userCrypto
-		db.userId = options.user.UserID
+		db.userId = options.User.UserID
 
 	}
-	for _, serverOption := range options.connectionOptions {
+	for _, serverOption := range options.ConnectionOptions {
 		conn, err := OpenConnection(serverOption)
 		if err != nil {
 			return nil, err
@@ -82,20 +82,20 @@ func Open(dbName string, options *Options) (DB, error) {
 
 // Single threaded
 func OpenConnection(options *ConnectionOption) (*ConnData, error) {
-	addr := fmt.Sprintf("%s:%d", options.server, options.port)
+	addr := fmt.Sprintf("%s:%d", options.Server, options.Port)
 	dbConnMutex.Lock()
 	defer dbConnMutex.Unlock()
 	if conn, ok := dbConnections[addr]; ok {
-		log.Println(fmt.Sprintf("connection to server %s already opened, reusing", addr))
+		log.Println(fmt.Sprintf("connection to Server %s already opened, reusing", addr))
 		conn.num += 1
 		return conn, nil
 	}
-	log.Println(fmt.Sprintf("Connecting to server %s", addr))
+	log.Println(fmt.Sprintf("Connecting to Server %s", addr))
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not dial %s", addr)
 	}
-	log.Println(fmt.Sprintf("Connected to server %s", addr))
+	log.Println(fmt.Sprintf("Connected to Server %s", addr))
 	dbConnData := &ConnData{
 		conn:        conn,
 		queryServer: api.NewQueryClient(conn),
@@ -191,7 +191,7 @@ func (db *blockchainDB) Get(key string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
 	}
-	val, err := getMultipleQueryValue(db, db.ro, dq)
+	val, err := getMultipleQueryValue(db, db.ReadOptions, dq)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
@@ -265,7 +265,7 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
 	}
-	val, err := getMultipleQueryValue(tx.db, tx.ro, dq)
+	val, err := getMultipleQueryValue(tx.db, tx.ReadOptions, dq)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
@@ -484,25 +484,25 @@ func Sign(userCrypto *cryptoMaterials, msgBytes []byte) ([]byte, error) {
 	digest.Write(msgBytes)
 	singer, ok := userCrypto.tlsPair.PrivateKey.(crypto.Signer)
 	if !ok {
-		return nil, errors.New("can't sign using private key, not implement signer interface")
+		return nil, errors.New("can't sign using private Key, not implement signer interface")
 	}
 	return singer.Sign(rand.Reader, digest.Sum(nil), crypto.SHA256)
 }
 
 func validateRSet(tx *transactionContext, rset *api.KVRead) error {
-	txIsolation := tx.db.txIsolation
-	if tx.txIsolation != txIsolation {
-		txIsolation = tx.txIsolation
+	txIsolation := tx.db.TxIsolation
+	if tx.TxIsolation != txIsolation {
+		txIsolation = tx.TxIsolation
 	}
 
 	if rs, ok := tx.rwset.rset[rset.Key]; ok {
 		if rset.Version.BlockNum > rs.Version.BlockNum {
-			return errors.Errorf("tx isolation level not satisfied, key value version changed during tx, %v, %v", rs, rset)
+			return errors.Errorf("tx isolation level not satisfied, Key value version changed during tx, %v, %v", rs, rset)
 		}
 	}
 
 	if v, exist := tx.rwset.wset[rset.Key]; exist {
-		return errors.Errorf("tx isolation not satisfied, key value already changed inside this tx, %v, %v", rset, v)
+		return errors.Errorf("tx isolation not satisfied, Key value already changed inside this tx, %v, %v", rset, v)
 	}
 	return nil
 }
@@ -516,7 +516,7 @@ func getMultipleQueryValue(db *blockchainDB, ro *ReadOptions, dq *api.DataQuery)
 
 		val, err := db.connections[i%len(db.connections)].queryServer.GetState(context.Background(), dq)
 		if err != nil {
-			log.Println(fmt.Sprintf("Can't get value from service %v, moving to next server", err))
+			log.Println(fmt.Sprintf("Can't get value from service %v, moving to next Server", err))
 		}
 		if val != nil {
 			sameValues := 1
