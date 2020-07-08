@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/golang/protobuf v1.4.2
+	github.com/gorilla/mux v1.7.4
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.6.1
 	github.ibm.com/blockchaindb/server v0.0.0

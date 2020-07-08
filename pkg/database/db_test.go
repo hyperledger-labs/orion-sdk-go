@@ -1,28 +1,29 @@
-package db
+package database
 
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/stretchr/testify/require"
-	server "github.ibm.com/blockchaindb/sdk/pkg/db/mock"
-	"github.ibm.com/blockchaindb/server/api"
-	"net"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/require"
+	"github.ibm.com/blockchaindb/sdk/pkg/config"
+	"github.ibm.com/blockchaindb/sdk/pkg/cryptoprovider"
+	server "github.ibm.com/blockchaindb/sdk/pkg/database/mock"
+	"github.ibm.com/blockchaindb/server/api"
 )
 
 func TestOpen(t *testing.T) {
-	startServer()
-	defer stopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 	require.Equal(t, len(db.(*blockchainDB).connections), 1)
 	require.Equal(t, len(dbConnections), 1)
 	require.False(t, db.(*blockchainDB).isClosed)
-	require.EqualValues(t, db.(*blockchainDB).userId, options.User.UserID, "user ids are not equal")
+	require.EqualValues(t, db.(*blockchainDB).userID, options.User.UserID, "user ids are not equal")
 	val, err := db.Get("key1")
 	require.NotNil(t, val)
 	require.Nil(t, err)
@@ -31,21 +32,21 @@ func TestOpen(t *testing.T) {
 	require.Nil(t, db)
 	require.Error(t, err)
 
-	options.ConnectionOptions[0].Port = 19999
+	options.ConnectionOptions[0].URL = fmt.Sprintf("http://localhost:%d/", 1999)
 	db, err = Open("testDB", options)
 	require.Nil(t, db)
 	require.Error(t, err)
 
 	invalidOpt := createOptions()
-	invalidOpt.User.CA = "nonexist.crt"
+	invalidOpt.User.CAFilePath = "nonexist.crt"
 	db, err = Open("testDb", invalidOpt)
 	require.Nil(t, db)
 	require.Error(t, err)
 }
 
 func TestBlockchainDB_Close(t *testing.T) {
-	startServer()
-	defer stopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
@@ -56,8 +57,8 @@ func TestBlockchainDB_Close(t *testing.T) {
 }
 
 func TestBlockchainDB_Get(t *testing.T) {
-	startServer()
-	defer stopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
@@ -72,27 +73,27 @@ func TestBlockchainDB_Get(t *testing.T) {
 }
 
 func TestBlockchainDB_Begin(t *testing.T) {
-	startServer()
-	defer server.StopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
-	txOptions := &TxOptions{
-		TxIsolation:   RepeatableRead,
-		ReadOptions:   &ReadOptions{QuorumSize: 1},
-		CommitOptions: &CommitOptions{QuorumSize: 1},
+	txOptions := &config.TxOptions{
+		TxIsolation:   config.RepeatableRead,
+		ReadOptions:   &config.ReadOptions{QuorumSize: 1},
+		CommitOptions: &config.CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
 	require.NoError(t, err)
 	require.NotNil(t, txCtx)
-	require.NotNil(t, txCtx.(*transactionContext).txId)
+	require.NotNil(t, txCtx.(*transactionContext).txID)
 	require.NotNil(t, txCtx.(*transactionContext).db)
 	require.EqualValues(t, txCtx.(*transactionContext).db, db)
 	found := false
 	for k, _ := range db.(*blockchainDB).openTx {
-		if strings.Compare(k, hex.EncodeToString(txCtx.(*transactionContext).txId)) == 0 {
+		if strings.Compare(k, hex.EncodeToString(txCtx.(*transactionContext).txID)) == 0 {
 			found = true
 			break
 		}
@@ -107,16 +108,16 @@ func TestBlockchainDB_Begin(t *testing.T) {
 }
 
 func TestTxContext_Get(t *testing.T) {
-	startServer()
-	defer server.StopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
-	txOptions := &TxOptions{
-		TxIsolation:   RepeatableRead,
-		ReadOptions:   &ReadOptions{QuorumSize: 1},
-		CommitOptions: &CommitOptions{QuorumSize: 1},
+	txOptions := &config.TxOptions{
+		TxIsolation:   config.RepeatableRead,
+		ReadOptions:   &config.ReadOptions{QuorumSize: 1},
+		CommitOptions: &config.CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -168,16 +169,16 @@ func TestTxContext_Get(t *testing.T) {
 }
 
 func TestTxContext_PutDelete(t *testing.T) {
-	startServer()
-	defer stopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
-	txOptions := &TxOptions{
-		TxIsolation:   Serializable,
-		ReadOptions:   &ReadOptions{QuorumSize: 1},
-		CommitOptions: &CommitOptions{QuorumSize: 1},
+	txOptions := &config.TxOptions{
+		TxIsolation:   config.Serializable,
+		ReadOptions:   &config.ReadOptions{QuorumSize: 1},
+		CommitOptions: &config.CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -245,16 +246,16 @@ func TestTxContext_PutDelete(t *testing.T) {
 }
 
 func TestTxContext_Commit(t *testing.T) {
-	startServer()
-	defer stopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
-	txOptions := &TxOptions{
-		TxIsolation:   Serializable,
-		ReadOptions:   &ReadOptions{QuorumSize: 1},
-		CommitOptions: &CommitOptions{QuorumSize: 1},
+	txOptions := &config.TxOptions{
+		TxIsolation:   config.Serializable,
+		ReadOptions:   &config.ReadOptions{QuorumSize: 1},
+		CommitOptions: &config.CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -285,16 +286,16 @@ func TestTxContext_Commit(t *testing.T) {
 }
 
 func TestTxContext_Abort(t *testing.T) {
-	startServer()
-	defer stopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
-	txOptions := &TxOptions{
-		TxIsolation:   RepeatableRead,
-		ReadOptions:   &ReadOptions{QuorumSize: 1},
-		CommitOptions: &CommitOptions{QuorumSize: 1},
+	txOptions := &config.TxOptions{
+		TxIsolation:   config.RepeatableRead,
+		ReadOptions:   &config.ReadOptions{QuorumSize: 1},
+		CommitOptions: &config.CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -309,16 +310,16 @@ func TestTxContext_Abort(t *testing.T) {
 }
 
 func TestTxContext_TxIsolation_DifferentReads(t *testing.T) {
-	startServer()
-	defer stopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
-	txOptions := &TxOptions{
-		TxIsolation:   Serializable,
-		ReadOptions:   &ReadOptions{QuorumSize: 1},
-		CommitOptions: &CommitOptions{QuorumSize: 1},
+	txOptions := &config.TxOptions{
+		TxIsolation:   config.Serializable,
+		ReadOptions:   &config.ReadOptions{QuorumSize: 1},
+		CommitOptions: &config.CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -330,20 +331,20 @@ func TestTxContext_TxIsolation_DifferentReads(t *testing.T) {
 
 	key1res, err = txCtx.Get("key1")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Key value version changed during tx")
+	require.Contains(t, err.Error(), "KeyFilePath value version changed during tx")
 }
 
 func TestTxContext_TxIsolation_DirtyReads(t *testing.T) {
-	startServer()
-	defer stopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
-	txOptions := &TxOptions{
-		TxIsolation:   Serializable,
-		ReadOptions:   &ReadOptions{QuorumSize: 1},
-		CommitOptions: &CommitOptions{QuorumSize: 1},
+	txOptions := &config.TxOptions{
+		TxIsolation:   config.Serializable,
+		ReadOptions:   &config.ReadOptions{QuorumSize: 1},
+		CommitOptions: &config.CommitOptions{QuorumSize: 1},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -354,25 +355,24 @@ func TestTxContext_TxIsolation_DirtyReads(t *testing.T) {
 
 	_, err = txCtx.Get("key1")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Key value already changed inside this tx")
+	require.Contains(t, err.Error(), "KeyFilePath value already changed inside this tx")
 }
 
 func TestTxContext_GetMultipleValues(t *testing.T) {
-	startServer()
-	defer stopServer()
+	server.StartTestServer()
+	defer StopTestServer()
 	options := createOptions()
 	// Connect twice to same Server, as it another Server
-	options.ConnectionOptions = append(options.ConnectionOptions, &ConnectionOption{
-		Server: "localhost",
-		Port:   9999,
+	options.ConnectionOptions = append(options.ConnectionOptions, &config.ConnectionOption{
+		URL: "http://localhost:9999/",
 	})
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
-	txOptions := &TxOptions{
-		TxIsolation:   Serializable,
-		ReadOptions:   &ReadOptions{QuorumSize: 2},
-		CommitOptions: &CommitOptions{QuorumSize: 2},
+	txOptions := &config.TxOptions{
+		TxIsolation:   config.Serializable,
+		ReadOptions:   &config.ReadOptions{QuorumSize: 2},
+		CommitOptions: &config.CommitOptions{QuorumSize: 2},
 	}
 
 	txCtx, err := db.Begin(txOptions)
@@ -395,59 +395,32 @@ func TestTxContext_GetMultipleValues(t *testing.T) {
 	require.Nil(t, val)
 }
 
-func checkConnect(host string, port string, timeoutMillis int) bool {
-	timeout := time.Millisecond * time.Duration(timeoutMillis)
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), timeout)
-	if err != nil {
-		fmt.Println("Connecting error:", err)
-	}
-	if conn != nil {
-		defer conn.Close()
-		fmt.Println("Opened", net.JoinHostPort(host, port))
-		return true
-	}
-	return false
-}
-
-func startServer() {
-	go server.StartServer(9999)
-	for {
-		if !checkConnect("localhost", "9999", 100) {
-			time.Sleep(time.Millisecond * 100)
-		} else {
-			break
-		}
-	}
-}
-
-func stopServer() {
+func StopTestServer() {
 	for _, conn := range dbConnections {
-		conn.conn.Close()
-		delete(dbConnections, conn.addr)
+		delete(dbConnections, conn.Client.RawURL)
 	}
 	server.StopServer()
 }
 
-func createOptions() *Options {
-	connOpt := &ConnectionOption{
-		Server: "localhost",
-		Port:   9999,
+func createOptions() *config.Options {
+	connOpts := []*config.ConnectionOption{
+		{
+			URL: "http://localhost:9999/",
+		},
 	}
-	connOpts := make([]*ConnectionOption, 0)
-	connOpts = append(connOpts, connOpt)
-	userOpt := &UserOptions{
-		UserID: []byte("testUser"),
-		CA:     "cert/ca.cert",
-		Cert:   "cert/service.pem",
-		Key:    "cert/service.key",
+	userOpt := &cryptoprovider.UserOptions{
+		UserID:       "testUser",
+		CAFilePath:   "../database/cert/ca_service.cert",
+		CertFilePath: "../database/cert/client.pem",
+		KeyFilePath:  "../database/cert/client.key",
 	}
-	return &Options{
+	return &config.Options{
 		ConnectionOptions: connOpts,
 		User:              userOpt,
-		TxOptions: &TxOptions{
-			TxIsolation:   Serializable,
-			ReadOptions:   &ReadOptions{QuorumSize: 1},
-			CommitOptions: &CommitOptions{QuorumSize: 1},
+		TxOptions: &config.TxOptions{
+			TxIsolation:   config.Serializable,
+			ReadOptions:   &config.ReadOptions{QuorumSize: 1},
+			CommitOptions: &config.CommitOptions{QuorumSize: 1},
 		},
 	}
 }

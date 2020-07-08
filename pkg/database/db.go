@@ -1,31 +1,28 @@
-package db
+package database
 
 import (
 	"context"
-	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/hex"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/server/api"
-	"google.golang.org/grpc"
 	"hash"
 	"log"
 	mathrand "math/rand"
 	"sync"
-	"time"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+	"github.ibm.com/blockchaindb/sdk/pkg/config"
+	"github.ibm.com/blockchaindb/sdk/pkg/cryptoprovider"
+	"github.ibm.com/blockchaindb/sdk/pkg/rest"
+	"github.ibm.com/blockchaindb/server/api"
 )
 
 // Store grpc connection data tp reuse
 type ConnData struct {
-	conn        *grpc.ClientConn
-	queryServer api.QueryClient
-	txServer    api.TransactionSvcClient
-	num         int
-	addr        string
+	*rest.Client
+	num int
 }
 
 // All opened grpc client connections. Protected by mutex, only single go routine can access it, even for read
@@ -36,14 +33,14 @@ func init() {
 	dbConnections = make(map[string]*ConnData)
 }
 
-// Open opens an existing db associated with the dbName
+// Open opens an existing database associated with the dbName
 // Options may specify:
 // 1. Required transaction isolation level
 // 2. Read QuorumSize - number of servers used to read data
 // 3. Commit QuorumSize - number of responses should be collected by Client SDK during Commit() call
 //    to return success to Client
 // 4. User crypto materials
-func Open(dbName string, options *Options) (DB, error) {
+func Open(dbName string, options *config.Options) (DB, error) {
 	db := &blockchainDB{
 		dbName:      dbName,
 		connections: make([]*ConnData, 0),
@@ -52,12 +49,12 @@ func Open(dbName string, options *Options) (DB, error) {
 		TxOptions:   options.TxOptions,
 	}
 	if options.User != nil {
-		userCrypto, err := options.User.LoadCrypto()
+		userCrypto, err := options.User.LoadCrypto(nodeProvider)
 		if err != nil {
 			return nil, err
 		}
 		db.userCrypto = userCrypto
-		db.userId = options.User.UserID
+		db.userID = options.User.UserID
 
 	}
 	for _, serverOption := range options.ConnectionOptions {
@@ -66,13 +63,24 @@ func Open(dbName string, options *Options) (DB, error) {
 			return nil, err
 		}
 		db.connections = append(db.connections, conn)
-		dbStatus, err := conn.queryServer.GetStatus(context.Background(), &api.DB{
-			Name: dbName,
-		})
+
+		query := &api.GetStatusQuery{
+			UserID: db.userID,
+			DBName: dbName,
+		}
+		envelope := &api.GetStatusQueryEnvelope{
+			Payload:   query,
+			Signature: nil,
+		}
+		envelope.Signature, err = db.userCrypto.Sign(query)
 		if err != nil {
 			return nil, err
 		}
-		if !dbStatus.Exist {
+		dbStatusEnvelope, err := conn.Client.GetStatus(context.Background(), envelope)
+		if err != nil {
+			return nil, err
+		}
+		if !dbStatusEnvelope.Payload.Exist {
 			return nil, errors.Errorf("database %s doesn't exist", dbName)
 		}
 	}
@@ -81,57 +89,53 @@ func Open(dbName string, options *Options) (DB, error) {
 }
 
 // Single threaded
-func OpenConnection(options *ConnectionOption) (*ConnData, error) {
-	addr := fmt.Sprintf("%s:%d", options.Server, options.Port)
+func OpenConnection(options *config.ConnectionOption) (*ConnData, error) {
 	dbConnMutex.Lock()
 	defer dbConnMutex.Unlock()
-	if conn, ok := dbConnections[addr]; ok {
-		log.Println(fmt.Sprintf("connection to Server %s already opened, reusing", addr))
+	if conn, ok := dbConnections[options.URL]; ok {
+		log.Println(fmt.Sprintf("connection to Server %s already opened, reusing", options.URL))
 		conn.num += 1
 		return conn, nil
 	}
-	log.Println(fmt.Sprintf("Connecting to Server %s", addr))
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	log.Println(fmt.Sprintf("Connecting to Server %s", options.URL))
+	rc, err := rest.NewRESTClient(options.URL)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not dial %s", addr)
-	}
-	log.Println(fmt.Sprintf("Connected to Server %s", addr))
-	dbConnData := &ConnData{
-		conn:        conn,
-		queryServer: api.NewQueryClient(conn),
-		txServer:    api.NewTransactionSvcClient(conn),
-		num:         1,
-		addr:        addr,
+		return nil, errors.Wrapf(err, "could not create REST client for %s", options.URL)
 	}
 
-	dbConnections[addr] = dbConnData
+	dbConnData := &ConnData{
+		Client: rc,
+		num:    1,
+	}
+
+	dbConnections[dbConnData.Client.RawURL] = dbConnData
 	return dbConnData, nil
 }
 
 type blockchainDB struct {
 	dbName      string
-	userId      []byte
+	userID      string
 	connections []*ConnData
 	openTx      map[string]*transactionContext
 	isClosed    bool
 	mu          sync.RWMutex
-	userCrypto  *cryptoMaterials
-	*TxOptions
+	userCrypto  *cryptoprovider.CryptoMaterials
+	*config.TxOptions
 }
 
-func (db *blockchainDB) Begin(options *TxOptions) (TxContext, error) {
+func (db *blockchainDB) Begin(options *config.TxOptions) (TxContext, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	if db.isClosed {
 		return nil, errors.New("db closed")
 	}
-	txId, err := computeTxID(db.userId, sha256.New())
+	txID, err := computeTxID([]byte(db.userID), sha256.New())
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't compute TxID")
 	}
 	ctx := &transactionContext{
 		db:   db,
-		txId: txId,
+		txID: txID,
 		rwset: &txRWSetAndStmt{
 			wset:       make(map[string]*api.KVWrite),
 			rset:       make(map[string]*api.KVRead),
@@ -139,7 +143,7 @@ func (db *blockchainDB) Begin(options *TxOptions) (TxContext, error) {
 		},
 		TxOptions: options,
 	}
-	db.openTx[hex.EncodeToString(ctx.txId)] = ctx
+	db.openTx[hex.EncodeToString(ctx.txID)] = ctx
 	return ctx, nil
 }
 
@@ -158,8 +162,7 @@ func (db *blockchainDB) Close() error {
 	for _, conn := range db.connections {
 		conn.num -= 1
 		if conn.num == 0 {
-			conn.conn.Close()
-			delete(dbConnections, conn.addr)
+			delete(dbConnections, conn.Client.RawURL)
 		}
 	}
 	return nil
@@ -171,43 +174,24 @@ func (db *blockchainDB) Get(key string) ([]byte, error) {
 	if db.isClosed {
 		return nil, errors.New("db closed")
 	}
-	dq := &api.DataQuery{
-		Header: &api.QueryHeader{
-			User: &api.User{
-				UserID:          db.userId,
-				UserCertificate: nil,
-				Roles:           nil,
-			},
-			Signature: nil,
-			DBName:    db.dbName,
-		},
-		Key: key,
+	dq := &api.GetStateQuery{
+		UserID: db.userID,
+		DBName: db.dbName,
+		Key:    key,
 	}
-	queryBytes, err := proto.Marshal(dq)
-	if err != nil {
-		return nil, errors.Wrapf(err, "can't marshal query message %v", dq)
+	envelope := &api.GetStateQueryEnvelope{
+		Payload: dq,
 	}
-	dq.Header.Signature, err = Sign(db.userCrypto, queryBytes)
+	var err error
+	envelope.Signature, err = db.userCrypto.Sign(dq)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
 	}
-	val, err := getMultipleQueryValue(db, db.ReadOptions, dq)
+	val, err := getMultipleQueryValue(db, db.ReadOptions, envelope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
 	return val.Value, nil
-}
-
-func (db *blockchainDB) GetValueAtTime(key string, date time.Time) (*api.HistoricalData, error) {
-	panic("implement me")
-}
-
-func (db *blockchainDB) GetHistoryIterator(key string, opt QueryOption) (HistoryIterator, error) {
-	panic("implement me")
-}
-
-func (db *blockchainDB) GetTxProof(txId string) (*api.Proof, error) {
-	panic("implement me")
 }
 
 func (db *blockchainDB) GetMerkleRoot() (*api.Digest, error) {
@@ -227,9 +211,9 @@ type transactionContext struct {
 	isClosed       bool
 	mu             sync.RWMutex
 	isolationError error
-	txId           []byte
+	txID           []byte
 	rwset          *txRWSetAndStmt
-	*TxOptions
+	*config.TxOptions
 }
 
 type txRWSetAndStmt struct {
@@ -245,27 +229,20 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	if tx.isClosed {
 		return nil, errors.New("transaction context not longer valid")
 	}
-	dq := &api.DataQuery{
-		Header: &api.QueryHeader{
-			User: &api.User{
-				UserID:          tx.db.userId,
-				UserCertificate: nil,
-				Roles:           nil,
-			},
-			Signature: nil,
-			DBName:    tx.db.dbName,
-		},
-		Key: key,
+	dq := &api.GetStateQuery{
+		UserID: tx.db.userID,
+		DBName: tx.db.dbName,
+		Key:    key,
 	}
-	queryBytes, err := proto.Marshal(dq)
-	if err != nil {
-		return nil, errors.Wrapf(err, "can't marshal query message %v", dq)
+	envelope := &api.GetStateQueryEnvelope{
+		Payload: dq,
 	}
-	dq.Header.Signature, err = Sign(tx.db.userCrypto, queryBytes)
+	var err error
+	envelope.Signature, err = tx.db.userCrypto.Sign(dq)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
 	}
-	val, err := getMultipleQueryValue(tx.db, tx.ReadOptions, dq)
+	val, err := getMultipleQueryValue(tx.db, tx.ReadOptions, envelope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
@@ -364,76 +341,41 @@ func (tx *transactionContext) Commit() (*api.Digest, error) {
 	tx.isClosed = true
 
 	tx.db.mu.Lock()
-	delete(tx.db.openTx, hex.EncodeToString(tx.txId))
+	delete(tx.db.openTx, hex.EncodeToString(tx.txID))
 	tx.db.mu.Unlock()
-	env := &api.Envelope{}
+	envelope := &api.TransactionEnvelope{}
 
-	payload := &api.Payload{}
-
-	nonce, err := getRandomBytes(nonceSize)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't calculate nonce")
-	}
-
-	x509Cert, err := x509.ParseCertificate(tx.db.userCrypto.tlsPair.Certificate[0])
-	if err != nil {
-		return nil, errors.Wrap(err, "not valid x509 certificate")
-	}
-
-	payload.Header = &api.Header{
-		Creator: x509Cert.Raw,
-		Nonce:   nonce,
-	}
-
-	pbtx := &api.Transaction{
-		TxId:       tx.txId,
-		Datamodel:  api.Transaction_KV,
+	payload := &api.Transaction{
+		UserID:     []byte(tx.db.userID),
+		DBName:     tx.db.dbName,
+		TxID:       tx.txID,
+		DataModel:  api.Transaction_KV,
 		Statements: tx.rwset.statements,
+		Reads:      make([]*api.KVRead, 0),
+		Writes:     make([]*api.KVWrite, 0),
 	}
 
-	rwset := &api.KVRWSet{
-		Rset: make([]*api.KVRead, 0),
-		Wset: make([]*api.KVWrite, 0),
-	}
+	envelope.Payload = payload
 
 	for _, v := range tx.rwset.wset {
-		rwset.Wset = append(rwset.Wset, v)
+		payload.Writes = append(payload.Writes, v)
 	}
 
 	for _, v := range tx.rwset.rset {
-		rwset.Rset = append(rwset.Rset, v)
+		payload.Reads = append(payload.Reads, v)
 	}
+	var err error
 
-	pbtx.Rwset, err = proto.Marshal(rwset)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't marshal rwset")
-	}
-
-	payload.Data, err = proto.Marshal(pbtx)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't marshal tx")
-	}
-
-	env.Payload, err = proto.Marshal(payload)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't marshal payload")
-	}
-
-	env.Signature, err = Sign(tx.db.userCrypto, env.Payload)
-	if err != nil {
-		return nil, err
+	if envelope.Signature, err = tx.db.userCrypto.Sign(payload); err != nil {
+		return nil, errors.Wrapf(err, "can't sign transaction envelope payload %v", payload)
 	}
 
 	useServer := mathrand.Intn(len(tx.db.connections))
-	stream, err := tx.db.connections[useServer].txServer.SubmitTransaction(context.Background())
-	if err != nil {
+	if _, err = tx.db.connections[useServer].Client.SubmitTransaction(context.Background(), envelope); err != nil {
 		return nil, errors.Wrap(err, "can't access output stream")
 	}
 
-	err = stream.Send(env)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't send transaction envelope")
-	}
+	// TODO: Wait for response
 	return nil, nil
 }
 
@@ -445,7 +387,7 @@ func (tx *transactionContext) Abort() error {
 	}
 	tx.isClosed = true
 	tx.db.mu.Lock()
-	delete(tx.db.openTx, hex.EncodeToString(tx.txId))
+	delete(tx.db.openTx, hex.EncodeToString(tx.txID))
 	tx.db.mu.Unlock()
 	return nil
 }
@@ -479,16 +421,6 @@ func computeTxID(creator []byte, h hash.Hash) ([]byte, error) {
 	return digest, nil
 }
 
-func Sign(userCrypto *cryptoMaterials, msgBytes []byte) ([]byte, error) {
-	digest := sha256.New()
-	digest.Write(msgBytes)
-	singer, ok := userCrypto.tlsPair.PrivateKey.(crypto.Signer)
-	if !ok {
-		return nil, errors.New("can't sign using private Key, not implement signer interface")
-	}
-	return singer.Sign(rand.Reader, digest.Sum(nil), crypto.SHA256)
-}
-
 func validateRSet(tx *transactionContext, rset *api.KVRead) error {
 	txIsolation := tx.db.TxIsolation
 	if tx.TxIsolation != txIsolation {
@@ -497,27 +429,33 @@ func validateRSet(tx *transactionContext, rset *api.KVRead) error {
 
 	if rs, ok := tx.rwset.rset[rset.Key]; ok {
 		if rset.Version.BlockNum > rs.Version.BlockNum {
-			return errors.Errorf("tx isolation level not satisfied, Key value version changed during tx, %v, %v", rs, rset)
+			return errors.Errorf("tx isolation level not satisfied, KeyFilePath value version changed during tx, %v, %v", rs, rset)
 		}
 	}
 
 	if v, exist := tx.rwset.wset[rset.Key]; exist {
-		return errors.Errorf("tx isolation not satisfied, Key value already changed inside this tx, %v, %v", rset, v)
+		return errors.Errorf("tx isolation not satisfied, KeyFilePath value already changed inside this tx, %v, %v", rset, v)
 	}
 	return nil
 }
 
 // Trying to read exactly ReadOptions.serverNum copies of value from servers
-func getMultipleQueryValue(db *blockchainDB, ro *ReadOptions, dq *api.DataQuery) (*api.Value, error) {
+func getMultipleQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *api.GetStateQueryEnvelope) (*api.Value, error) {
 	startServer := mathrand.Intn(len(db.connections))
 	readValues := make([]*api.Value, 0)
 
 	for i := startServer; (i - startServer) < len(db.connections); i++ {
 
-		val, err := db.connections[i%len(db.connections)].queryServer.GetState(context.Background(), dq)
+		valueEnvelope, err := db.connections[i%len(db.connections)].Client.GetState(context.Background(), dq)
 		if err != nil {
 			log.Println(fmt.Sprintf("Can't get value from service %v, moving to next Server", err))
+			continue
 		}
+		if err := db.userCrypto.Validate(valueEnvelope.Payload.Header.NodeID, valueEnvelope.Payload, valueEnvelope.Signature); err != nil {
+			log.Println(fmt.Sprintf("inlavid value from service %v, moving to next Server", err))
+			continue
+		}
+		val := valueEnvelope.Payload.Value
 		if val != nil {
 			sameValues := 1
 			for _, cVal := range readValues {

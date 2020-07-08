@@ -1,8 +1,8 @@
-package db
+package database
 
 import (
+	"github.ibm.com/blockchaindb/sdk/pkg/config"
 	"github.ibm.com/blockchaindb/server/api"
-	"time"
 )
 
 // DB provides APIs to begin a transaction context, to perform provenance queries, and close the db connection.
@@ -13,7 +13,7 @@ type DB interface {
 	// 2. Number of servers used to read data during Tx creation/execution
 	// 3. Number of responses should be collected by Client SDK during Commit() call
 	//    to return success to Client
-	Begin(options *TxOptions) (TxContext, error)
+	Begin(options *config.TxOptions) (TxContext, error)
 	// Close closes the connection to DB
 	Close() error
 	// DataQuerier provides APIs to query states from the database
@@ -27,9 +27,9 @@ type DB interface {
 // TxContext provides APIs to both query and modify states
 type TxContext interface {
 	DataQuerier
-	// Put stores the given Key and value
+	// Put stores the given KeyFilePath and value
 	Put(key string, value []byte) error
-	// Delete deletes the given Key
+	// Delete deletes the given KeyFilePath
 	Delete(key string) error
 	// Users provides APIs for user management
 	Users
@@ -42,6 +42,7 @@ type TxContext interface {
 	Abort() error
 }
 
+// Users provide API to operate database users
 type Users interface {
 	UserQuerier
 	// AddUsers adds a new user to the DB
@@ -57,31 +58,18 @@ type DataQuerier interface {
 	Get(key string) ([]byte, error)
 }
 
-// Provide access to historical data and dat integrity proofs
+// Provenance access to historical data and dat integrity proofs
 type Provenance interface {
-	// GetValueAtTime returns the value of a Key at a given time
-	GetValueAtTime(key string, date time.Time) (*api.HistoricalData, error)
-	// GetHistoryIterator returns an iterator to iter over the historical
-	// value of a given Key.
-	GetHistoryIterator(key string, opt QueryOption) (HistoryIterator, error)
-	// GetTxProof return a proof for a given txId so that the caller can
-	// validate the authenticity of the transaction.
-	GetTxProof(txId string) (*api.Proof, error)
 	// GetMerkleRoot returns the current block merkle root hash and the last committed
 	// block number
 	GetMerkleRoot() (*api.Digest, error)
 }
 
-type HistoryIterator interface {
-	Next() (*api.HistoricalData, error)
-	Close()
-}
-
-// Access db user data
+// UserQuerier access database user data
 type UserQuerier interface {
 	// GetUsers returns all users in the DB
 	GetUsers() []*api.User
-	// GetUsersForRole returns all users in the DB with a given role
+	// GetUsersForRole returns all users in the database with a given role
 	GetUsersForRole(role string) []*api.User
 }
 

@@ -2,12 +2,11 @@ package server
 
 import (
 	"context"
-	"github.com/golang/protobuf/ptypes/empty"
+
 	"github.ibm.com/blockchaindb/server/api"
 )
 
-type queryServer struct {
-	api.UnimplementedQueryServer
+type queryProcessor struct {
 	values       map[string]*value
 	defaultValue *value
 	dbStatuses   map[string]*dbStatus
@@ -20,53 +19,44 @@ type value struct {
 }
 
 type height struct {
-	results []*api.LedgerHeight
+	results []*api.Digest
 	index   int
 }
 
 type dbStatus struct {
-	values []*api.DBStatus
+	values []*api.GetStatusResponse
 	index  int
 }
 
-func (qs *queryServer) GetState(ctx context.Context, req *api.DataQuery) (*api.Value, error) {
-	val, ok := qs.values[req.Key]
+func (qp *queryProcessor) GetState(ctx context.Context, req *api.GetStateQueryEnvelope) (*api.GetStateResponseEnvelope, error) {
+	val, ok := qp.values[req.Payload.Key]
 	if !ok {
-		val = qs.defaultValue
+		val = qp.defaultValue
 	}
 	if val.index < len(val.values) {
 		res := val.values[val.index]
 		val.index += 1
-		return res, nil
+		return valueToEnv(res)
 	}
-	return val.values[len(val.values)-1], nil
+	return valueToEnv(val.values[len(val.values)-1])
 }
 
-func (qs *queryServer) GetStatus(ctx context.Context, req *api.DB) (*api.DBStatus, error) {
-	val, ok := qs.dbStatuses[req.Name]
+func (qp *queryProcessor) GetStatus(ctx context.Context, req *api.GetStatusQueryEnvelope) (*api.GetStatusResponseEnvelope, error) {
+	val, ok := qp.dbStatuses[req.Payload.DBName]
 	if !ok {
-		return &api.DBStatus{
+		return dbStatusToEnv(&api.GetStatusResponse{
 			Exist: false,
-		}, nil
+		})
 	}
 	if val.index < len(val.values) {
 		res := val.values[val.index]
 		val.index += 1
-		return res, nil
+		return dbStatusToEnv(res)
 	}
-	return val.values[len(val.values)-1], nil
+	return dbStatusToEnv(val.values[len(val.values)-1])
 }
 
-func (qs *queryServer) GetBlockHeight(ctx context.Context, req *empty.Empty) (*api.LedgerHeight, error) {
-	if qs.ledgerHeight.index < len(qs.ledgerHeight.results) {
-		res := qs.ledgerHeight.results[qs.ledgerHeight.index]
-		qs.ledgerHeight.index += 1
-		return res, nil
-	}
-	return qs.ledgerHeight.results[len(qs.ledgerHeight.results)-1], nil
-}
-
-func NewQueryServer() (*queryServer, error) {
+func NewQueryServer() (*queryProcessor, error) {
 	key1result := &value{
 		values: make([]*api.Value, 0),
 		index:  0,
@@ -132,13 +122,13 @@ func NewQueryServer() (*queryServer, error) {
 		},
 	})
 	ledgerHeight := &height{
-		results: make([]*api.LedgerHeight, 0),
+		results: make([]*api.Digest, 0),
 		index:   0,
 	}
-	ledgerHeight.results = append(ledgerHeight.results, &api.LedgerHeight{
+	ledgerHeight.results = append(ledgerHeight.results, &api.Digest{
 		Height: 0,
 	})
-	ledgerHeight.results = append(ledgerHeight.results, &api.LedgerHeight{
+	ledgerHeight.results = append(ledgerHeight.results, &api.Digest{
 		Height: 1,
 	})
 
@@ -149,19 +139,50 @@ func NewQueryServer() (*queryServer, error) {
 
 	dbStatusResults := make(map[string]*dbStatus)
 	testDBResult := &dbStatus{
-		values: make([]*api.DBStatus, 0),
+		values: make([]*api.GetStatusResponse, 0),
 		index:  0,
 	}
 
-	testDBResult.values = append(testDBResult.values, &api.DBStatus{
+	testDBResult.values = append(testDBResult.values, &api.GetStatusResponse{
+		Header: &api.ResponseHeader{
+			NodeID: nodeID,
+		},
 		Exist: true,
 	})
 	dbStatusResults["testDb"] = testDBResult
 
-	return &queryServer{
+	return &queryProcessor{
 		values:       results,
 		defaultValue: defaultResult,
 		dbStatuses:   dbStatusResults,
 		ledgerHeight: ledgerHeight,
+	}, nil
+}
+
+func valueToEnv(val *api.Value) (*api.GetStateResponseEnvelope, error) {
+	response := &api.GetStateResponse{
+		Header: &api.ResponseHeader{
+			NodeID: nodeID,
+		},
+		Value: val,
+	}
+	signature, err := nodeCrypto.Sign(response)
+	if err != nil {
+		return nil, err
+	}
+	return &api.GetStateResponseEnvelope{
+		Payload:   response,
+		Signature: signature,
+	}, nil
+}
+
+func dbStatusToEnv(dbStatus *api.GetStatusResponse) (*api.GetStatusResponseEnvelope, error) {
+	signature, err := nodeCrypto.Sign(dbStatus)
+	if err != nil {
+		return nil, err
+	}
+	return &api.GetStatusResponseEnvelope{
+		Payload:   dbStatus,
+		Signature: signature,
 	}, nil
 }
