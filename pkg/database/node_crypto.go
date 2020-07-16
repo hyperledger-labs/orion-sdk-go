@@ -8,27 +8,34 @@ import (
 )
 
 // TODO: Replace with NodeCryptoProvider that access node info
-var nodeProvider *hardcodedNodeCryptoProvider
-
+var (
+	nodeProvider *hardcodedNodeCryptoProvider
+	certPossibleLocations = []string {"../database/cert/", "pkg/database/cert/", "../pkg/database/cert/"}
+)
 func init() {
 	nodeProvider = &hardcodedNodeCryptoProvider{}
-	nodeOptions := createNodeUserOptions()
-	cm, err := nodeOptions.LoadCrypto(nodeProvider)
-	if err != nil {
-		log.Fatalf("can't load hardcoded node configuration, %s", err.Error())
+
+	for _, loc := range certPossibleLocations {
+		nodeOptions := createNodeUserOptions(loc)
+		cm, err := nodeOptions.LoadCrypto(nil)
+		if err != nil {
+			continue
+		}
+		nodeProvider.node = &api.Node{
+			NodeID:          []byte(nodeOptions.UserID),
+			NodeCertificate: cm.GetRawCertificate(),
+		}
+		return
 	}
-	nodeProvider.node = &api.Node{
-		NodeID:          []byte(nodeOptions.UserID),
-		NodeCertificate: cm.GetRawCertificate(),
-	}
+	log.Panicln("can't load hardcoded node configuration")
 }
 
-func createNodeUserOptions() *cryptoprovider.UserOptions {
+func createNodeUserOptions(location string) *cryptoprovider.UserOptions {
 	return &cryptoprovider.UserOptions{
 		UserID:       "node1",
-		CAFilePath:   "../database/cert/ca_client.cert",
-		CertFilePath: "../database/cert/service.pem",
-		KeyFilePath:  "../database/cert/service.key",
+		CAFilePath:   location + "ca_client.cert",
+		CertFilePath: location + "service.pem",
+		KeyFilePath:  location + "service.key",
 	}
 }
 

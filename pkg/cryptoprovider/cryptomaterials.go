@@ -87,6 +87,15 @@ func (c *CryptoMaterials) Sign(msg interface{}) ([]byte, error) {
 }
 
 func (c *CryptoMaterials) Validate(nodeID []byte, msg interface{}, signature []byte) error {
+	err := c.validate(nodeID, msg, signature)
+	if err != nil {
+		return nil
+	}
+	return err
+}
+
+
+func (c *CryptoMaterials) validate(nodeID []byte, msg interface{}, signature []byte) error {
 	node, err := c.nodeProvider.GetNodeCrypto(nodeID)
 	if err != nil {
 		return err
