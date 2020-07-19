@@ -13,10 +13,10 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.ibm.com/blockchaindb/library/pkg/crypto"
+	"github.ibm.com/blockchaindb/protos/types"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
-	"github.ibm.com/blockchaindb/sdk/pkg/cryptoprovider"
 	"github.ibm.com/blockchaindb/sdk/pkg/rest"
-	"github.ibm.com/blockchaindb/server/api"
 )
 
 // Store grpc connection data tp reuse
@@ -64,11 +64,11 @@ func Open(dbName string, options *config.Options) (DB, error) {
 		}
 		db.connections = append(db.connections, conn)
 
-		query := &api.GetStatusQuery{
+		query := &types.GetStatusQuery{
 			UserID: db.userID,
 			DBName: dbName,
 		}
-		envelope := &api.GetStatusQueryEnvelope{
+		envelope := &types.GetStatusQueryEnvelope{
 			Payload:   query,
 			Signature: nil,
 		}
@@ -119,7 +119,7 @@ type blockchainDB struct {
 	openTx      map[string]*transactionContext
 	isClosed    bool
 	mu          sync.RWMutex
-	userCrypto  *cryptoprovider.CryptoMaterials
+	userCrypto  *crypto.CryptoMaterials
 	*config.TxOptions
 }
 
@@ -137,9 +137,9 @@ func (db *blockchainDB) Begin(options *config.TxOptions) (TxContext, error) {
 		db:   db,
 		txID: txID,
 		rwset: &txRWSetAndStmt{
-			wset:       make(map[string]*api.KVWrite),
-			rset:       make(map[string]*api.KVRead),
-			statements: make([]*api.Statement, 0),
+			wset:       make(map[string]*types.KVWrite),
+			rset:       make(map[string]*types.KVRead),
+			statements: make([]*types.Statement, 0),
 		},
 		TxOptions: options,
 	}
@@ -174,12 +174,12 @@ func (db *blockchainDB) Get(key string) ([]byte, error) {
 	if db.isClosed {
 		return nil, errors.New("db closed")
 	}
-	dq := &api.GetStateQuery{
+	dq := &types.GetStateQuery{
 		UserID: db.userID,
 		DBName: db.dbName,
 		Key:    key,
 	}
-	envelope := &api.GetStateQueryEnvelope{
+	envelope := &types.GetStateQueryEnvelope{
 		Payload: dq,
 	}
 	var err error
@@ -194,15 +194,15 @@ func (db *blockchainDB) Get(key string) ([]byte, error) {
 	return val.Value, nil
 }
 
-func (db *blockchainDB) GetMerkleRoot() (*api.Digest, error) {
+func (db *blockchainDB) GetMerkleRoot() (*types.Digest, error) {
 	panic("implement me")
 }
 
-func (db *blockchainDB) GetUsers() []*api.User {
+func (db *blockchainDB) GetUsers() []*types.User {
 	panic("implement me")
 }
 
-func (db *blockchainDB) GetUsersForRole(role string) []*api.User {
+func (db *blockchainDB) GetUsersForRole(role string) []*types.User {
 	panic("implement me")
 }
 
@@ -217,9 +217,9 @@ type transactionContext struct {
 }
 
 type txRWSetAndStmt struct {
-	wset       map[string]*api.KVWrite
-	rset       map[string]*api.KVRead
-	statements []*api.Statement
+	wset       map[string]*types.KVWrite
+	rset       map[string]*types.KVRead
+	statements []*types.Statement
 	mu         sync.Mutex
 }
 
@@ -229,12 +229,12 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	if tx.isClosed {
 		return nil, errors.New("transaction context not longer valid")
 	}
-	dq := &api.GetStateQuery{
+	dq := &types.GetStateQuery{
 		UserID: tx.db.userID,
 		DBName: tx.db.dbName,
 		Key:    key,
 	}
-	envelope := &api.GetStateQueryEnvelope{
+	envelope := &types.GetStateQueryEnvelope{
 		Payload: dq,
 	}
 	var err error
@@ -246,7 +246,7 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
-	rset := &api.KVRead{
+	rset := &types.KVRead{
 		Key:     key,
 		Version: val.Metadata.Version,
 	}
@@ -257,7 +257,7 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 		return nil, err
 	}
 	tx.rwset.rset[key] = rset
-	stmt := &api.Statement{
+	stmt := &types.Statement{
 		Operation: "GET",
 		Arguments: make([][]byte, 0),
 	}
@@ -275,12 +275,12 @@ func (tx *transactionContext) Put(key string, value []byte) error {
 	tx.rwset.mu.Lock()
 	defer tx.rwset.mu.Unlock()
 
-	tx.rwset.wset[key] = &api.KVWrite{
+	tx.rwset.wset[key] = &types.KVWrite{
 		Key:      key,
 		IsDelete: false,
 		Value:    value,
 	}
-	stmt := &api.Statement{
+	stmt := &types.Statement{
 		Operation: "PUT",
 		Arguments: make([][]byte, 0),
 	}
@@ -298,12 +298,12 @@ func (tx *transactionContext) Delete(key string) error {
 	tx.rwset.mu.Lock()
 	defer tx.rwset.mu.Unlock()
 
-	tx.rwset.wset[key] = &api.KVWrite{
+	tx.rwset.wset[key] = &types.KVWrite{
 		Key:      key,
 		IsDelete: true,
 		Value:    nil,
 	}
-	stmt := &api.Statement{
+	stmt := &types.Statement{
 		Operation: "DELETE",
 		Arguments: make([][]byte, 0),
 	}
@@ -312,27 +312,27 @@ func (tx *transactionContext) Delete(key string) error {
 	return nil
 }
 
-func (tx *transactionContext) GetUsers() []*api.User {
+func (tx *transactionContext) GetUsers() []*types.User {
 	panic("implement me")
 }
 
-func (tx *transactionContext) GetUsersForRole(role string) []*api.User {
+func (tx *transactionContext) GetUsersForRole(role string) []*types.User {
 	panic("implement me")
 }
 
-func (tx *transactionContext) AddUser(user *api.User) error {
+func (tx *transactionContext) AddUser(user *types.User) error {
 	panic("implement me")
 }
 
-func (tx *transactionContext) UpdateUser(user *api.User) error {
+func (tx *transactionContext) UpdateUser(user *types.User) error {
 	panic("implement me")
 }
 
-func (tx *transactionContext) DeleteUser(user *api.User) error {
+func (tx *transactionContext) DeleteUser(user *types.User) error {
 	panic("implement me")
 }
 
-func (tx *transactionContext) Commit() (*api.Digest, error) {
+func (tx *transactionContext) Commit() (*types.Digest, error) {
 	tx.mu.Lock()
 	defer tx.mu.Unlock()
 	if tx.isClosed {
@@ -343,16 +343,16 @@ func (tx *transactionContext) Commit() (*api.Digest, error) {
 	tx.db.mu.Lock()
 	delete(tx.db.openTx, hex.EncodeToString(tx.txID))
 	tx.db.mu.Unlock()
-	envelope := &api.TransactionEnvelope{}
+	envelope := &types.TransactionEnvelope{}
 
-	payload := &api.Transaction{
+	payload := &types.Transaction{
 		UserID:     []byte(tx.db.userID),
 		DBName:     tx.db.dbName,
 		TxID:       tx.txID,
-		DataModel:  api.Transaction_KV,
+		DataModel:  types.Transaction_KV,
 		Statements: tx.rwset.statements,
-		Reads:      make([]*api.KVRead, 0),
-		Writes:     make([]*api.KVWrite, 0),
+		Reads:      make([]*types.KVRead, 0),
+		Writes:     make([]*types.KVWrite, 0),
 	}
 
 	envelope.Payload = payload
@@ -421,7 +421,7 @@ func computeTxID(creator []byte, h hash.Hash) ([]byte, error) {
 	return digest, nil
 }
 
-func validateRSet(tx *transactionContext, rset *api.KVRead) error {
+func validateRSet(tx *transactionContext, rset *types.KVRead) error {
 	txIsolation := tx.db.TxIsolation
 	if tx.TxIsolation != txIsolation {
 		txIsolation = tx.TxIsolation
@@ -440,9 +440,9 @@ func validateRSet(tx *transactionContext, rset *api.KVRead) error {
 }
 
 // Trying to read exactly ReadOptions.serverNum copies of value from servers
-func getMultipleQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *api.GetStateQueryEnvelope) (*api.Value, error) {
+func getMultipleQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *types.GetStateQueryEnvelope) (*types.Value, error) {
 	startServer := mathrand.Intn(len(db.connections))
-	readValues := make([]*api.Value, 0)
+	readValues := make([]*types.Value, 0)
 
 	for i := startServer; (i - startServer) < len(db.connections); i++ {
 
@@ -451,7 +451,7 @@ func getMultipleQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *api.Get
 			log.Println(fmt.Sprintf("Can't get value from service %v, moving to next Server", err))
 			continue
 		}
-		if err := db.userCrypto.Validate(valueEnvelope.Payload.Header.NodeID, valueEnvelope.Payload, valueEnvelope.Signature); err != nil {
+		if err := db.userCrypto.Verify(valueEnvelope.Payload.Header.NodeID, valueEnvelope.Payload, valueEnvelope.Signature); err != nil {
 			log.Println(fmt.Sprintf("inlavid value from service %v, moving to next Server", err))
 			continue
 		}
@@ -476,7 +476,7 @@ func getMultipleQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *api.Get
 	return nil, errors.Errorf("can't read %v copies of same value", ro.QuorumSize)
 }
 
-func isNilValue(val *api.Value) bool {
+func isNilValue(val *types.Value) bool {
 	if val.Value == nil || len(val.Value) == 0 {
 		return true
 	}

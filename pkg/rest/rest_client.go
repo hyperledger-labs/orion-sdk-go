@@ -11,8 +11,8 @@ import (
 	"net/url"
 
 	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/server/api"
-	"github.ibm.com/blockchaindb/server/pkg/server"
+	"github.ibm.com/blockchaindb/library/pkg/server"
+	"github.ibm.com/blockchaindb/protos/types"
 )
 
 // Execute REST calls to DB server
@@ -39,7 +39,7 @@ func NewRESTClient(rawurl string) (*Client, error) {
 	return res, nil
 }
 
-func (c *Client) GetStatus(ctx context.Context, in *api.GetStatusQueryEnvelope) (*api.GetStatusResponseEnvelope, error) {
+func (c *Client) GetStatus(ctx context.Context, in *types.GetStatusQueryEnvelope) (*types.GetStatusResponseEnvelope, error) {
 	rel := &url.URL{Path: fmt.Sprintf("/db/%s", in.Payload.DBName)}
 
 	resp, err := c.executeGetRequest(ctx, rel, in.GetPayload().GetUserID(), in.GetSignature())
@@ -49,12 +49,12 @@ func (c *Client) GetStatus(ctx context.Context, in *api.GetStatusQueryEnvelope) 
 
 	defer resp.Body.Close()
 
-	res := &api.GetStatusResponseEnvelope{}
+	res := &types.GetStatusResponseEnvelope{}
 	err = json.NewDecoder(resp.Body).Decode(res)
 	return res, err
 }
 
-func (c *Client) GetState(ctx context.Context, in *api.GetStateQueryEnvelope) (*api.GetStateResponseEnvelope, error) {
+func (c *Client) GetState(ctx context.Context, in *types.GetStateQueryEnvelope) (*types.GetStateResponseEnvelope, error) {
 	rel := &url.URL{Path: fmt.Sprintf("/db/%s/state/%s", in.Payload.DBName, in.Payload.Key)}
 
 	resp, err := c.executeGetRequest(ctx, rel, in.GetPayload().GetUserID(), in.GetSignature())
@@ -64,12 +64,12 @@ func (c *Client) GetState(ctx context.Context, in *api.GetStateQueryEnvelope) (*
 
 	defer resp.Body.Close()
 
-	res := &api.GetStateResponseEnvelope{}
+	res := &types.GetStateResponseEnvelope{}
 	err = json.NewDecoder(resp.Body).Decode(res)
 	return res, err
 }
 
-func (c *Client) SubmitTransaction(ctx context.Context, in *api.TransactionEnvelope) (*api.ResponseEnvelope, error) {
+func (c *Client) SubmitTransaction(ctx context.Context, in *types.TransactionEnvelope) (*types.ResponseEnvelope, error) {
 	rel := &url.URL{Path: "/tx"}
 	u := c.BaseURL.ResolveReference(rel)
 
@@ -102,7 +102,7 @@ func (c *Client) SubmitTransaction(ctx context.Context, in *api.TransactionEnvel
 		}
 		return nil, errors.New(errorRes.Error)
 	}
-	res := new(api.ResponseEnvelope)
+	res := new(types.ResponseEnvelope)
 	err = json.NewDecoder(resp.Body).Decode(res)
 	if res.Data == nil {
 		return nil, nil
@@ -110,7 +110,7 @@ func (c *Client) SubmitTransaction(ctx context.Context, in *api.TransactionEnvel
 	return res, err
 }
 
-func (c *Client) executeGetRequest(ctx context.Context, relUrl *url.URL, userID string, signature []byte) (*http.Response, error){
+func (c *Client) executeGetRequest(ctx context.Context, relUrl *url.URL, userID string, signature []byte) (*http.Response, error) {
 	u := c.BaseURL.ResolveReference(relUrl)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {

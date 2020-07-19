@@ -8,10 +8,10 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
+	"github.ibm.com/blockchaindb/library/pkg/crypto"
+	"github.ibm.com/blockchaindb/protos/types"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
-	"github.ibm.com/blockchaindb/sdk/pkg/cryptoprovider"
 	server "github.ibm.com/blockchaindb/sdk/pkg/database/mock"
-	"github.ibm.com/blockchaindb/server/api"
 )
 
 func TestOpen(t *testing.T) {
@@ -131,12 +131,12 @@ func TestTxContext_Get(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, []byte("Testvalue21"), key2res)
 
-	stmt1 := &api.Statement{
+	stmt1 := &types.Statement{
 		Operation: "GET",
 		Arguments: make([][]byte, 0),
 	}
 	stmt1.Arguments = append(stmt1.Arguments, []byte("key1"))
-	stmt2 := &api.Statement{
+	stmt2 := &types.Statement{
 		Operation: "GET",
 		Arguments: make([][]byte, 0),
 	}
@@ -145,16 +145,16 @@ func TestTxContext_Get(t *testing.T) {
 	require.Contains(t, txCtx.(*transactionContext).rwset.statements, stmt1)
 	require.Contains(t, txCtx.(*transactionContext).rwset.statements, stmt2)
 
-	rset1 := &api.KVRead{
+	rset1 := &types.KVRead{
 		Key: "key1",
-		Version: &api.Version{
+		Version: &types.Version{
 			BlockNum: 0,
 			TxNum:    0,
 		},
 	}
-	rset2 := &api.KVRead{
+	rset2 := &types.KVRead{
 		Key: "key2",
-		Version: &api.Version{
+		Version: &types.Version{
 			BlockNum: 0,
 			TxNum:    1,
 		},
@@ -192,12 +192,12 @@ func TestTxContext_PutDelete(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, txCtx.(*transactionContext).rwset.rset)
 
-	stmt1 := &api.Statement{
+	stmt1 := &types.Statement{
 		Operation: "PUT",
 		Arguments: make([][]byte, 0),
 	}
 	stmt1.Arguments = append(stmt1.Arguments, []byte("key3"), []byte("Testvalue31"))
-	stmt2 := &api.Statement{
+	stmt2 := &types.Statement{
 		Operation: "PUT",
 		Arguments: make([][]byte, 0),
 	}
@@ -208,13 +208,13 @@ func TestTxContext_PutDelete(t *testing.T) {
 	require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key3")
 	require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key4")
 
-	require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key3"], &api.KVWrite{
+	require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key3"], &types.KVWrite{
 		Key:      "key3",
 		IsDelete: false,
 		Value:    []byte("Testvalue31"),
 	}))
 
-	require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key4"], &api.KVWrite{
+	require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key4"], &types.KVWrite{
 		Key:      "key4",
 		IsDelete: false,
 		Value:    []byte("Testvalue41"),
@@ -223,14 +223,14 @@ func TestTxContext_PutDelete(t *testing.T) {
 	err = txCtx.Delete("key3")
 	require.NoError(t, err)
 	require.Empty(t, txCtx.(*transactionContext).rwset.rset)
-	stmt3 := &api.Statement{
+	stmt3 := &types.Statement{
 		Operation: "DELETE",
 		Arguments: make([][]byte, 0),
 	}
 	stmt3.Arguments = append(stmt3.Arguments, []byte("key3"))
 	require.Contains(t, txCtx.(*transactionContext).rwset.statements, stmt3)
 	require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key3")
-	require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key3"], &api.KVWrite{
+	require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key3"], &types.KVWrite{
 		Key:      "key3",
 		IsDelete: true,
 		Value:    nil,
@@ -408,11 +408,11 @@ func createOptions() *config.Options {
 			URL: "http://localhost:9999/",
 		},
 	}
-	userOpt := &cryptoprovider.UserOptions{
+	userOpt := &crypto.IdentityOptions{
 		UserID:       "testUser",
-		CAFilePath:   "../database/cert/ca_service.cert",
-		CertFilePath: "../database/cert/client.pem",
-		KeyFilePath:  "../database/cert/client.key",
+		CAFilePath:   "../database/testdata/ca_service.cert",
+		CertFilePath: "../database/testdata/client.pem",
+		KeyFilePath:  "../database/testdata/client.key",
 	}
 	return &config.Options{
 		ConnectionOptions: connOpts,

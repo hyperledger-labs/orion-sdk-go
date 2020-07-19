@@ -1,24 +1,24 @@
 package server
 
 import (
-	"github.ibm.com/blockchaindb/sdk/pkg/cryptoprovider"
+	"github.ibm.com/blockchaindb/library/pkg/crypto"
 )
 
-var nodeCrypto *cryptoprovider.CryptoMaterials
+var nodeCrypto *crypto.CryptoMaterials
 var nodeID []byte
 
 func init() {
-	nodeOptions := createNodeUserOptions()
+	nodeOptions := createNodeIdentityOptions()
 	nodeID = []byte(nodeOptions.UserID)
 	nodeCrypto, _ = nodeOptions.LoadCrypto(nil)
 
 }
 
-func createNodeUserOptions() *cryptoprovider.UserOptions {
-	return &cryptoprovider.UserOptions{
+func createNodeIdentityOptions() *crypto.IdentityOptions {
+	return &crypto.IdentityOptions{
 		UserID:       "node1",
-		CAFilePath:   "../database/cert/ca_client.cert",
-		CertFilePath: "../database/cert/service.pem",
-		KeyFilePath:  "../database/cert/service.key",
+		CAFilePath:   "../database/testdata/ca_client.cert",
+		CertFilePath: "../database/testdata/service.pem",
+		KeyFilePath:  "../database/testdata/service.key",
 	}
 }

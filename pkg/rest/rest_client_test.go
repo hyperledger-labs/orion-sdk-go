@@ -5,10 +5,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.ibm.com/blockchaindb/library/pkg/crypto"
+	"github.ibm.com/blockchaindb/protos/types"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
-	"github.ibm.com/blockchaindb/sdk/pkg/cryptoprovider"
 	server "github.ibm.com/blockchaindb/sdk/pkg/database/mock"
-	"github.ibm.com/blockchaindb/server/api"
 )
 
 func TestClient_GetState(t *testing.T) {
@@ -19,8 +19,8 @@ func TestClient_GetState(t *testing.T) {
 	rc, err := NewRESTClient("http://localhost:9999")
 	require.NoError(t, err)
 	require.NotNil(t, rc)
-	req := &api.GetStateQueryEnvelope{
-		Payload: &api.GetStateQuery{
+	req := &types.GetStateQueryEnvelope{
+		Payload: &types.GetStateQuery{
 			UserID: "testUser",
 			DBName: "testDb",
 			Key:    "key1",
@@ -42,8 +42,8 @@ func TestClient_GetStateError(t *testing.T) {
 	rc, err := NewRESTClient("http://localhost:9999")
 	require.NoError(t, err)
 	require.NotNil(t, rc)
-	req := &api.GetStateQueryEnvelope{
-		Payload: &api.GetStateQuery{
+	req := &types.GetStateQueryEnvelope{
+		Payload: &types.GetStateQuery{
 			UserID: "testUser",
 			DBName: "testDb",
 			Key:    "key1",
@@ -65,8 +65,8 @@ func TestClient_GetStatus(t *testing.T) {
 	rc, err := NewRESTClient("http://localhost:9999")
 	require.NoError(t, err)
 	require.NotNil(t, rc)
-	req := &api.GetStatusQueryEnvelope{
-		Payload: &api.GetStatusQuery{
+	req := &types.GetStatusQueryEnvelope{
+		Payload: &types.GetStatusQuery{
 			UserID: "testUser",
 			DBName: "testDb",
 		},
@@ -87,8 +87,8 @@ func TestClient_GetStatusError(t *testing.T) {
 	rc, err := NewRESTClient("http://localhost:9999")
 	require.NoError(t, err)
 	require.NotNil(t, rc)
-	req := &api.GetStatusQueryEnvelope{
-		Payload: &api.GetStatusQuery{
+	req := &types.GetStatusQueryEnvelope{
+		Payload: &types.GetStatusQuery{
 			UserID: "testUser",
 			DBName: "testDb",
 		},
@@ -110,12 +110,12 @@ func TestClient_SubmitTransaction(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 
-	req := &api.TransactionEnvelope{
-		Payload: &api.Transaction{
+	req := &types.TransactionEnvelope{
+		Payload: &types.Transaction{
 			UserID:     []byte("testUser"),
 			DBName:     "testDb",
 			TxID:       []byte("TX1"),
-			DataModel:  api.Transaction_KV,
+			DataModel:  types.Transaction_KV,
 			Statements: nil,
 			Reads:      nil,
 			Writes:     nil,
@@ -143,11 +143,11 @@ func createOptions() *config.Options {
 	}
 	connOpts := make([]*config.ConnectionOption, 0)
 	connOpts = append(connOpts, connOpt)
-	userOpt := &cryptoprovider.UserOptions{
+	userOpt := &crypto.IdentityOptions{
 		UserID:       "testUser",
-		CAFilePath:   "../database/cert/ca_service.cert",
-		CertFilePath: "../database/cert/client.pem",
-		KeyFilePath:  "../database/cert/client.key",
+		CAFilePath:   "../database/testdata/ca_service.cert",
+		CertFilePath: "../database/testdata/client.pem",
+		KeyFilePath:  "../database/testdata/client.key",
 	}
 	return &config.Options{
 		ConnectionOptions: connOpts,

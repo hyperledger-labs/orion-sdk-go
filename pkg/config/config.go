@@ -1,13 +1,13 @@
 package config
 
 import (
-	"github.ibm.com/blockchaindb/sdk/pkg/cryptoprovider"
+	"github.ibm.com/blockchaindb/library/pkg/crypto"
 )
 
 // Options - database options, including connection options, user crypto materials locations and transaction options
 type Options struct {
 	ConnectionOptions []*ConnectionOption
-	User              *cryptoprovider.UserOptions
+	User              *crypto.IdentityOptions
 	*TxOptions
 }
 

@@ -5,11 +5,10 @@ import (
 	"log"
 	"time"
 
+	"github.ibm.com/blockchaindb/library/pkg/crypto"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
-	"github.ibm.com/blockchaindb/sdk/pkg/cryptoprovider"
 	"github.ibm.com/blockchaindb/sdk/pkg/database"
 )
-
 
 func main() {
 	time.Sleep(time.Second)
@@ -66,7 +65,7 @@ func main() {
 	fmt.Printf("[key2] = %s\n", string(val2))
 
 	fmt.Printf("Storing [key3] = \"%s\" + \"%s\"\n", string(val1), string(val2))
-	if err = tx.Put("key3", []byte(string(val1) + string(val2))); err != nil {
+	if err = tx.Put("key3", []byte(string(val1)+string(val2))); err != nil {
 		log.Fatalln("can't put value for key key3 to database")
 	}
 
@@ -82,11 +81,11 @@ func createOptins() *config.Options {
 			URL: "http://localhost:6001/",
 		},
 	}
-	userOpt := &cryptoprovider.UserOptions{
+	userOpt := &crypto.IdentityOptions{
 		UserID:       "testUser",
-		CAFilePath:   "pkg/database/cert/ca_service.cert",
-		CertFilePath: "pkg/database/cert/client.pem",
-		KeyFilePath:  "pkg/database/cert/client.key",
+		CAFilePath:   "pkg/database/testdata/ca_service.cert",
+		CertFilePath: "pkg/database/testdata/client.pem",
+		KeyFilePath:  "pkg/database/testdata/client.key",
 	}
 	return &config.Options{
 		ConnectionOptions: connOpts,
@@ -98,4 +97,3 @@ func createOptins() *config.Options {
 		},
 	}
 }
-

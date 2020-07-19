@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 
-	"github.ibm.com/blockchaindb/server/api"
+	"github.ibm.com/blockchaindb/protos/types"
 )
 
 type queryProcessor struct {
@@ -14,21 +14,21 @@ type queryProcessor struct {
 }
 
 type value struct {
-	values []*api.Value
+	values []*types.Value
 	index  int
 }
 
 type height struct {
-	results []*api.Digest
+	results []*types.Digest
 	index   int
 }
 
 type dbStatus struct {
-	values []*api.GetStatusResponse
+	values []*types.GetStatusResponse
 	index  int
 }
 
-func (qp *queryProcessor) GetState(ctx context.Context, req *api.GetStateQueryEnvelope) (*api.GetStateResponseEnvelope, error) {
+func (qp *queryProcessor) GetState(ctx context.Context, req *types.GetStateQueryEnvelope) (*types.GetStateResponseEnvelope, error) {
 	val, ok := qp.values[req.Payload.Key]
 	if !ok {
 		val = qp.defaultValue
@@ -41,10 +41,10 @@ func (qp *queryProcessor) GetState(ctx context.Context, req *api.GetStateQueryEn
 	return valueToEnv(val.values[len(val.values)-1])
 }
 
-func (qp *queryProcessor) GetStatus(ctx context.Context, req *api.GetStatusQueryEnvelope) (*api.GetStatusResponseEnvelope, error) {
+func (qp *queryProcessor) GetStatus(ctx context.Context, req *types.GetStatusQueryEnvelope) (*types.GetStatusResponseEnvelope, error) {
 	val, ok := qp.dbStatuses[req.Payload.DBName]
 	if !ok {
-		return dbStatusToEnv(&api.GetStatusResponse{
+		return dbStatusToEnv(&types.GetStatusResponse{
 			Exist: false,
 		})
 	}
@@ -58,22 +58,22 @@ func (qp *queryProcessor) GetStatus(ctx context.Context, req *api.GetStatusQuery
 
 func NewQueryServer() (*queryProcessor, error) {
 	key1result := &value{
-		values: make([]*api.Value, 0),
+		values: make([]*types.Value, 0),
 		index:  0,
 	}
-	key1result.values = append(key1result.values, &api.Value{
+	key1result.values = append(key1result.values, &types.Value{
 		Value: []byte("Testvalue11"),
-		Metadata: &api.Metadata{
-			Version: &api.Version{
+		Metadata: &types.Metadata{
+			Version: &types.Version{
 				BlockNum: 0,
 				TxNum:    0,
 			},
 		},
 	})
-	key1result.values = append(key1result.values, &api.Value{
+	key1result.values = append(key1result.values, &types.Value{
 		Value: []byte("Testvalue12"),
-		Metadata: &api.Metadata{
-			Version: &api.Version{
+		Metadata: &types.Metadata{
+			Version: &types.Version{
 				BlockNum: 1,
 				TxNum:    0,
 			},
@@ -81,13 +81,13 @@ func NewQueryServer() (*queryProcessor, error) {
 	})
 
 	key2result := &value{
-		values: make([]*api.Value, 0),
+		values: make([]*types.Value, 0),
 		index:  0,
 	}
-	key2result.values = append(key2result.values, &api.Value{
+	key2result.values = append(key2result.values, &types.Value{
 		Value: []byte("Testvalue21"),
-		Metadata: &api.Metadata{
-			Version: &api.Version{
+		Metadata: &types.Metadata{
+			Version: &types.Version{
 				BlockNum: 0,
 				TxNum:    1,
 			},
@@ -95,13 +95,13 @@ func NewQueryServer() (*queryProcessor, error) {
 	})
 
 	keyNilResult := &value{
-		values: make([]*api.Value, 0),
+		values: make([]*types.Value, 0),
 		index:  0,
 	}
-	keyNilResult.values = append(keyNilResult.values, &api.Value{
+	keyNilResult.values = append(keyNilResult.values, &types.Value{
 		Value: nil,
-		Metadata: &api.Metadata{
-			Version: &api.Version{
+		Metadata: &types.Metadata{
+			Version: &types.Version{
 				BlockNum: 0,
 				TxNum:    1,
 			},
@@ -109,26 +109,26 @@ func NewQueryServer() (*queryProcessor, error) {
 	})
 
 	defaultResult := &value{
-		values: make([]*api.Value, 0),
+		values: make([]*types.Value, 0),
 		index:  0,
 	}
-	defaultResult.values = append(defaultResult.values, &api.Value{
+	defaultResult.values = append(defaultResult.values, &types.Value{
 		Value: []byte("Default1"),
-		Metadata: &api.Metadata{
-			Version: &api.Version{
+		Metadata: &types.Metadata{
+			Version: &types.Version{
 				BlockNum: 1,
 				TxNum:    1,
 			},
 		},
 	})
 	ledgerHeight := &height{
-		results: make([]*api.Digest, 0),
+		results: make([]*types.Digest, 0),
 		index:   0,
 	}
-	ledgerHeight.results = append(ledgerHeight.results, &api.Digest{
+	ledgerHeight.results = append(ledgerHeight.results, &types.Digest{
 		Height: 0,
 	})
-	ledgerHeight.results = append(ledgerHeight.results, &api.Digest{
+	ledgerHeight.results = append(ledgerHeight.results, &types.Digest{
 		Height: 1,
 	})
 
@@ -139,12 +139,12 @@ func NewQueryServer() (*queryProcessor, error) {
 
 	dbStatusResults := make(map[string]*dbStatus)
 	testDBResult := &dbStatus{
-		values: make([]*api.GetStatusResponse, 0),
+		values: make([]*types.GetStatusResponse, 0),
 		index:  0,
 	}
 
-	testDBResult.values = append(testDBResult.values, &api.GetStatusResponse{
-		Header: &api.ResponseHeader{
+	testDBResult.values = append(testDBResult.values, &types.GetStatusResponse{
+		Header: &types.ResponseHeader{
 			NodeID: nodeID,
 		},
 		Exist: true,
@@ -159,9 +159,9 @@ func NewQueryServer() (*queryProcessor, error) {
 	}, nil
 }
 
-func valueToEnv(val *api.Value) (*api.GetStateResponseEnvelope, error) {
-	response := &api.GetStateResponse{
-		Header: &api.ResponseHeader{
+func valueToEnv(val *types.Value) (*types.GetStateResponseEnvelope, error) {
+	response := &types.GetStateResponse{
+		Header: &types.ResponseHeader{
 			NodeID: nodeID,
 		},
 		Value: val,
@@ -170,18 +170,18 @@ func valueToEnv(val *api.Value) (*api.GetStateResponseEnvelope, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &api.GetStateResponseEnvelope{
+	return &types.GetStateResponseEnvelope{
 		Payload:   response,
 		Signature: signature,
 	}, nil
 }
 
-func dbStatusToEnv(dbStatus *api.GetStatusResponse) (*api.GetStatusResponseEnvelope, error) {
+func dbStatusToEnv(dbStatus *types.GetStatusResponse) (*types.GetStatusResponseEnvelope, error) {
 	signature, err := nodeCrypto.Sign(dbStatus)
 	if err != nil {
 		return nil, err
 	}
-	return &api.GetStatusResponseEnvelope{
+	return &types.GetStatusResponseEnvelope{
 		Payload:   dbStatus,
 		Signature: signature,
 	}, nil

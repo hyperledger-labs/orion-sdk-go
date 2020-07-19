@@ -1,8 +1,8 @@
 package database
 
 import (
+	"github.ibm.com/blockchaindb/protos/types"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
-	"github.ibm.com/blockchaindb/server/api"
 )
 
 // DB provides APIs to begin a transaction context, to perform provenance queries, and close the db connection.
@@ -36,7 +36,7 @@ type TxContext interface {
 	// Commit commits the transaction and return the
 	// block merkel tree root and the block number at which
 	// the transaction got added
-	Commit() (*api.Digest, error)
+	Commit() (*types.Digest, error)
 	// Cancel transaction context, discard all transaction
 	// data
 	Abort() error
@@ -46,11 +46,11 @@ type TxContext interface {
 type Users interface {
 	UserQuerier
 	// AddUsers adds a new user to the DB
-	AddUser(user *api.User) error
+	AddUser(user *types.User) error
 	// UpdateUser updates an existing user in the DB
-	UpdateUser(user *api.User) error
+	UpdateUser(user *types.User) error
 	// DeleteUser deletes an existing user in the DB
-	DeleteUser(user *api.User) error
+	DeleteUser(user *types.User) error
 }
 
 // DataQuerier provides API to query states from the DB
@@ -62,15 +62,15 @@ type DataQuerier interface {
 type Provenance interface {
 	// GetMerkleRoot returns the current block merkle root hash and the last committed
 	// block number
-	GetMerkleRoot() (*api.Digest, error)
+	GetMerkleRoot() (*types.Digest, error)
 }
 
 // UserQuerier access database user data
 type UserQuerier interface {
 	// GetUsers returns all users in the DB
-	GetUsers() []*api.User
+	GetUsers() []*types.User
 	// GetUsersForRole returns all users in the database with a given role
-	GetUsersForRole(role string) []*api.User
+	GetUsersForRole(role string) []*types.User
 }
 
 // Encapsulate hash bytes

@@ -10,8 +10,8 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/server/api"
-	"github.ibm.com/blockchaindb/server/pkg/server"
+	"github.ibm.com/blockchaindb/library/pkg/server"
+	"github.ibm.com/blockchaindb/protos/types"
 )
 
 type DBServer struct {
@@ -55,8 +55,8 @@ func (rs *DBServer) handleStatusQuery(w http.ResponseWriter, r *http.Request) {
 		composeJSONResponse(w, http.StatusBadRequest, &ErrorResponse{Error: "query error - no dbname provided"})
 		return
 	}
-	dbQueryEnvelope := &api.GetStatusQueryEnvelope{
-		Payload: &api.GetStatusQuery{
+	dbQueryEnvelope := &types.GetStatusQueryEnvelope{
+		Payload: &types.GetStatusQuery{
 			UserID: user,
 			DBName: dbname,
 		},
@@ -89,8 +89,8 @@ func (rs *DBServer) handleDataQuery(w http.ResponseWriter, r *http.Request) {
 		composeJSONResponse(w, http.StatusBadRequest, &ErrorResponse{Error: "query error - no key provided"})
 		return
 	}
-	dataQueryEnvelope := &api.GetStateQueryEnvelope{
-		Payload: &api.GetStateQuery{
+	dataQueryEnvelope := &types.GetStateQueryEnvelope{
+		Payload: &types.GetStateQuery{
 			UserID: user,
 			DBName: dbname,
 			Key:    key,
@@ -107,7 +107,7 @@ func (rs *DBServer) handleDataQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (rs *DBServer) handleTransactionSubmit(w http.ResponseWriter, r *http.Request) {
-	tx := new(api.TransactionEnvelope)
+	tx := new(types.TransactionEnvelope)
 	err := json.NewDecoder(r.Body).Decode(tx)
 	if err != nil {
 		composeJSONResponse(w, http.StatusBadRequest, &ErrorResponse{Error: err.Error()})

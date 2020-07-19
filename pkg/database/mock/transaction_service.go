@@ -3,17 +3,16 @@ package server
 import (
 	"context"
 
-	"github.ibm.com/blockchaindb/server/api"
+	"github.ibm.com/blockchaindb/protos/types"
 )
 
 type transactionProcessor struct {
-	api.UnimplementedTransactionSvcServer
 }
 
 func NewTransactionServer() (*transactionProcessor, error) {
 	return &transactionProcessor{}, nil
 }
 
-func (tp *transactionProcessor) SubmitTransaction(ctx context.Context, tx *api.TransactionEnvelope) error {
+func (tp *transactionProcessor) SubmitTransaction(ctx context.Context, tx *types.TransactionEnvelope) error {
 	return nil
 }
