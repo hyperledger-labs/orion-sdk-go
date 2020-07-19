@@ -3,7 +3,6 @@ package cryptoprovider
 import (
 	"crypto"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -28,6 +27,7 @@ type CryptoMaterials struct {
 	certPool     *x509.CertPool
 	tlsPair      tls.Certificate
 	cert         *x509.Certificate
+	hash         crypto.Hash
 	nodeProvider NodeCryptoProvider
 }
 
@@ -62,6 +62,7 @@ func (o *UserOptions) LoadCrypto(nodeCryptoProvider NodeCryptoProvider) (*Crypto
 		certPool:     x509.NewCertPool(),
 		tlsPair:      certPair,
 		cert:         x509certificate,
+		hash:         crypto.SHA256,
 		nodeProvider: nodeCryptoProvider,
 	}, nil
 }
@@ -72,7 +73,7 @@ func (c *CryptoMaterials) Sign(msg interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	digest := sha256.New()
+	digest := c.hash.New()
 	_, err = digest.Write(msgBytes)
 	if err != nil {
 		return nil, err
@@ -83,19 +84,10 @@ func (c *CryptoMaterials) Sign(msg interface{}) ([]byte, error) {
 		return nil, errors.New("can't sign using private key, not implement signer interface")
 	}
 
-	return singer.Sign(rand.Reader, digest.Sum(nil), crypto.SHA256)
+	return singer.Sign(rand.Reader, digest.Sum(nil), c.hash)
 }
 
 func (c *CryptoMaterials) Validate(nodeID []byte, msg interface{}, signature []byte) error {
-	err := c.validate(nodeID, msg, signature)
-	if err != nil {
-		return nil
-	}
-	return err
-}
-
-
-func (c *CryptoMaterials) validate(nodeID []byte, msg interface{}, signature []byte) error {
 	node, err := c.nodeProvider.GetNodeCrypto(nodeID)
 	if err != nil {
 		return err
