@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"hash"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/library/pkg/crypto"
+	"github.ibm.com/blockchaindb/library/pkg/crypto_utils"
 	"github.ibm.com/blockchaindb/protos/types"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
 	"github.ibm.com/blockchaindb/sdk/pkg/rest"
@@ -24,6 +26,12 @@ type ConnData struct {
 	*rest.Client
 	num int
 }
+
+var (
+	// Internal database that stores all users' databases
+	_dbs                              *blockchainDB
+	internalDBManagementDatabaseMutex sync.RWMutex
+)
 
 // Open opens an existing database associated with the dbName
 // Options may specify:
@@ -41,11 +49,15 @@ func Open(dbName string, options *config.Options) (DB, error) {
 		TxOptions:   options.TxOptions,
 	}
 	if options.User != nil {
-		userCrypto, err := options.User.LoadCrypto(nodeProvider)
+		cryptoRegistry, err := crypto_utils.NewVerifiersRegistry(options.ServersVerify, certificateFetcher)
 		if err != nil {
 			return nil, err
 		}
-		db.userCrypto = userCrypto
+		db.verifiers = cryptoRegistry
+		db.signer, err = crypto.NewSigner(options.User.Signer)
+		if err != nil {
+			return nil, err
+		}
 		db.userID = options.User.UserID
 
 	}
@@ -64,7 +76,11 @@ func Open(dbName string, options *config.Options) (DB, error) {
 			Payload:   query,
 			Signature: nil,
 		}
-		envelope.Signature, err = db.userCrypto.Sign(query)
+		queryBytes, err := json.Marshal(query)
+		if err != nil {
+			return nil, err
+		}
+		envelope.Signature, err = db.signer.Sign(queryBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +119,8 @@ type blockchainDB struct {
 	openTx      map[string]*transactionContext
 	isClosed    bool
 	mu          sync.RWMutex
-	userCrypto  *crypto.CryptoMaterials
+	verifiers   *crypto_utils.VerifiersRegistry
+	signer      *crypto.Signer
 	*config.TxOptions
 }
 
@@ -158,8 +175,11 @@ func (db *blockchainDB) Get(key string) ([]byte, error) {
 	envelope := &types.GetStateQueryEnvelope{
 		Payload: dq,
 	}
-	var err error
-	envelope.Signature, err = db.userCrypto.Sign(dq)
+	dqBytes, err := json.Marshal(dq)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can'r serialize msg to json %v", dq)
+	}
+	envelope.Signature, err = db.signer.Sign(dqBytes)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
 	}
@@ -213,8 +233,11 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	envelope := &types.GetStateQueryEnvelope{
 		Payload: dq,
 	}
-	var err error
-	envelope.Signature, err = tx.db.userCrypto.Sign(dq)
+	dqBytes, err := json.Marshal(dq)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't serialize msg to json %v", dq)
+	}
+	envelope.Signature, err = tx.db.signer.Sign(dqBytes)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
 	}
@@ -224,7 +247,7 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	}
 	rset := &types.KVRead{
 		Key:     key,
-		Version: val.Metadata.Version,
+		Version: val.GetMetadata().GetVersion(),
 	}
 	tx.rwset.mu.Lock()
 	defer tx.rwset.mu.Unlock()
@@ -239,7 +262,7 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	}
 	stmt.Arguments = append(stmt.Arguments, []byte(key))
 	tx.rwset.statements = append(tx.rwset.statements, stmt)
-	return val.Value, nil
+	return val.GetValue(), nil
 }
 
 func (tx *transactionContext) Put(key string, value []byte) error {
@@ -292,10 +315,6 @@ func (tx *transactionContext) GetUsers() []*types.User {
 	panic("implement me")
 }
 
-func (tx *transactionContext) GetUsersForRole(role string) []*types.User {
-	panic("implement me")
-}
-
 func (tx *transactionContext) AddUser(user *types.User) error {
 	panic("implement me")
 }
@@ -340,9 +359,12 @@ func (tx *transactionContext) Commit() (*types.Digest, error) {
 	for _, v := range tx.rwset.rset {
 		payload.Reads = append(payload.Reads, v)
 	}
-	var err error
 
-	if envelope.Signature, err = tx.db.userCrypto.Sign(payload); err != nil {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't serialize msg to json %v", payload)
+	}
+	if envelope.Signature, err = tx.db.signer.Sign(payloadBytes); err != nil {
 		return nil, errors.Wrapf(err, "can't sign transaction envelope payload %v", payload)
 	}
 
@@ -403,14 +425,19 @@ func validateRSet(tx *transactionContext, rset *types.KVRead) error {
 		txIsolation = tx.TxIsolation
 	}
 
-	if rs, ok := tx.rwset.rset[rset.Key]; ok {
-		if rset.Version.BlockNum > rs.Version.BlockNum {
-			return errors.Errorf("tx isolation level not satisfied, KeyFilePath value version changed during tx, %v, %v", rs, rset)
+	if storedRSet, ok := tx.rwset.rset[rset.Key]; ok {
+		if rset.GetVersion() != storedRSet.GetVersion() {
+			if rset.GetVersion() == nil || storedRSet.GetVersion() == nil {
+				return errors.Errorf("tx isolation level not satisfied, Key value deleted, %v, %v", storedRSet, rset)
+			}
+			if rset.GetVersion().GetBlockNum() > storedRSet.GetVersion().GetBlockNum() {
+				return errors.Errorf("tx isolation level not satisfied, Key value version changed during tx, %v, %v", storedRSet, rset)
+			}
 		}
 	}
 
 	if v, exist := tx.rwset.wset[rset.Key]; exist {
-		return errors.Errorf("tx isolation not satisfied, KeyFilePath value already changed inside this tx, %v, %v", rset, v)
+		return errors.Errorf("tx isolation not satisfied, Key value already changed inside this tx, %v, %v", rset, v)
 	}
 	return nil
 }
@@ -427,34 +454,107 @@ func getMultipleQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *types.G
 			log.Println(fmt.Sprintf("Can't get value from service %v, moving to next Server", err))
 			continue
 		}
-		if err := db.userCrypto.Verify(valueEnvelope.Payload.Header.NodeID, valueEnvelope.Payload, valueEnvelope.Signature); err != nil {
+		nodeVerifier, err := db.verifiers.GetVerifier(string(valueEnvelope.Payload.Header.NodeID))
+		if err != nil {
+			log.Println(fmt.Sprintf("can't access crypto for verify server %s signature, %v, moving to next Server", string(valueEnvelope.Payload.Header.NodeID), err))
+			continue
+
+		}
+		payloadBytes, err := json.Marshal(valueEnvelope.Payload)
+		if err != nil {
+			log.Println(fmt.Sprintf("can't serialize transaction to json %v, %v, moving to next Server", valueEnvelope.Payload, err))
+			continue
+
+		}
+		if err := nodeVerifier.Verify(payloadBytes, valueEnvelope.Signature); err != nil {
 			log.Println(fmt.Sprintf("inlavid value from service %v, moving to next Server", err))
 			continue
 		}
 		val := valueEnvelope.Payload.Value
-		if val != nil {
-			sameValues := 1
-			for _, cVal := range readValues {
-				if isNilValue(val) || isNilValue(cVal) {
-					if isNilValue(val) && isNilValue(cVal) {
-						sameValues += 1
-					}
-				} else if proto.Equal(cVal, val) {
-					sameValues += 1
-				}
+		sameValues := 1
+		for _, cVal := range readValues {
+			if proto.Equal(val, cVal) {
+				sameValues += 1
 			}
-			if sameValues >= ro.QuorumSize {
-				return val, nil
-			}
-			readValues = append(readValues, val)
 		}
+		if sameValues >= ro.QuorumSize {
+			return val, nil
+		}
+		readValues = append(readValues, val)
 	}
 	return nil, errors.Errorf("can't read %v copies of same value", ro.QuorumSize)
 }
 
-func isNilValue(val *types.Value) bool {
-	if val.Value == nil || len(val.Value) == 0 {
-		return true
+func openInternalDBManagementDatabase(options *config.Options) (*blockchainDB, error) {
+	internalDBManagementDatabaseMutex.Lock()
+	defer internalDBManagementDatabaseMutex.Unlock()
+	if _dbs != nil {
+		return _dbs, nil
 	}
-	return false
+	db, err := Open("_dbs", options)
+	if err != nil {
+		return nil, err
+	}
+	_dbs = db.(*blockchainDB)
+
+	return _dbs, nil
+}
+
+func Create(dbName string, opt *config.Options, readACL, writeALC []string) error {
+	if _, err := openInternalDBManagementDatabase(opt); err != nil {
+		return err
+	}
+
+	tx, err := _dbs.Begin(opt.TxOptions)
+	if err != nil {
+		return err
+	}
+	defer tx.Abort()
+
+	dbConfig := &types.DatabaseConfig{
+		Name:             dbName,
+		ReadAccessUsers:  readACL,
+		WriteAccessUsers: writeALC,
+	}
+
+	orgDBconfig, err := tx.Get(dbName)
+	if err != nil {
+		return err
+	}
+
+	if orgDBconfig != nil {
+		return errors.Errorf("can't create db %s, it already exist", dbName)
+	}
+	dbConfigBytes, err := json.Marshal(dbConfig)
+	tx.Put(dbName, dbConfigBytes)
+	if _, err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Delete(dbName string, opt *config.Options) error {
+	if _, err := openInternalDBManagementDatabase(opt); err != nil {
+		return err
+	}
+
+	tx, err := _dbs.Begin(opt.TxOptions)
+	if err != nil {
+		return err
+	}
+	defer tx.Abort()
+
+	orgDBconfig, err := tx.Get(dbName)
+	if err != nil {
+		return nil
+	}
+
+	if orgDBconfig == nil {
+		return errors.Errorf("can't remove db %s, it does not exist", dbName)
+	}
+	tx.Delete(dbName)
+	if _, err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }

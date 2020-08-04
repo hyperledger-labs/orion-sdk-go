@@ -69,8 +69,6 @@ type Provenance interface {
 type UserQuerier interface {
 	// GetUsers returns all users in the DB
 	GetUsers() []*types.User
-	// GetUsersForRole returns all users in the database with a given role
-	GetUsersForRole(role string) []*types.User
 }
 
 // Encapsulate hash bytes

@@ -2,15 +2,14 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/protos/types"
 )
 
 type queryProcessor struct {
-	values       map[string]*value
-	defaultValue *value
-	dbStatuses   map[string]*dbStatus
-	ledgerHeight *height
+	dbserver *mockdbserver
 }
 
 type value struct {
@@ -29,133 +28,26 @@ type dbStatus struct {
 }
 
 func (qp *queryProcessor) GetState(ctx context.Context, req *types.GetStateQueryEnvelope) (*types.GetStateResponseEnvelope, error) {
-	val, ok := qp.values[req.Payload.Key]
+	db, ok := qp.dbserver.dbs[req.Payload.DBName]
+	var val *types.Value
 	if !ok {
-		val = qp.defaultValue
+		return nil, errors.Errorf("db not exist %s", req.Payload.DBName)
+	} else {
+		val = db.GetState(req)
 	}
-	if val.index < len(val.values) {
-		res := val.values[val.index]
-		val.index += 1
-		return valueToEnv(res)
-	}
-	return valueToEnv(val.values[len(val.values)-1])
+	return valueToEnv(val)
 }
 
 func (qp *queryProcessor) GetStatus(ctx context.Context, req *types.GetStatusQueryEnvelope) (*types.GetStatusResponseEnvelope, error) {
-	val, ok := qp.dbStatuses[req.Payload.DBName]
-	if !ok {
-		return dbStatusToEnv(&types.GetStatusResponse{
-			Exist: false,
-		})
-	}
-	if val.index < len(val.values) {
-		res := val.values[val.index]
-		val.index += 1
-		return dbStatusToEnv(res)
-	}
-	return dbStatusToEnv(val.values[len(val.values)-1])
+	_, ok := qp.dbserver.dbs[req.Payload.DBName]
+	return dbStatusToEnv(&types.GetStatusResponse{
+		Exist: ok,
+	})
 }
 
-func NewQueryServer() (*queryProcessor, error) {
-	key1result := &value{
-		values: make([]*types.Value, 0),
-		index:  0,
-	}
-	key1result.values = append(key1result.values, &types.Value{
-		Value: []byte("Testvalue11"),
-		Metadata: &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 0,
-				TxNum:    0,
-			},
-		},
-	})
-	key1result.values = append(key1result.values, &types.Value{
-		Value: []byte("Testvalue12"),
-		Metadata: &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 1,
-				TxNum:    0,
-			},
-		},
-	})
-
-	key2result := &value{
-		values: make([]*types.Value, 0),
-		index:  0,
-	}
-	key2result.values = append(key2result.values, &types.Value{
-		Value: []byte("Testvalue21"),
-		Metadata: &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 0,
-				TxNum:    1,
-			},
-		},
-	})
-
-	keyNilResult := &value{
-		values: make([]*types.Value, 0),
-		index:  0,
-	}
-	keyNilResult.values = append(keyNilResult.values, &types.Value{
-		Value: nil,
-		Metadata: &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 0,
-				TxNum:    1,
-			},
-		},
-	})
-
-	defaultResult := &value{
-		values: make([]*types.Value, 0),
-		index:  0,
-	}
-	defaultResult.values = append(defaultResult.values, &types.Value{
-		Value: []byte("Default1"),
-		Metadata: &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 1,
-				TxNum:    1,
-			},
-		},
-	})
-	ledgerHeight := &height{
-		results: make([]*types.Digest, 0),
-		index:   0,
-	}
-	ledgerHeight.results = append(ledgerHeight.results, &types.Digest{
-		Height: 0,
-	})
-	ledgerHeight.results = append(ledgerHeight.results, &types.Digest{
-		Height: 1,
-	})
-
-	results := make(map[string]*value)
-	results["key1"] = key1result
-	results["key2"] = key2result
-	results["keynil"] = keyNilResult
-
-	dbStatusResults := make(map[string]*dbStatus)
-	testDBResult := &dbStatus{
-		values: make([]*types.GetStatusResponse, 0),
-		index:  0,
-	}
-
-	testDBResult.values = append(testDBResult.values, &types.GetStatusResponse{
-		Header: &types.ResponseHeader{
-			NodeID: nodeID,
-		},
-		Exist: true,
-	})
-	dbStatusResults["testDb"] = testDBResult
-
+func NewQueryServer(dbserver *mockdbserver) (*queryProcessor, error) {
 	return &queryProcessor{
-		values:       results,
-		defaultValue: defaultResult,
-		dbStatuses:   dbStatusResults,
-		ledgerHeight: ledgerHeight,
+		dbserver: dbserver,
 	}, nil
 }
 
@@ -166,7 +58,11 @@ func valueToEnv(val *types.Value) (*types.GetStateResponseEnvelope, error) {
 		},
 		Value: val,
 	}
-	signature, err := nodeCrypto.Sign(response)
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return nil, err
+	}
+	signature, err := nodeSigner.Sign(responseBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +73,11 @@ func valueToEnv(val *types.Value) (*types.GetStateResponseEnvelope, error) {
 }
 
 func dbStatusToEnv(dbStatus *types.GetStatusResponse) (*types.GetStatusResponseEnvelope, error) {
-	signature, err := nodeCrypto.Sign(dbStatus)
+	dbStatusBytes, err := json.Marshal(dbStatus)
+	if err != nil {
+		return nil, err
+	}
+	signature, err := nodeSigner.Sign(dbStatusBytes)
 	if err != nil {
 		return nil, err
 	}

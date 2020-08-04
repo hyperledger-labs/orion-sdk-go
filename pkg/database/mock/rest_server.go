@@ -15,9 +15,10 @@ import (
 )
 
 type DBServer struct {
-	router *mux.Router
-	qs     *queryProcessor
-	ts     *transactionProcessor
+	router     *mux.Router
+	qs         *queryProcessor
+	ts         *transactionProcessor
+	mockserver *mockdbserver
 }
 
 type ErrorResponse struct {
@@ -28,10 +29,12 @@ func NewDBServer() (*DBServer, error) {
 	rs := &DBServer{}
 	var err error
 
-	if rs.qs, err = NewQueryServer(); err != nil {
+	rs.mockserver = restartMockServer()
+
+	if rs.qs, err = NewQueryServer(rs.mockserver); err != nil {
 		return nil, errors.Wrap(err, "failed to initiate query service")
 	}
-	if rs.ts, err = NewTransactionServer(); err != nil {
+	if rs.ts, err = NewTransactionServer(rs.mockserver); err != nil {
 		return nil, errors.Wrap(err, "failed to initiate transaction service")
 	}
 

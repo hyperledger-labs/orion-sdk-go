@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 
+	"github.ibm.com/blockchaindb/library/pkg/crypto_utils"
+
 	"github.ibm.com/blockchaindb/library/pkg/crypto"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
 	"github.ibm.com/blockchaindb/sdk/pkg/database"
@@ -12,7 +14,7 @@ import (
 
 func main() {
 	time.Sleep(time.Second)
-	opt := createOptins()
+	opt := createOptions("6001")
 
 	fmt.Println("Connecting to database test...")
 	db, err := database.Open("test", opt)
@@ -75,21 +77,25 @@ func main() {
 	}
 }
 
-func createOptins() *config.Options {
+func createOptions(port string) *config.Options {
 	connOpts := []*config.ConnectionOption{
 		{
-			URL: "http://localhost:6001/",
+			URL: fmt.Sprintf("http://localhost:%s/", port),
 		},
 	}
-	userOpt := &crypto.IdentityOptions{
-		UserID:       "testUser",
-		CAFilePath:   "pkg/database/testdata/ca_service.cert",
-		CertFilePath: "pkg/database/testdata/client.pem",
-		KeyFilePath:  "pkg/database/testdata/client.key",
+	userOpt := &config.IdentityOptions{
+		UserID: "testUser",
+		Signer: &crypto.SignerOptions{
+			KeyFilePath: "pkg/database/testdata/client.key",
+		},
+	}
+	serverVerifyOpt := &crypto_utils.VerificationOptions{
+		CAFilePath: "pkg/database/testdata/ca_service.cert",
 	}
 	return &config.Options{
 		ConnectionOptions: connOpts,
 		User:              userOpt,
+		ServersVerify:     serverVerifyOpt,
 		TxOptions: &config.TxOptions{
 			TxIsolation:   config.Serializable,
 			ReadOptions:   &config.ReadOptions{QuorumSize: 1},

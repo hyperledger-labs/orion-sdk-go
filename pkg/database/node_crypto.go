@@ -1,49 +1,52 @@
 package database
 
 import (
+	"encoding/pem"
+	"io/ioutil"
 	"log"
-
-	"github.ibm.com/blockchaindb/library/pkg/crypto"
-	"github.ibm.com/blockchaindb/protos/types"
 )
 
 // TODO: Replace with NodeCryptoProvider that access node info
 var (
-	nodeProvider          *hardcodedNodeCryptoProvider
-	certPossibleLocations = []string{"../database/testdata/", "pkg/database/testdata/", "../pkg/database/testdata/"}
+	certificateFetcher    *hardcodedCertificateFetcher
+	certPossibleLocations = []string{"../database/testdata/", "pkg/database/testdata/", "../pkg/database/testdata/", "../../library/pkg/crypto/testdata/"}
 )
 
 func init() {
-	nodeProvider = &hardcodedNodeCryptoProvider{}
+	certificateFetcher = &hardcodedCertificateFetcher{}
 
 	for _, loc := range certPossibleLocations {
-		nodeOptions := createNodeIdentityOptions(loc)
-		cm, err := nodeOptions.LoadCrypto(nil)
+		// TODO: After replacing for access to node info over network, no certificates loading here
+		rawCert, err := loadRawCertificate(createNodeCertificatePath(loc))
 		if err != nil {
 			continue
 		}
-		nodeProvider.node = &types.Node{
-			NodeID:          []byte(nodeOptions.UserID),
-			NodeCertificate: cm.GetRawCertificate(),
-		}
+		certificateFetcher.rawCertificate = rawCert
 		return
 	}
 	log.Panicln("can't load hardcoded node configuration")
 }
 
-func createNodeIdentityOptions(location string) *crypto.IdentityOptions {
-	return &crypto.IdentityOptions{
-		UserID:       "node1",
-		CAFilePath:   location + "ca_client.cert",
-		CertFilePath: location + "service.pem",
-		KeyFilePath:  location + "service.key",
+func createNodeCertificatePath(location string) string {
+	return location + "service.pem"
+}
+
+type hardcodedCertificateFetcher struct {
+	rawCertificate []byte
+}
+
+func (p *hardcodedCertificateFetcher) GetRawCertificate(nodeID string) ([]byte, error) {
+	return p.rawCertificate, nil
+}
+
+func loadRawCertificate(pemFile string) ([]byte, error) {
+	b, err := ioutil.ReadFile(pemFile)
+	if err != nil {
+		return nil, err
 	}
-}
-
-type hardcodedNodeCryptoProvider struct {
-	node *types.Node
-}
-
-func (hncp *hardcodedNodeCryptoProvider) GetNodeCrypto(nodeID []byte) (*types.Node, error) {
-	return hncp.node, nil
+	bl, _ := pem.Decode(b)
+	if err != nil {
+		return nil, err
+	}
+	return bl.Bytes, nil
 }

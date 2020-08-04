@@ -1,24 +1,26 @@
 package server
 
 import (
+	"log"
+
 	"github.ibm.com/blockchaindb/library/pkg/crypto"
 )
 
-var nodeCrypto *crypto.CryptoMaterials
+var nodeSigner *crypto.Signer
 var nodeID []byte
 
 func init() {
-	nodeOptions := createNodeIdentityOptions()
-	nodeID = []byte(nodeOptions.UserID)
-	nodeCrypto, _ = nodeOptions.LoadCrypto(nil)
-
+	nodeOptions := createNodeSignerOptions()
+	nodeID = []byte("node1")
+	var err error
+	nodeSigner, err = crypto.NewSigner(nodeOptions)
+	if err != nil {
+		log.Panicf("can't initiate server side Signer %v", err)
+	}
 }
 
-func createNodeIdentityOptions() *crypto.IdentityOptions {
-	return &crypto.IdentityOptions{
-		UserID:       "node1",
-		CAFilePath:   "../database/testdata/ca_client.cert",
-		CertFilePath: "../database/testdata/service.pem",
-		KeyFilePath:  "../database/testdata/service.key",
+func createNodeSignerOptions() *crypto.SignerOptions {
+	return &crypto.SignerOptions{
+		KeyFilePath: "../database/testdata/service.key",
 	}
 }

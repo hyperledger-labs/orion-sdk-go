@@ -2,11 +2,13 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.ibm.com/blockchaindb/library/pkg/crypto"
+	"github.ibm.com/blockchaindb/library/pkg/crypto_utils"
 	"github.ibm.com/blockchaindb/protos/types"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
 	server "github.ibm.com/blockchaindb/sdk/pkg/database/mock"
@@ -19,7 +21,7 @@ func TestClient_GetState(t *testing.T) {
 	port, err := s.Port()
 	require.NoError(t, err)
 	opt := createOptions(port)
-	userCrypto, err := opt.User.LoadCrypto(nil)
+	signer, err := crypto.NewSigner(opt.User.Signer)
 	require.NoError(t, err)
 	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
 	require.NoError(t, err)
@@ -32,7 +34,9 @@ func TestClient_GetState(t *testing.T) {
 		},
 		Signature: nil,
 	}
-	req.Signature, err = userCrypto.Sign(req.Payload)
+	payloadBytes, err := json.Marshal(req.Payload)
+	require.NoError(t, err)
+	req.Signature, err = signer.Sign(payloadBytes)
 	require.NoError(t, err)
 
 	resp, err := rc.GetState(context.Background(), req)
@@ -72,7 +76,7 @@ func TestClient_GetStatus(t *testing.T) {
 	port, err := s.Port()
 	require.NoError(t, err)
 	opt := createOptions(port)
-	userCrypto, err := opt.User.LoadCrypto(nil)
+	signer, err := crypto.NewSigner(opt.User.Signer)
 	require.NoError(t, err)
 	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
 	require.NoError(t, err)
@@ -84,7 +88,9 @@ func TestClient_GetStatus(t *testing.T) {
 		},
 		Signature: nil,
 	}
-	req.Signature, err = userCrypto.Sign(req.Payload)
+	payloadBytes, err := json.Marshal(req.Payload)
+	require.NoError(t, err)
+	req.Signature, err = signer.Sign(payloadBytes)
 	require.NoError(t, err)
 
 	resp, err := rc.GetStatus(context.Background(), req)
@@ -123,7 +129,7 @@ func TestClient_SubmitTransaction(t *testing.T) {
 	port, err := s.Port()
 	require.NoError(t, err)
 	opt := createOptions(port)
-	userCrypto, err := opt.User.LoadCrypto(nil)
+	signer, err := crypto.NewSigner(opt.User.Signer)
 	require.NoError(t, err)
 	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
 	require.NoError(t, err)
@@ -141,7 +147,9 @@ func TestClient_SubmitTransaction(t *testing.T) {
 		},
 		Signature: nil,
 	}
-	req.Signature, err = userCrypto.Sign(req.Payload)
+	payloadBytes, err := json.Marshal(req.Payload)
+	require.NoError(t, err)
+	req.Signature, err = signer.Sign(payloadBytes)
 	require.NoError(t, err)
 
 	resp, err := rc.SubmitTransaction(context.Background(), req)
@@ -163,15 +171,17 @@ func createOptions(port string) *config.Options {
 	}
 	connOpts := make([]*config.ConnectionOption, 0)
 	connOpts = append(connOpts, connOpt)
-	userOpt := &crypto.IdentityOptions{
-		UserID:       "testUser",
-		CAFilePath:   "../database/testdata/ca_service.cert",
-		CertFilePath: "../database/testdata/client.pem",
-		KeyFilePath:  "../database/testdata/client.key",
+	userOpt := &config.IdentityOptions{
+		UserID: "testUser",
+		Signer: &crypto.SignerOptions{
+			KeyFilePath: "../database/testdata/client.key",
+		},
 	}
+	serversVerifyOpt := &crypto_utils.VerificationOptions{CAFilePath: "../database/testdata/ca_service.cert"}
 	return &config.Options{
 		ConnectionOptions: connOpts,
 		User:              userOpt,
+		ServersVerify:     serversVerifyOpt,
 		TxOptions: &config.TxOptions{
 			TxIsolation:   config.Serializable,
 			ReadOptions:   &config.ReadOptions{QuorumSize: 1},
