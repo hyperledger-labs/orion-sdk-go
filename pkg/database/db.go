@@ -25,14 +25,6 @@ type ConnData struct {
 	num int
 }
 
-// All opened grpc client connections. Protected by mutex, only single go routine can access it, even for read
-var dbConnections map[string]*ConnData
-var dbConnMutex sync.Mutex
-
-func init() {
-	dbConnections = make(map[string]*ConnData)
-}
-
 // Open opens an existing database associated with the dbName
 // Options may specify:
 // 1. Required transaction isolation level
@@ -90,13 +82,6 @@ func Open(dbName string, options *config.Options) (DB, error) {
 
 // Single threaded
 func OpenConnection(options *config.ConnectionOption) (*ConnData, error) {
-	dbConnMutex.Lock()
-	defer dbConnMutex.Unlock()
-	if conn, ok := dbConnections[options.URL]; ok {
-		log.Println(fmt.Sprintf("connection to Server %s already opened, reusing", options.URL))
-		conn.num += 1
-		return conn, nil
-	}
 	log.Println(fmt.Sprintf("Connecting to Server %s", options.URL))
 	rc, err := rest.NewRESTClient(options.URL)
 	if err != nil {
@@ -108,7 +93,6 @@ func OpenConnection(options *config.ConnectionOption) (*ConnData, error) {
 		num:    1,
 	}
 
-	dbConnections[dbConnData.Client.RawURL] = dbConnData
 	return dbConnData, nil
 }
 
@@ -151,20 +135,12 @@ func (db *blockchainDB) Close() error {
 	db.mu.Lock()
 	db.isClosed = true
 	db.mu.Unlock()
-	dbConnMutex.Lock()
-	defer dbConnMutex.Unlock()
 
 	for _, tx := range db.openTx {
 		tx.Abort()
 	}
 	db.openTx = nil
 
-	for _, conn := range db.connections {
-		conn.num -= 1
-		if conn.num == 0 {
-			delete(dbConnections, conn.Client.RawURL)
-		}
-	}
 	return nil
 }
 

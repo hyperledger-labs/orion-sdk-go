@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,11 +13,15 @@ import (
 )
 
 func TestClient_GetState(t *testing.T) {
-	server.StartTestServer()
-	defer server.StopServer()
-	opt := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	opt := createOptions(port)
 	userCrypto, err := opt.User.LoadCrypto(nil)
-	rc, err := NewRESTClient("http://localhost:9999")
+	require.NoError(t, err)
+	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	req := &types.GetStateQueryEnvelope{
@@ -37,9 +42,12 @@ func TestClient_GetState(t *testing.T) {
 }
 
 func TestClient_GetStateError(t *testing.T) {
-	server.StartTestServer()
-	defer server.StopServer()
-	rc, err := NewRESTClient("http://localhost:9999")
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	req := &types.GetStateQueryEnvelope{
@@ -58,11 +66,15 @@ func TestClient_GetStateError(t *testing.T) {
 }
 
 func TestClient_GetStatus(t *testing.T) {
-	server.StartTestServer()
-	defer server.StopServer()
-	opt := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	opt := createOptions(port)
 	userCrypto, err := opt.User.LoadCrypto(nil)
-	rc, err := NewRESTClient("http://localhost:9999")
+	require.NoError(t, err)
+	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	req := &types.GetStatusQueryEnvelope{
@@ -82,9 +94,12 @@ func TestClient_GetStatus(t *testing.T) {
 }
 
 func TestClient_GetStatusError(t *testing.T) {
-	server.StartTestServer()
-	defer server.StopServer()
-	rc, err := NewRESTClient("http://localhost:9999")
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	req := &types.GetStatusQueryEnvelope{
@@ -102,11 +117,15 @@ func TestClient_GetStatusError(t *testing.T) {
 }
 
 func TestClient_SubmitTransaction(t *testing.T) {
-	server.StartTestServer()
-	defer server.StopServer()
-	opt := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	opt := createOptions(port)
 	userCrypto, err := opt.User.LoadCrypto(nil)
-	rc, err := NewRESTClient("http://localhost:9999")
+	require.NoError(t, err)
+	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 
@@ -131,15 +150,16 @@ func TestClient_SubmitTransaction(t *testing.T) {
 }
 
 func TestNewRESTClient(t *testing.T) {
+	t.Parallel()
 	rc, err := NewRESTClient("http://localhost:9999")
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	require.EqualValues(t, "http://localhost:9999", rc.BaseURL.String())
 }
 
-func createOptions() *config.Options {
+func createOptions(port string) *config.Options {
 	connOpt := &config.ConnectionOption{
-		URL: "http://localhost:9999/",
+		URL: fmt.Sprintf("http://localhost:%s/", port),
 	}
 	connOpts := make([]*config.ConnectionOption, 0)
 	connOpts = append(connOpts, connOpt)

@@ -1,35 +1,43 @@
 package server
 
 import (
-	"fmt"
 	"log"
+	"net"
 	"net/http"
-	"time"
 )
 
-var s *http.Server
+type TestServer struct {
+	l net.Listener
+}
 
-func StartServer(port int) {
+func NewTestServer() *TestServer {
 	restServer, err := NewDBServer()
 	if err != nil {
 		log.Fatalf("failed to start rest server: %v", err)
 	}
 
+	listen, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(err)
+	}
+
 	go func() {
-		s = &http.Server{
-			Addr:    fmt.Sprintf("localhost:%d", port),
-			Handler: restServer.router,
-		}
-
-		s.ListenAndServe()
+		http.Serve(listen, restServer.router)
 	}()
+
+	return &TestServer{
+		l: listen,
+	}
 }
 
-func StopServer() {
-	s.Close()
+func (t *TestServer) Stop() {
+	t.l.Close()
 }
 
-func StartTestServer() {
-	StartServer(9999)
-	time.Sleep(time.Millisecond * 100)
+func (t *TestServer) Port() (string, error) {
+	_, port, err := net.SplitHostPort(t.l.Addr().String())
+	if err != nil {
+		return ":0", err
+	}
+	return port, nil
 }

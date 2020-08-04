@@ -15,13 +15,15 @@ import (
 )
 
 func TestOpen(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 	require.Equal(t, len(db.(*blockchainDB).connections), 1)
-	require.Equal(t, len(dbConnections), 1)
 	require.False(t, db.(*blockchainDB).isClosed)
 	require.EqualValues(t, db.(*blockchainDB).userID, options.User.UserID, "user ids are not equal")
 	val, err := db.Get("key1")
@@ -32,12 +34,12 @@ func TestOpen(t *testing.T) {
 	require.Nil(t, db)
 	require.Error(t, err)
 
-	options.ConnectionOptions[0].URL = fmt.Sprintf("http://localhost:%d/", 1999)
+	options.ConnectionOptions[0].URL = "http://localhost:1111/"
 	db, err = Open("testDB", options)
 	require.Nil(t, db)
 	require.Error(t, err)
 
-	invalidOpt := createOptions()
+	invalidOpt := createOptions("1111")
 	invalidOpt.User.CAFilePath = "nonexist.crt"
 	db, err = Open("testDb", invalidOpt)
 	require.Nil(t, db)
@@ -45,9 +47,12 @@ func TestOpen(t *testing.T) {
 }
 
 func TestBlockchainDB_Close(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 	err = db.Close()
@@ -57,9 +62,12 @@ func TestBlockchainDB_Close(t *testing.T) {
 }
 
 func TestBlockchainDB_Get(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
@@ -73,9 +81,12 @@ func TestBlockchainDB_Get(t *testing.T) {
 }
 
 func TestBlockchainDB_Begin(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
@@ -92,7 +103,7 @@ func TestBlockchainDB_Begin(t *testing.T) {
 	require.NotNil(t, txCtx.(*transactionContext).db)
 	require.EqualValues(t, txCtx.(*transactionContext).db, db)
 	found := false
-	for k, _ := range db.(*blockchainDB).openTx {
+	for k := range db.(*blockchainDB).openTx {
 		if strings.Compare(k, hex.EncodeToString(txCtx.(*transactionContext).txID)) == 0 {
 			found = true
 			break
@@ -108,9 +119,12 @@ func TestBlockchainDB_Begin(t *testing.T) {
 }
 
 func TestTxContext_Get(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
@@ -169,9 +183,12 @@ func TestTxContext_Get(t *testing.T) {
 }
 
 func TestTxContext_PutDelete(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
@@ -246,9 +263,12 @@ func TestTxContext_PutDelete(t *testing.T) {
 }
 
 func TestTxContext_Commit(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
@@ -286,9 +306,12 @@ func TestTxContext_Commit(t *testing.T) {
 }
 
 func TestTxContext_Abort(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
@@ -310,9 +333,12 @@ func TestTxContext_Abort(t *testing.T) {
 }
 
 func TestTxContext_TxIsolation_DifferentReads(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
@@ -335,9 +361,12 @@ func TestTxContext_TxIsolation_DifferentReads(t *testing.T) {
 }
 
 func TestTxContext_TxIsolation_DirtyReads(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
 
@@ -359,12 +388,15 @@ func TestTxContext_TxIsolation_DirtyReads(t *testing.T) {
 }
 
 func TestTxContext_GetMultipleValues(t *testing.T) {
-	server.StartTestServer()
-	defer StopTestServer()
-	options := createOptions()
+	t.Parallel()
+	s := server.NewTestServer()
+	defer s.Stop()
+	port, err := s.Port()
+	require.NoError(t, err)
+	options := createOptions(port)
 	// Connect twice to same Server, as it another Server
 	options.ConnectionOptions = append(options.ConnectionOptions, &config.ConnectionOption{
-		URL: "http://localhost:9999/",
+		URL: fmt.Sprintf("http://localhost:%s/", port),
 	})
 	db, err := Open("testDb", options)
 	require.NoError(t, err)
@@ -395,17 +427,10 @@ func TestTxContext_GetMultipleValues(t *testing.T) {
 	require.Nil(t, val)
 }
 
-func StopTestServer() {
-	for _, conn := range dbConnections {
-		delete(dbConnections, conn.Client.RawURL)
-	}
-	server.StopServer()
-}
-
-func createOptions() *config.Options {
+func createOptions(port string) *config.Options {
 	connOpts := []*config.ConnectionOption{
 		{
-			URL: "http://localhost:9999/",
+			URL: fmt.Sprintf("http://localhost:%s/", port),
 		},
 	}
 	userOpt := &crypto.IdentityOptions{
