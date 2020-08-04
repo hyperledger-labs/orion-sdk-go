@@ -21,12 +21,6 @@ import (
 	"github.ibm.com/blockchaindb/sdk/pkg/rest"
 )
 
-// Store grpc connection data tp reuse
-type ConnData struct {
-	*rest.Client
-	num int
-}
-
 var (
 	// Internal database that stores all users' databases
 	_dbs                              *blockchainDB
@@ -43,7 +37,7 @@ var (
 func Open(dbName string, options *config.Options) (DB, error) {
 	db := &blockchainDB{
 		dbName:      dbName,
-		connections: make([]*ConnData, 0),
+		connections: []*rest.Client{},
 		openTx:      make(map[string]*transactionContext, 0),
 		isClosed:    false,
 		TxOptions:   options.TxOptions,
@@ -62,11 +56,11 @@ func Open(dbName string, options *config.Options) (DB, error) {
 
 	}
 	for _, serverOption := range options.ConnectionOptions {
-		conn, err := OpenConnection(serverOption)
+		client, err := OpenConnection(serverOption)
 		if err != nil {
 			return nil, err
 		}
-		db.connections = append(db.connections, conn)
+		db.connections = append(db.connections, client)
 
 		query := &types.GetStatusQuery{
 			UserID: db.userID,
@@ -84,7 +78,7 @@ func Open(dbName string, options *config.Options) (DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbStatusEnvelope, err := conn.Client.GetStatus(context.Background(), envelope)
+		dbStatusEnvelope, err := client.GetStatus(context.Background(), envelope)
 		if err != nil {
 			return nil, err
 		}
@@ -97,25 +91,20 @@ func Open(dbName string, options *config.Options) (DB, error) {
 }
 
 // Single threaded
-func OpenConnection(options *config.ConnectionOption) (*ConnData, error) {
+func OpenConnection(options *config.ConnectionOption) (*rest.Client, error) {
 	log.Println(fmt.Sprintf("Connecting to Server %s", options.URL))
 	rc, err := rest.NewRESTClient(options.URL)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not create REST client for %s", options.URL)
 	}
 
-	dbConnData := &ConnData{
-		Client: rc,
-		num:    1,
-	}
-
-	return dbConnData, nil
+	return rc, nil
 }
 
 type blockchainDB struct {
 	dbName      string
 	userID      string
-	connections []*ConnData
+	connections []*rest.Client
 	openTx      map[string]*transactionContext
 	isClosed    bool
 	mu          sync.RWMutex
@@ -369,7 +358,7 @@ func (tx *transactionContext) Commit() (*types.Digest, error) {
 	}
 
 	useServer := mathrand.Intn(len(tx.db.connections))
-	if _, err = tx.db.connections[useServer].Client.SubmitTransaction(context.Background(), envelope); err != nil {
+	if _, err = tx.db.connections[useServer].SubmitTransaction(context.Background(), envelope); err != nil {
 		return nil, errors.Wrap(err, "can't access output stream")
 	}
 
@@ -449,7 +438,7 @@ func getMultipleQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *types.G
 
 	for i := startServer; (i - startServer) < len(db.connections); i++ {
 
-		valueEnvelope, err := db.connections[i%len(db.connections)].Client.GetState(context.Background(), dq)
+		valueEnvelope, err := db.connections[i%len(db.connections)].GetState(context.Background(), dq)
 		if err != nil {
 			log.Println(fmt.Sprintf("Can't get value from service %v, moving to next Server", err))
 			continue
