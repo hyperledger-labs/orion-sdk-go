@@ -2,18 +2,17 @@ package database
 
 import (
 	"encoding/pem"
+	"github.com/pkg/errors"
 	"io/ioutil"
-	"log"
 )
 
 // TODO: Replace with NodeCryptoProvider that access node info
 var (
-	certificateFetcher    *hardcodedCertificateFetcher
 	certPossibleLocations = []string{"../database/testdata/", "pkg/database/testdata/", "../pkg/database/testdata/", "../../library/pkg/crypto/testdata/"}
 )
 
-func init() {
-	certificateFetcher = &hardcodedCertificateFetcher{}
+func CreateHardcodedFetcher() (*hardcodedCertificateFetcher, error) {
+	certificateFetcher := &hardcodedCertificateFetcher{}
 
 	for _, loc := range certPossibleLocations {
 		// TODO: After replacing for access to node info over network, no certificates loading here
@@ -22,9 +21,9 @@ func init() {
 			continue
 		}
 		certificateFetcher.rawCertificate = rawCert
-		return
+		return certificateFetcher, nil
 	}
-	log.Panicln("can't load hardcoded node configuration")
+	return nil, errors.Errorf("Can't create load hadrcode certificate fetcher, possible certificate locations are %v", certPossibleLocations)
 }
 
 func createNodeCertificatePath(location string) string {

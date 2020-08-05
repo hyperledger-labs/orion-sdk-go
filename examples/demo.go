@@ -16,8 +16,13 @@ func main() {
 	time.Sleep(time.Second)
 	opt := createOptions("6001")
 
+	bdb, err := database.NewBDB()
+	if err != nil {
+		log.Fatalln(fmt.Sprintf("can't create client: %v", err))
+	}
+
 	fmt.Println("Connecting to database test...")
-	db, err := database.Open("test", opt)
+	db, err := bdb.Open("test", opt)
 	if err != nil {
 		log.Fatalln(fmt.Sprintf("can't connect to database: %v", err))
 	}

@@ -39,7 +39,8 @@ func TestDBOpen(t *testing.T) {
 		require.NoError(t, err)
 
 		options := createOptions(port)
-		db, err := Open("testDB2", options)
+		bdb := createBDB(t)
+		db, err := bdb.Open("testDB2", options)
 		require.Nil(t, db)
 		require.Error(t, err)
 	})
@@ -51,9 +52,10 @@ func TestDBOpen(t *testing.T) {
 		port, err := s.Port()
 		require.NoError(t, err)
 
+		bdb := createBDB(t)
 		options := createOptions(port)
 		options.ConnectionOptions[0].URL = fmt.Sprintf("http://localhost:%d/", 1999)
-		db, err := Open("testDB", options)
+		db, err := bdb.Open("testDB", options)
 		require.Nil(t, db)
 		require.Error(t, err)
 	})
@@ -65,9 +67,10 @@ func TestDBOpen(t *testing.T) {
 		port, err := s.Port()
 		require.NoError(t, err)
 
+		bdb := createBDB(t)
 		invalidOpt := createOptions(port)
 		invalidOpt.ServersVerify.CAFilePath = "nonexist.crt"
-		db, err := Open("testDb", invalidOpt)
+		db, err := bdb.Open("testDb", invalidOpt)
 		require.Nil(t, db)
 		require.Error(t, err)
 	})
@@ -144,7 +147,8 @@ func TestCreateDelete(t *testing.T) {
 		port, err := s.Port()
 		opt := createOptions(port)
 
-		err = Create("testXYZ", opt, []string{}, []string{})
+		bdb := createBDB(t)
+		err = bdb.Create("testXYZ", opt, []string{}, []string{})
 		require.NoError(t, err)
 		require.Contains(t, s.GetAllDBNames(), "_users")
 		require.Contains(t, s.GetAllDBNames(), "_dbs")
@@ -168,13 +172,14 @@ func TestCreateDelete(t *testing.T) {
 		port, err := s.Port()
 		opt := createOptions(port)
 
-		err = Create("testXYZ", opt, []string{}, []string{})
+		bdb := createBDB(t)
+		err = bdb.Create("testXYZ", opt, []string{}, []string{})
 
-		err = Create("testXYZ", opt, []string{}, []string{})
+		err = bdb.Create("testXYZ", opt, []string{}, []string{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "can't create db")
 
-		err = Create("testDb", opt, []string{}, []string{})
+		err = bdb.Create("testDb", opt, []string{}, []string{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "can't create db")
 	})
@@ -185,9 +190,10 @@ func TestCreateDelete(t *testing.T) {
 		port, err := s.Port()
 		opt := createOptions(port)
 
-		err = Create("testXYZ", opt, []string{}, []string{})
+		bdb := createBDB(t)
+		err = bdb.Create("testXYZ", opt, []string{}, []string{})
 
-		err = Delete("testXYZ", opt)
+		err = bdb.Delete("testXYZ", opt)
 		require.NoError(t, err)
 
 		dbfound := false
@@ -212,16 +218,17 @@ func TestCreateDelete(t *testing.T) {
 		port, err := s.Port()
 		opt := createOptions(port)
 
-		err = Create("testXYZ", opt, []string{}, []string{})
+		bdb := createBDB(t)
+		err = bdb.Create("testXYZ", opt, []string{}, []string{})
 
-		err = Delete("testXYZ", opt)
+		err = bdb.Delete("testXYZ", opt)
 		require.NoError(t, err)
 
-		err = Delete("testXYZ", opt)
+		err = bdb.Delete("testXYZ", opt)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "can't remove db")
 
-		err = Delete("testXYZ2", opt)
+		err = bdb.Delete("testXYZ2", opt)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "can't remove db")
 	})
@@ -532,12 +539,14 @@ func TestTxContext_GetMultipleValues(t *testing.T) {
 		defer s.Stop()
 		port, err := s.Port()
 		require.NoError(t, err)
+
+		bdb := createBDB(t)
 		options := createOptions(port)
 		// Connect twice to same Server, as it another Server
 		options.ConnectionOptions = append(options.ConnectionOptions, &config.ConnectionOption{
 			URL: fmt.Sprintf("http://localhost:%s/", port),
 		})
-		db, err := Open("testDb", options)
+		db, err := bdb.Open("testDb", options)
 		require.NoError(t, err)
 
 		txOptions := &config.TxOptions{
@@ -599,7 +608,15 @@ func openTestDB(t *testing.T) (DB, *config.Options, *server.TestServer) {
 	port, err := s.Port()
 	require.NoError(t, err)
 	options := createOptions(port)
-	db, err := Open("testDb", options)
+	bdb := createBDB(t)
+	db, err := bdb.Open("testDb", options)
 	require.NoError(t, err)
 	return db, options, s
+}
+
+func createBDB(t *testing.T) *BDB {
+	bdb, err := NewBDB()
+	require.NoError(t, err)
+	require.NotNil(t, bdb)
+	return bdb
 }
