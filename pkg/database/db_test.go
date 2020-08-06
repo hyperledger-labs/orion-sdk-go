@@ -257,20 +257,6 @@ func TestTxContextGet(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, []byte("Testvalue21"), key2res)
 
-		stmt1 := &types.Statement{
-			Operation: "GET",
-			Arguments: make([][]byte, 0),
-		}
-		stmt1.Arguments = append(stmt1.Arguments, []byte("key1"))
-		stmt2 := &types.Statement{
-			Operation: "GET",
-			Arguments: make([][]byte, 0),
-		}
-		stmt2.Arguments = append(stmt2.Arguments, []byte("key2"))
-
-		require.Contains(t, txCtx.(*transactionContext).rwset.statements, stmt1)
-		require.Contains(t, txCtx.(*transactionContext).rwset.statements, stmt2)
-
 		rset1 := &types.KVRead{
 			Key: "key1",
 			Version: &types.Version{
@@ -335,19 +321,6 @@ func TestTxContextPutDelete(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
 
-		stmt1 := &types.Statement{
-			Operation: "PUT",
-			Arguments: make([][]byte, 0),
-		}
-		stmt1.Arguments = append(stmt1.Arguments, []byte("key3"), []byte("Testvalue31"))
-		stmt2 := &types.Statement{
-			Operation: "PUT",
-			Arguments: make([][]byte, 0),
-		}
-		stmt2.Arguments = append(stmt2.Arguments, []byte("key4"), []byte("Testvalue41"))
-		require.Contains(t, txCtx.(*transactionContext).rwset.statements, stmt1)
-		require.Contains(t, txCtx.(*transactionContext).rwset.statements, stmt2)
-
 		require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key3")
 		require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key4")
 
@@ -366,12 +339,6 @@ func TestTxContextPutDelete(t *testing.T) {
 		err = txCtx.Delete("key3")
 		require.NoError(t, err)
 		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
-		stmt3 := &types.Statement{
-			Operation: "DELETE",
-			Arguments: make([][]byte, 0),
-		}
-		stmt3.Arguments = append(stmt3.Arguments, []byte("key3"))
-		require.Contains(t, txCtx.(*transactionContext).rwset.statements, stmt3)
 		require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key3")
 		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key3"], &types.KVWrite{
 			Key:      "key3",

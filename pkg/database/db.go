@@ -47,9 +47,8 @@ func (db *blockchainDB) Begin(options *config.TxOptions) (TxContext, error) {
 		db:   db,
 		txID: txID,
 		rwset: &txRWSetAndStmt{
-			wset:       make(map[string]*types.KVWrite),
-			rset:       make(map[string]*types.KVRead),
-			statements: make([]*types.Statement, 0),
+			wset: make(map[string]*types.KVWrite),
+			rset: make(map[string]*types.KVRead),
 		},
 		TxOptions: options,
 	}
@@ -122,10 +121,9 @@ type transactionContext struct {
 }
 
 type txRWSetAndStmt struct {
-	wset       map[string]*types.KVWrite
-	rset       map[string]*types.KVRead
-	statements []*types.Statement
-	mu         sync.Mutex
+	wset map[string]*types.KVWrite
+	rset map[string]*types.KVRead
+	mu   sync.Mutex
 }
 
 func (tx *transactionContext) Get(key string) ([]byte, error) {
@@ -165,12 +163,6 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 		return nil, err
 	}
 	tx.rwset.rset[key] = rset
-	stmt := &types.Statement{
-		Operation: "GET",
-		Arguments: make([][]byte, 0),
-	}
-	stmt.Arguments = append(stmt.Arguments, []byte(key))
-	tx.rwset.statements = append(tx.rwset.statements, stmt)
 	return val.GetValue(), nil
 }
 
@@ -188,12 +180,6 @@ func (tx *transactionContext) Put(key string, value []byte) error {
 		IsDelete: false,
 		Value:    value,
 	}
-	stmt := &types.Statement{
-		Operation: "PUT",
-		Arguments: make([][]byte, 0),
-	}
-	stmt.Arguments = append(stmt.Arguments, []byte(key), value)
-	tx.rwset.statements = append(tx.rwset.statements, stmt)
 	return nil
 }
 
@@ -211,12 +197,6 @@ func (tx *transactionContext) Delete(key string) error {
 		IsDelete: true,
 		Value:    nil,
 	}
-	stmt := &types.Statement{
-		Operation: "DELETE",
-		Arguments: make([][]byte, 0),
-	}
-	stmt.Arguments = append(stmt.Arguments, []byte(key))
-	tx.rwset.statements = append(tx.rwset.statements, stmt)
 	return nil
 }
 
@@ -250,13 +230,12 @@ func (tx *transactionContext) Commit() (*types.Digest, error) {
 	envelope := &types.TransactionEnvelope{}
 
 	payload := &types.Transaction{
-		UserID:     []byte(tx.db.userID),
-		DBName:     tx.db.dbName,
-		TxID:       tx.txID,
-		DataModel:  types.Transaction_KV,
-		Statements: tx.rwset.statements,
-		Reads:      make([]*types.KVRead, 0),
-		Writes:     make([]*types.KVWrite, 0),
+		UserID:    []byte(tx.db.userID),
+		DBName:    tx.db.dbName,
+		TxID:      tx.txID,
+		DataModel: types.Transaction_KV,
+		Reads:     make([]*types.KVRead, 0),
+		Writes:    make([]*types.KVWrite, 0),
 	}
 
 	envelope.Payload = payload
@@ -393,5 +372,3 @@ func getMultipleQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *types.G
 	}
 	return nil, errors.Errorf("can't read %v copies of same value", ro.QuorumSize)
 }
-
-
