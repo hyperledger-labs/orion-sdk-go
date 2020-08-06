@@ -11,7 +11,7 @@ import (
 	"net/url"
 
 	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/library/pkg/server"
+	"github.ibm.com/blockchaindb/library/pkg/constants"
 	"github.ibm.com/blockchaindb/protos/types"
 )
 
@@ -118,8 +118,8 @@ func (c *Client) executeGetRequest(ctx context.Context, relUrl *url.URL, userID 
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", c.UserAgent)
-	req.Header.Set(server.UserHeader, userID)
-	req.Header.Set(server.SignatureHeader, base64.StdEncoding.EncodeToString(signature))
+	req.Header.Set(constants.UserHeader, userID)
+	req.Header.Set(constants.SignatureHeader, base64.StdEncoding.EncodeToString(signature))
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

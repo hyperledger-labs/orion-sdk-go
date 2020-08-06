@@ -10,7 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/library/pkg/server"
+	"github.ibm.com/blockchaindb/library/pkg/constants"
 	"github.ibm.com/blockchaindb/protos/types"
 )
 
@@ -132,11 +132,11 @@ func composeJSONResponse(w http.ResponseWriter, code int, payload interface{}) {
 }
 
 func validateAndParseQueryHeader(r *http.Request) (string, []byte, error) {
-	user := r.Header.Get(server.UserHeader)
+	user := r.Header.Get(constants.UserHeader)
 	if user == "" {
 		return "", nil, errors.New("empty user")
 	}
-	signature := r.Header.Get(server.SignatureHeader)
+	signature := r.Header.Get(constants.SignatureHeader)
 	if signature == "" {
 		return "", nil, errors.New("empty signature")
 	}
