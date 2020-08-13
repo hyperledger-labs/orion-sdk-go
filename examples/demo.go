@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.ibm.com/blockchaindb/library/pkg/crypto"
 	"github.ibm.com/blockchaindb/library/pkg/crypto_utils"
@@ -11,8 +10,12 @@ import (
 	"github.ibm.com/blockchaindb/sdk/pkg/database"
 )
 
+const (
+	DBName = "bdb"
+)
+
+
 func main() {
-	time.Sleep(time.Second)
 	opt := createOptions("6001")
 
 	bdb, err := database.NewConnector(opt)
@@ -25,7 +28,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(fmt.Sprintf("can't connect to database: %v", err))
 	}
-	fmt.Println("Connected to database test")
+	fmt.Println("Connected to database bdb")
 
 	fmt.Println("Staring blind write transaction, to create some keys in db")
 	tx, err := db.Begin(opt.TxOptions)
@@ -47,8 +50,6 @@ func main() {
 	if _, err = tx.Commit(); err != nil {
 		log.Fatalln("can't commit transaction to database")
 	}
-
-	time.Sleep(time.Millisecond + 10)
 
 	fmt.Println("Reading key1 directly from database")
 	val1, err := db.Get("key1")
@@ -90,11 +91,11 @@ func createOptions(port string) *config.Options {
 	userOpt := &config.IdentityOptions{
 		UserID: "testUser",
 		Signer: &crypto.SignerOptions{
-			KeyFilePath: "pkg/database/testdata/client.key",
+			KeyFilePath: "sdk/pkg/database/testdata/client.key",
 		},
 	}
 	serverVerifyOpt := &crypto_utils.VerificationOptions{
-		CAFilePath: "pkg/database/testdata/ca_service.cert",
+		CAFilePath: "sdk/pkg/database/testdata/ca_service.cert",
 	}
 	return &config.Options{
 		ConnectionOptions: connOpts,
