@@ -5,9 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.ibm.com/blockchaindb/library/pkg/crypto_utils"
-
 	"github.ibm.com/blockchaindb/library/pkg/crypto"
+	"github.ibm.com/blockchaindb/library/pkg/crypto_utils"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
 	"github.ibm.com/blockchaindb/sdk/pkg/database"
 )
@@ -16,13 +15,13 @@ func main() {
 	time.Sleep(time.Second)
 	opt := createOptions("6001")
 
-	bdb, err := database.NewBDB()
+	bdb, err := database.NewConnector(opt)
 	if err != nil {
 		log.Fatalln(fmt.Sprintf("can't create client: %v", err))
 	}
 
 	fmt.Println("Connecting to database test...")
-	db, err := bdb.Open("test", opt)
+	db, err := bdb.OpenDBSession("test", opt.TxOptions)
 	if err != nil {
 		log.Fatalln(fmt.Sprintf("can't connect to database: %v", err))
 	}

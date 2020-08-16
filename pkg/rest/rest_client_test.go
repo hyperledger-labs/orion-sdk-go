@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,7 @@ func TestClient_GetState(t *testing.T) {
 	opt := createOptions(port)
 	signer, err := crypto.NewSigner(opt.User.Signer)
 	require.NoError(t, err)
-	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
+	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port), http.DefaultClient)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	req := &types.GetStateQueryEnvelope{
@@ -51,7 +52,7 @@ func TestClient_GetStateError(t *testing.T) {
 	defer s.Stop()
 	port, err := s.Port()
 	require.NoError(t, err)
-	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
+	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port), http.DefaultClient)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	req := &types.GetStateQueryEnvelope{
@@ -78,7 +79,7 @@ func TestClient_GetStatus(t *testing.T) {
 	opt := createOptions(port)
 	signer, err := crypto.NewSigner(opt.User.Signer)
 	require.NoError(t, err)
-	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
+	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port), http.DefaultClient)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	req := &types.GetStatusQueryEnvelope{
@@ -105,7 +106,7 @@ func TestClient_GetStatusError(t *testing.T) {
 	defer s.Stop()
 	port, err := s.Port()
 	require.NoError(t, err)
-	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
+	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port), http.DefaultClient)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	req := &types.GetStatusQueryEnvelope{
@@ -131,7 +132,7 @@ func TestClient_SubmitTransaction(t *testing.T) {
 	opt := createOptions(port)
 	signer, err := crypto.NewSigner(opt.User.Signer)
 	require.NoError(t, err)
-	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port))
+	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port), http.DefaultClient)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 
@@ -159,7 +160,7 @@ func TestClient_SubmitTransaction(t *testing.T) {
 
 func TestNewRESTClient(t *testing.T) {
 	t.Parallel()
-	rc, err := NewRESTClient("http://localhost:9999")
+	rc, err := NewRESTClient("http://localhost:9999", http.DefaultClient)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	require.EqualValues(t, "http://localhost:9999", rc.BaseURL.String())

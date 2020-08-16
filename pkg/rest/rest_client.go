@@ -7,10 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/library/pkg/constants"
@@ -29,7 +27,7 @@ type ResponseErr struct {
 	Error string `json:"error,omitempty"`
 }
 
-func NewRESTClient(rawurl string) (*Client, error) {
+func NewRESTClient(rawurl string, httpClient *http.Client) (*Client, error) {
 	res := &Client{}
 	var err error
 	res.RawURL = rawurl
@@ -38,21 +36,7 @@ func NewRESTClient(rawurl string) (*Client, error) {
 		return nil, errors.Wrapf(err, "parsing url %s", rawurl)
 	}
 
-	res.httpClient = &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-	}
+	res.httpClient = httpClient
 	return res, nil
 }
 

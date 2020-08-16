@@ -14,7 +14,8 @@ type mockdbserver struct {
 
 type mockdb struct {
 	values       map[string]*value
-	defaultValue *types.Value
+	defaultValue []byte
+	defaultMeta  *types.Metadata
 	server       *mockdbserver
 }
 
@@ -44,14 +45,14 @@ func restartMockServer() *mockdbserver {
 	testDbConfigBytes, _ := json.Marshal(testDbConfig)
 	mockserver.dbs["_dbs"].values = map[string]*value{
 		"testDb": {
-			values: []*types.Value{
+			values: [][]byte{
+				testDbConfigBytes,
+			},
+			metas: []*types.Metadata{
 				{
-					Value: testDbConfigBytes,
-					Metadata: &types.Metadata{
-						Version:          nil,
-						ReadAccessUsers:  nil,
-						WriteAccessUsers: nil,
-					},
+					Version:          nil,
+					ReadAccessUsers:  nil,
+					WriteAccessUsers: nil,
 				},
 			},
 			index: 0,
@@ -59,63 +60,57 @@ func restartMockServer() *mockdbserver {
 	}
 
 	key1result := &value{
-		values: make([]*types.Value, 0),
+		values: make([][]byte, 0),
+		metas:  make([]*types.Metadata, 0),
 		index:  0,
 	}
-	key1result.values = append(key1result.values, &types.Value{
-		Value: []byte("Testvalue11"),
-		Metadata: &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 0,
-				TxNum:    0,
-			},
+
+	key1result.values = append(key1result.values, []byte("Testvalue11"))
+	key1result.values = append(key1result.values, []byte("Testvalue12"))
+	key1result.metas = append(key1result.metas, &types.Metadata{
+		Version: &types.Version{
+			BlockNum: 0,
+			TxNum:    0,
 		},
 	})
-	key1result.values = append(key1result.values, &types.Value{
-		Value: []byte("Testvalue12"),
-		Metadata: &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 1,
-				TxNum:    0,
-			},
+	key1result.metas = append(key1result.metas, &types.Metadata{
+		Version: &types.Version{
+			BlockNum: 1,
+			TxNum:    0,
 		},
 	})
 
 	key2result := &value{
-		values: make([]*types.Value, 0),
+		values: make([][]byte, 0),
+		metas:  make([]*types.Metadata, 0),
 		index:  0,
 	}
-	key2result.values = append(key2result.values, &types.Value{
-		Value: []byte("Testvalue21"),
-		Metadata: &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 0,
-				TxNum:    1,
-			},
+	key2result.values = append(key2result.values, []byte("Testvalue21"))
+	key2result.metas = append(key2result.metas, &types.Metadata{
+		Version: &types.Version{
+			BlockNum: 0,
+			TxNum:    1,
 		},
 	})
 
 	keyNilResult := &value{
-		values: make([]*types.Value, 0),
+		values: make([][]byte, 0),
+		metas:  make([]*types.Metadata, 0),
 		index:  0,
 	}
-	keyNilResult.values = append(keyNilResult.values, &types.Value{
-		Value: nil,
-		Metadata: &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 0,
-				TxNum:    1,
-			},
+	keyNilResult.values = append(keyNilResult.values, nil)
+	keyNilResult.metas = append(keyNilResult.metas, &types.Metadata{
+		Version: &types.Version{
+			BlockNum: 0,
+			TxNum:    1,
 		},
 	})
 
-	defaultResult := &types.Value{
-		Value: []byte("Default1"),
-		Metadata: &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 1,
-				TxNum:    1,
-			},
+	defaultResult := []byte("Default1")
+	defaultMeta := &types.Metadata{
+		Version: &types.Version{
+			BlockNum: 1,
+			TxNum:    1,
 		},
 	}
 
@@ -151,6 +146,7 @@ func restartMockServer() *mockdbserver {
 
 	mockserver.dbs["testDb"].values = results
 	mockserver.dbs["testDb"].defaultValue = defaultResult
+	mockserver.dbs["testDb"].defaultMeta = defaultMeta
 	mockserver.height = ledgerHeight
 
 	return mockserver
@@ -166,17 +162,18 @@ func (dbs *mockdbserver) GetStatus(ctx context.Context, req *types.GetStatusQuer
 	})
 }
 
-func (db *mockdb) GetState(req *types.GetStateQueryEnvelope) *types.Value {
+func (db *mockdb) GetState(req *types.GetStateQueryEnvelope) ([]byte, *types.Metadata) {
 	val, ok := db.values[req.Payload.Key]
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	if val.index < len(val.values) {
 		res := val.values[val.index]
+		meta := val.metas[val.index]
 		val.index += 1
-		return res
+		return res, meta
 	}
-	return val.values[len(val.values)-1]
+	return val.values[len(val.values)-1], val.metas[len(val.metas)-1]
 }
 
 func (db *mockdb) PutState(req *types.KVWrite) error {
@@ -184,41 +181,41 @@ func (db *mockdb) PutState(req *types.KVWrite) error {
 	if req.IsDelete {
 		if !ok {
 			db.values[req.Key] = &value{
-				values: make([]*types.Value, 0),
+				values: make([][]byte, 0),
+				metas:  make([]*types.Metadata, 0),
 			}
 			return nil
 		}
 		db.values[req.Key].values = append(db.values[req.Key].values, nil)
+		db.values[req.Key].metas = append(db.values[req.Key].metas, nil)
 		db.values[req.Key].index += 1
 	}
 	if !ok {
 		db.values[req.Key] = &value{
-			values: []*types.Value{
+			values: [][]byte{
+				req.Value,
+			},
+			metas: []*types.Metadata{
 				{
-					Value: req.Value,
-					Metadata: &types.Metadata{
-						Version: &types.Version{
-							BlockNum: db.server.height.results[db.server.height.index].Height,
-							TxNum:    0,
-						},
-						ReadAccessUsers:  []string{},
-						WriteAccessUsers: []string{},
+					Version: &types.Version{
+						BlockNum: db.server.height.results[db.server.height.index].Height,
+						TxNum:    0,
 					},
+					ReadAccessUsers:  []string{},
+					WriteAccessUsers: []string{},
 				},
 			},
 			index: 0,
 		}
 	} else {
-		db.values[req.Key].values = append(db.values[req.Key].values, &types.Value{
-			Value: req.Value,
-			Metadata: &types.Metadata{
-				Version: &types.Version{
-					BlockNum: db.server.height.results[db.server.height.index].Height,
-					TxNum:    0,
-				},
-				ReadAccessUsers:  []string{},
-				WriteAccessUsers: []string{},
+		db.values[req.Key].values = append(db.values[req.Key].values, req.Value)
+		db.values[req.Key].metas = append(db.values[req.Key].metas, &types.Metadata{
+			Version: &types.Version{
+				BlockNum: db.server.height.results[db.server.height.index].Height,
+				TxNum:    0,
 			},
+			ReadAccessUsers:  []string{},
+			WriteAccessUsers: []string{},
 		})
 	}
 	return nil

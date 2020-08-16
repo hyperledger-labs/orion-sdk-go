@@ -2,8 +2,9 @@ package database
 
 import (
 	"encoding/pem"
-	"github.com/pkg/errors"
 	"io/ioutil"
+
+	"github.com/pkg/errors"
 )
 
 // TODO: Replace with NodeCryptoProvider that access node info

@@ -4,8 +4,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-
-	"github.ibm.com/blockchaindb/protos/types"
 )
 
 type TestServer struct {
@@ -54,8 +52,8 @@ func (t *TestServer) GetAllDBNames() []string {
 	return res
 }
 
-func (t *TestServer) GetAllKeysForDB(name string) map[string]*types.Value {
-	res := make(map[string]*types.Value, 0)
+func (t *TestServer) GetAllKeysForDB(name string) map[string][]byte {
+	res := make(map[string][]byte, 0)
 	db, ok := t.dbServer.mockserver.dbs[name]
 	if ok {
 		for k, v := range db.values {

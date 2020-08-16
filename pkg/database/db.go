@@ -6,13 +6,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"hash"
 	"log"
-	mathrand "math/rand"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/library/pkg/crypto"
 	"github.ibm.com/blockchaindb/library/pkg/crypto_utils"
@@ -22,14 +19,15 @@ import (
 )
 
 type blockchainDB struct {
+	dbConnector *dbConnector
 	dbName      string
 	userID      string
-	connections []*rest.Client
 	openTx      map[string]*transactionContext
 	isClosed    bool
 	mu          sync.RWMutex
 	verifiers   *crypto_utils.VerifiersRegistry
-	signer      *crypto.Signer
+	*crypto.Signer
+	*rest.Client
 	*config.TxOptions
 }
 
@@ -46,7 +44,7 @@ func (db *blockchainDB) Begin(options *config.TxOptions) (TxContext, error) {
 	ctx := &transactionContext{
 		db:   db,
 		txID: txID,
-		rwset: &txRWSetAndStmt{
+		rwset: &txRWSet{
 			wset: make(map[string]*types.KVWrite),
 			rset: make(map[string]*types.KVRead),
 		},
@@ -87,15 +85,15 @@ func (db *blockchainDB) Get(key string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can'r serialize msg to json %v", dq)
 	}
-	envelope.Signature, err = db.signer.Sign(dqBytes)
+	envelope.Signature, err = db.Sign(dqBytes)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
 	}
-	val, err := getMultipleQueryValue(db, db.ReadOptions, envelope)
+	val, _, err := getQueryValue(db, db.ReadOptions, envelope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
-	return val.Value, nil
+	return val, nil
 }
 
 func (db *blockchainDB) GetMerkleRoot() (*types.Digest, error) {
@@ -106,29 +104,22 @@ func (db *blockchainDB) GetUsers() []*types.User {
 	panic("implement me")
 }
 
-func (db *blockchainDB) GetUsersForRole(role string) []*types.User {
-	panic("implement me")
-}
-
 type transactionContext struct {
 	db             *blockchainDB
 	isClosed       bool
-	mu             sync.RWMutex
 	isolationError error
 	txID           []byte
-	rwset          *txRWSetAndStmt
+	rwset          *txRWSet
 	*config.TxOptions
 }
 
-type txRWSetAndStmt struct {
+type txRWSet struct {
 	wset map[string]*types.KVWrite
 	rset map[string]*types.KVRead
 	mu   sync.Mutex
 }
 
 func (tx *transactionContext) Get(key string) ([]byte, error) {
-	tx.mu.RLock()
-	defer tx.mu.RUnlock()
 	if tx.isClosed {
 		return nil, errors.New("transaction context not longer valid")
 	}
@@ -144,17 +135,17 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't serialize msg to json %v", dq)
 	}
-	envelope.Signature, err = tx.db.signer.Sign(dqBytes)
+	envelope.Signature, err = tx.db.Sign(dqBytes)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
 	}
-	val, err := getMultipleQueryValue(tx.db, tx.ReadOptions, envelope)
+	val, meta, err := getQueryValue(tx.db, tx.ReadOptions, envelope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
 	rset := &types.KVRead{
 		Key:     key,
-		Version: val.GetMetadata().GetVersion(),
+		Version: meta.GetVersion(),
 	}
 	tx.rwset.mu.Lock()
 	defer tx.rwset.mu.Unlock()
@@ -163,12 +154,10 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 		return nil, err
 	}
 	tx.rwset.rset[key] = rset
-	return val.GetValue(), nil
+	return val, nil
 }
 
 func (tx *transactionContext) Put(key string, value []byte) error {
-	tx.mu.RLock()
-	defer tx.mu.RUnlock()
 	if tx.isClosed {
 		return errors.New("transaction context not longer valid")
 	}
@@ -184,8 +173,6 @@ func (tx *transactionContext) Put(key string, value []byte) error {
 }
 
 func (tx *transactionContext) Delete(key string) error {
-	tx.mu.RLock()
-	defer tx.mu.RUnlock()
 	if tx.isClosed {
 		return errors.New("transaction context not longer valid")
 	}
@@ -217,8 +204,6 @@ func (tx *transactionContext) DeleteUser(user *types.User) error {
 }
 
 func (tx *transactionContext) Commit() (*types.Digest, error) {
-	tx.mu.Lock()
-	defer tx.mu.Unlock()
 	if tx.isClosed {
 		return nil, errors.New("transaction context not longer valid")
 	}
@@ -252,13 +237,13 @@ func (tx *transactionContext) Commit() (*types.Digest, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't serialize msg to json %v", payload)
 	}
-	if envelope.Signature, err = tx.db.signer.Sign(payloadBytes); err != nil {
+	if envelope.Signature, err = tx.db.Sign(payloadBytes); err != nil {
 		return nil, errors.Wrapf(err, "can't sign transaction envelope payload %v", payload)
 	}
 
-	useServer := mathrand.Intn(len(tx.db.connections))
-	if _, err = tx.db.connections[useServer].SubmitTransaction(context.Background(), envelope); err != nil {
-		return nil, errors.Wrap(err, "can't access output stream")
+	if _, err = tx.db.SubmitTransaction(context.Background(), envelope); err != nil {
+		log.Printf("can't submit tx to service %s %v", tx.db.RawURL, err)
+		return nil, err
 	}
 
 	// TODO: Wait for response
@@ -266,8 +251,6 @@ func (tx *transactionContext) Commit() (*types.Digest, error) {
 }
 
 func (tx *transactionContext) Abort() error {
-	tx.mu.Lock()
-	defer tx.mu.Unlock()
 	if tx.isClosed {
 		return errors.New("transaction context not longer valid")
 	}
@@ -330,45 +313,12 @@ func validateRSet(tx *transactionContext, rset *types.KVRead) error {
 	return nil
 }
 
-// Trying to read exactly ReadOptions.serverNum copies of value from servers
-func getMultipleQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *types.GetStateQueryEnvelope) (*types.Value, error) {
-	startServer := mathrand.Intn(len(db.connections))
-	readValues := make([]*types.Value, 0)
-
-	for i := startServer; (i - startServer) < len(db.connections); i++ {
-
-		valueEnvelope, err := db.connections[i%len(db.connections)].GetState(context.Background(), dq)
-		if err != nil {
-			log.Println(fmt.Sprintf("Can't get value from service %v, moving to next Server", err))
-			continue
-		}
-		nodeVerifier, err := db.verifiers.GetVerifier(string(valueEnvelope.Payload.Header.NodeID))
-		if err != nil {
-			log.Println(fmt.Sprintf("can't access crypto for verify server %s signature, %v, moving to next Server", string(valueEnvelope.Payload.Header.NodeID), err))
-			continue
-
-		}
-		payloadBytes, err := json.Marshal(valueEnvelope.Payload)
-		if err != nil {
-			log.Println(fmt.Sprintf("can't serialize transaction to json %v, %v, moving to next Server", valueEnvelope.Payload, err))
-			continue
-
-		}
-		if err := nodeVerifier.Verify(payloadBytes, valueEnvelope.Signature); err != nil {
-			log.Println(fmt.Sprintf("inlavid value from service %v, moving to next Server", err))
-			continue
-		}
-		val := valueEnvelope.Payload.Value
-		sameValues := 1
-		for _, cVal := range readValues {
-			if proto.Equal(val, cVal) {
-				sameValues += 1
-			}
-		}
-		if sameValues >= ro.QuorumSize {
-			return val, nil
-		}
-		readValues = append(readValues, val)
+// Trying to read value, while retrying to reconnect if case of failure
+func getQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *types.GetStateQueryEnvelope) ([]byte, *types.Metadata, error) {
+	valueEnvelope, err := db.GetState(context.Background(), dq)
+	if err != nil {
+		log.Printf("Can't get value from service %s %v", db.RawURL, err)
+		return nil, nil, err
 	}
-	return nil, errors.Errorf("can't read %v copies of same value", ro.QuorumSize)
+	return valueEnvelope.GetPayload().GetValue(), valueEnvelope.GetPayload().GetMetadata(), nil
 }

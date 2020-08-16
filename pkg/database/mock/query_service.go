@@ -13,7 +13,8 @@ type queryProcessor struct {
 }
 
 type value struct {
-	values []*types.Value
+	values [][]byte
+	metas  []*types.Metadata
 	index  int
 }
 
@@ -29,13 +30,14 @@ type dbStatus struct {
 
 func (qp *queryProcessor) GetState(ctx context.Context, req *types.GetStateQueryEnvelope) (*types.GetStateResponseEnvelope, error) {
 	db, ok := qp.dbserver.dbs[req.Payload.DBName]
-	var val *types.Value
+	var val []byte
+	var meta *types.Metadata
 	if !ok {
 		return nil, errors.Errorf("db not exist %s", req.Payload.DBName)
 	} else {
-		val = db.GetState(req)
+		val, meta = db.GetState(req)
 	}
-	return valueToEnv(val)
+	return valueToEnv(val, meta)
 }
 
 func (qp *queryProcessor) GetStatus(ctx context.Context, req *types.GetStatusQueryEnvelope) (*types.GetStatusResponseEnvelope, error) {
@@ -51,12 +53,13 @@ func NewQueryServer(dbserver *mockdbserver) (*queryProcessor, error) {
 	}, nil
 }
 
-func valueToEnv(val *types.Value) (*types.GetStateResponseEnvelope, error) {
+func valueToEnv(val []byte, meta *types.Metadata) (*types.GetStateResponseEnvelope, error) {
 	response := &types.GetStateResponse{
 		Header: &types.ResponseHeader{
 			NodeID: nodeID,
 		},
-		Value: val,
+		Value:    val,
+		Metadata: meta,
 	}
 	responseBytes, err := json.Marshal(response)
 	if err != nil {

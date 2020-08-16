@@ -7,11 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.ibm.com/blockchaindb/library/pkg/crypto_utils"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"github.ibm.com/blockchaindb/library/pkg/crypto"
+	"github.ibm.com/blockchaindb/library/pkg/crypto_utils"
 	"github.ibm.com/blockchaindb/protos/types"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
 	server "github.ibm.com/blockchaindb/sdk/pkg/database/mock"
@@ -23,7 +22,7 @@ func TestDBOpen(t *testing.T) {
 		db, options, s := openTestDB(t)
 		defer s.Stop()
 
-		require.Equal(t, len(db.(*blockchainDB).connections), 1)
+		require.NotNil(t, db.(*blockchainDB).Client, 1)
 		require.False(t, db.(*blockchainDB).isClosed)
 		require.EqualValues(t, db.(*blockchainDB).userID, options.User.UserID, "user ids are not equal")
 		val, err := db.Get("key1")
@@ -39,8 +38,8 @@ func TestDBOpen(t *testing.T) {
 		require.NoError(t, err)
 
 		options := createOptions(port)
-		bdb := createBDB(t)
-		db, err := bdb.Open("testDB2", options)
+		connector := createDBConnector(t, options)
+		db, err := connector.OpenDBSession("testDB2", options.TxOptions)
 		require.Nil(t, db)
 		require.Error(t, err)
 	})
@@ -52,10 +51,10 @@ func TestDBOpen(t *testing.T) {
 		port, err := s.Port()
 		require.NoError(t, err)
 
-		bdb := createBDB(t)
 		options := createOptions(port)
+		connector := createDBConnector(t, options)
 		options.ConnectionOptions[0].URL = fmt.Sprintf("http://localhost:%d/", 1999)
-		db, err := bdb.Open("testDB", options)
+		db, err := connector.OpenDBSession("testDB", options.TxOptions)
 		require.Nil(t, db)
 		require.Error(t, err)
 	})
@@ -67,10 +66,10 @@ func TestDBOpen(t *testing.T) {
 		port, err := s.Port()
 		require.NoError(t, err)
 
-		bdb := createBDB(t)
 		invalidOpt := createOptions(port)
+		connector := createDBConnector(t, invalidOpt)
 		invalidOpt.ServersVerify.CAFilePath = "nonexist.crt"
-		db, err := bdb.Open("testDb", invalidOpt)
+		db, err := connector.OpenDBSession("testDb", invalidOpt.TxOptions)
 		require.Nil(t, db)
 		require.Error(t, err)
 	})
@@ -147,8 +146,8 @@ func TestCreateDelete(t *testing.T) {
 		port, err := s.Port()
 		opt := createOptions(port)
 
-		bdb := createBDB(t)
-		err = bdb.Create("testXYZ", opt, []string{}, []string{})
+		connector := createDBConnector(t, opt)
+		err = connector.GetDBManagement().CreateDB("testXYZ", []string{}, []string{})
 		require.NoError(t, err)
 		require.Contains(t, s.GetAllDBNames(), "_users")
 		require.Contains(t, s.GetAllDBNames(), "_dbs")
@@ -158,7 +157,7 @@ func TestCreateDelete(t *testing.T) {
 			if k == "testXYZ" {
 				dbfound = true
 				dbConf := &types.DatabaseConfig{}
-				err := json.Unmarshal(v.Value, dbConf)
+				err := json.Unmarshal(v, dbConf)
 				require.NoError(t, err)
 				require.Equal(t, "testXYZ", dbConf.Name)
 			}
@@ -172,14 +171,14 @@ func TestCreateDelete(t *testing.T) {
 		port, err := s.Port()
 		opt := createOptions(port)
 
-		bdb := createBDB(t)
-		err = bdb.Create("testXYZ", opt, []string{}, []string{})
+		connector := createDBConnector(t, opt)
+		err = connector.GetDBManagement().CreateDB("testXYZ", []string{}, []string{})
 
-		err = bdb.Create("testXYZ", opt, []string{}, []string{})
+		err = connector.GetDBManagement().CreateDB("testXYZ", []string{}, []string{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "can't create db")
 
-		err = bdb.Create("testDb", opt, []string{}, []string{})
+		err = connector.GetDBManagement().CreateDB("testDb", []string{}, []string{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "can't create db")
 	})
@@ -190,21 +189,21 @@ func TestCreateDelete(t *testing.T) {
 		port, err := s.Port()
 		opt := createOptions(port)
 
-		bdb := createBDB(t)
-		err = bdb.Create("testXYZ", opt, []string{}, []string{})
+		connector := createDBConnector(t, opt)
+		err = connector.GetDBManagement().CreateDB("testXYZ", []string{}, []string{})
 
-		err = bdb.Delete("testXYZ", opt)
+		err = connector.GetDBManagement().DeleteDB("testXYZ")
 		require.NoError(t, err)
 
 		dbfound := false
 		for k, v := range s.GetAllKeysForDB("_dbs") {
 			if k == "testXYZ" {
-				if v.Value == nil {
+				if v == nil {
 					continue
 				}
 				dbfound = true
 				dbConf := &types.DatabaseConfig{}
-				err := json.Unmarshal(v.Value, dbConf)
+				err := json.Unmarshal(v, dbConf)
 				require.NoError(t, err)
 				require.Equal(t, "testXYZ", dbConf.Name)
 			}
@@ -218,17 +217,17 @@ func TestCreateDelete(t *testing.T) {
 		port, err := s.Port()
 		opt := createOptions(port)
 
-		bdb := createBDB(t)
-		err = bdb.Create("testXYZ", opt, []string{}, []string{})
+		connector := createDBConnector(t, opt)
+		err = connector.GetDBManagement().CreateDB("testXYZ", []string{}, []string{})
 
-		err = bdb.Delete("testXYZ", opt)
+		err = connector.GetDBManagement().DeleteDB("testXYZ")
 		require.NoError(t, err)
 
-		err = bdb.Delete("testXYZ", opt)
+		err = connector.GetDBManagement().DeleteDB("testXYZ")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "can't remove db")
 
-		err = bdb.Delete("testXYZ2", opt)
+		err = connector.GetDBManagement().DeleteDB("testXYZ2")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "can't remove db")
 	})
@@ -499,50 +498,6 @@ func TestTxContext_TxIsolation(t *testing.T) {
 	})
 }
 
-func TestTxContext_GetMultipleValues(t *testing.T) {
-	t.Run("test-multiple-values-read", func(t *testing.T) {
-		t.Parallel()
-		s := server.NewTestServer()
-		defer s.Stop()
-		port, err := s.Port()
-		require.NoError(t, err)
-
-		bdb := createBDB(t)
-		options := createOptions(port)
-		// Connect twice to same Server, as it another Server
-		options.ConnectionOptions = append(options.ConnectionOptions, &config.ConnectionOption{
-			URL: fmt.Sprintf("http://localhost:%s/", port),
-		})
-		db, err := bdb.Open("testDb", options)
-		require.NoError(t, err)
-
-		txOptions := &config.TxOptions{
-			TxIsolation:   config.Serializable,
-			ReadOptions:   &config.ReadOptions{QuorumSize: 2},
-			CommitOptions: &config.CommitOptions{QuorumSize: 2},
-		}
-
-		txCtx, err := db.Begin(txOptions)
-		require.NoError(t, err)
-
-		val, err := txCtx.Get("key1")
-		require.Error(t, err)
-		require.Nil(t, val)
-		require.Contains(t, err.Error(), "can't get value: can't read 2 copies of same value")
-
-		txCtx, err = db.Begin(txOptions)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(db.(*blockchainDB).openTx))
-		val, err = txCtx.Get("key5")
-		require.NoError(t, err)
-		require.Nil(t, val)
-
-		val, err = txCtx.Get("keynil")
-		require.NoError(t, err)
-		require.Nil(t, val)
-	})
-}
-
 func createOptions(port string) *config.Options {
 	connOpts := []*config.ConnectionOption{
 		{
@@ -570,20 +525,20 @@ func createOptions(port string) *config.Options {
 	}
 }
 
-func openTestDB(t *testing.T) (DB, *config.Options, *server.TestServer) {
+func openTestDB(t *testing.T) (DBSession, *config.Options, *server.TestServer) {
 	s := server.NewTestServer()
 	port, err := s.Port()
 	require.NoError(t, err)
 	options := createOptions(port)
-	bdb := createBDB(t)
-	db, err := bdb.Open("testDb", options)
+	connector := createDBConnector(t, options)
+	db, err := connector.OpenDBSession("testDb", options.TxOptions)
 	require.NoError(t, err)
 	return db, options, s
 }
 
-func createBDB(t *testing.T) *BDB {
-	bdb, err := NewBDB()
+func createDBConnector(t *testing.T, options *config.Options) DBConnector {
+	connector, err := NewConnector(options)
 	require.NoError(t, err)
-	require.NotNil(t, bdb)
-	return bdb
+	require.NotNil(t, connector)
+	return connector
 }

@@ -5,8 +5,24 @@ import (
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
 )
 
-// DB provides APIs to begin a transaction context, to perform provenance queries, and close the db connection.
-type DB interface {
+// DBConnector handle connectivity between sdk and Blockchain Database cluster
+type DBConnector interface {
+	// OpenDBSession creates logical connection to database and returns DBSession interface
+	OpenDBSession(dbName string, options *config.TxOptions) (DBSession, error)
+	// GetDBAdmin returns blockchain db management interface
+	GetDBManagement() DBManagement
+}
+
+type DBManagement interface {
+	// CreateDB create new database in cluster
+	CreateDB(dbName string, readACL, readWriteALC []string) error
+	// DeleteDB deletes database from cluster
+	DeleteDB(dbName string) error
+}
+
+// DBSession represents one of logical databases in Blockchain Database cluster and provides APIs to begin
+// a transaction, to perform provenance queries, and close the session and release all resources.
+type DBSession interface {
 	// Begin initializes a transaction context
 	// TxOptions may override Options:
 	// 1. Required transaction isolation level
@@ -14,7 +30,7 @@ type DB interface {
 	// 3. Number of responses should be collected by Client SDK during Commit() call
 	//    to return success to Client
 	Begin(options *config.TxOptions) (TxContext, error)
-	// Close closes the connection to DB
+	// Close closes the connection to DBSession
 	Close() error
 	// DataQuerier provides APIs to query states from the database
 	DataQuerier
@@ -25,11 +41,13 @@ type DB interface {
 }
 
 // TxContext provides APIs to both query and modify states
+// Please note that TxContext is not thread safe - access same TxContext object from
+// different go routines on you own risk
 type TxContext interface {
 	DataQuerier
 	// Put stores the given KeyFilePath and value
 	Put(key string, value []byte) error
-	// Delete deletes the given KeyFilePath
+	// Delete deletes the given Key
 	Delete(key string) error
 	// Users provides APIs for user management
 	Users
