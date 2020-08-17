@@ -291,11 +291,6 @@ func computeTxID(creator []byte, h hash.Hash) ([]byte, error) {
 }
 
 func validateRSet(tx *transactionContext, rset *types.KVRead) error {
-	txIsolation := tx.db.TxIsolation
-	if tx.TxIsolation != txIsolation {
-		txIsolation = tx.TxIsolation
-	}
-
 	if storedRSet, ok := tx.rwset.rset[rset.Key]; ok {
 		if rset.GetVersion() != storedRSet.GetVersion() {
 			if rset.GetVersion() == nil || storedRSet.GetVersion() == nil {
