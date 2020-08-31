@@ -9,15 +9,31 @@ import (
 type DBConnector interface {
 	// OpenDBSession creates logical connection to database and returns DBSession interface
 	OpenDBSession(dbName string, options *config.TxOptions) (DBSession, error)
-	// GetDBAdmin returns blockchain db management interface
+	// GetDBManagement returns blockchain db management interface
 	GetDBManagement() DBManagement
+	// UserManagement returns blockchain users management interface
+	GetUserManagement() UserManagement
 }
 
+// DBManagement manage databases - create and delete databases on server
 type DBManagement interface {
 	// CreateDB create new database in cluster
 	CreateDB(dbName string, readACL, readWriteALC []string) error
 	// DeleteDB deletes database from cluster
 	DeleteDB(dbName string) error
+}
+
+// UserManagement provide API to operate database users in BlockchainDB
+// Please note that each user management operation is single transaction
+type UserManagement interface {
+	// UserQuerier provides APIs to query existing users
+	UserQuerier
+	// AddUsers adds a new users to BlockchainDB
+	AddUsers(users []*types.User) error
+	// UpdateUsers updates an existing users in BlockchainDB
+	UpdateUsers(users []*types.User) error
+	// DeleteUsers deletes an existing users in BlockchainDB
+	DeleteUsers(users []*types.User) error
 }
 
 // DBSession represents one of logical databases in Blockchain Database cluster and provides APIs to begin
@@ -36,8 +52,6 @@ type DBSession interface {
 	DataQuerier
 	// Provenance provides APIs to access historical data
 	Provenance
-	// UserQuerier provides APIs to query existing users
-	UserQuerier
 }
 
 // TxContext provides APIs to both query and modify states
@@ -49,8 +63,6 @@ type TxContext interface {
 	Put(key string, value []byte) error
 	// Delete deletes the given Key
 	Delete(key string) error
-	// Users provides APIs for user management
-	Users
 	// Commit commits the transaction and return the
 	// block merkel tree root and the block number at which
 	// the transaction got added
@@ -58,17 +70,6 @@ type TxContext interface {
 	// Cancel transaction context, discard all transaction
 	// data
 	Abort() error
-}
-
-// Users provide API to operate database users
-type Users interface {
-	UserQuerier
-	// AddUsers adds a new user to the DB
-	AddUser(user *types.User) error
-	// UpdateUser updates an existing user in the DB
-	UpdateUser(user *types.User) error
-	// DeleteUser deletes an existing user in the DB
-	DeleteUser(user *types.User) error
 }
 
 // DataQuerier provides API to query states from the DB
@@ -85,8 +86,8 @@ type Provenance interface {
 
 // UserQuerier access database user data
 type UserQuerier interface {
-	// GetUsers returns all users in the DB
-	GetUsers() []*types.User
+	// GetUser returns user by id
+	GetUser(userID string) (*types.User, error)
 }
 
 // Encapsulate hash bytes

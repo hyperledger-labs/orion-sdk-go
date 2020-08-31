@@ -27,6 +27,7 @@ type dbConnector struct {
 	options                           *config.Options
 	clients                           []*rest.Client
 	httpClient                        *http.Client
+	userManagement                    *dbUserManagement
 }
 
 func NewConnector(opt *config.Options) (DBConnector, error) {
@@ -56,7 +57,10 @@ func NewConnector(opt *config.Options) (DBConnector, error) {
 		options:            opt,
 		clients:            make([]*rest.Client, 0),
 		httpClient:         httpClient,
+		userManagement:     &dbUserManagement{},
 	}
+	connector.userManagement.connector = connector
+
 	for _, clientOpt := range opt.ConnectionOptions {
 		restClient, err := connector.createRESTClient(clientOpt)
 		if err == nil && restClient != nil {
@@ -74,9 +78,13 @@ func (c *dbConnector) GetDBManagement() DBManagement {
 	return c
 }
 
+func (c *dbConnector) GetUserManagement() UserManagement {
+	return c.userManagement
+}
+
 // CreateDB creates new database with default read and read-write ACLs
 func (c *dbConnector) CreateDB(dbName string, readACL, writeALC []string) error {
-	if err := c.getInternalDBManagementDatabase(); err != nil {
+	if err := c.initInternalDBManagementDatabase(); err != nil {
 		return err
 	}
 
@@ -115,7 +123,7 @@ func (c *dbConnector) CreateDB(dbName string, readACL, writeALC []string) error 
 
 // DeleteDB deletes existing database
 func (c *dbConnector) DeleteDB(dbName string) error {
-	if err := c.getInternalDBManagementDatabase(); err != nil {
+	if err := c.initInternalDBManagementDatabase(); err != nil {
 		return err
 	}
 
@@ -229,7 +237,7 @@ func checkDB(client *rest.Client, db *blockchainDB) (bool, error) {
 }
 
 // Single threaded
-func (c *dbConnector) getInternalDBManagementDatabase() error {
+func (c *dbConnector) initInternalDBManagementDatabase() error {
 	c.internalDBManagementDatabaseMutex.Lock()
 	defer c.internalDBManagementDatabaseMutex.Unlock()
 	if c.internalDBManagementDatabase != nil {

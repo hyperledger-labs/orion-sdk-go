@@ -14,7 +14,6 @@ const (
 	DBName = "bdb"
 )
 
-
 func main() {
 	opt := createOptions("6001")
 

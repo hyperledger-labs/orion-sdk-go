@@ -100,10 +100,6 @@ func (db *blockchainDB) GetMerkleRoot() (*types.Digest, error) {
 	panic("implement me")
 }
 
-func (db *blockchainDB) GetUsers() []*types.User {
-	panic("implement me")
-}
-
 type transactionContext struct {
 	db             *blockchainDB
 	isClosed       bool
@@ -185,22 +181,6 @@ func (tx *transactionContext) Delete(key string) error {
 		Value:    nil,
 	}
 	return nil
-}
-
-func (tx *transactionContext) GetUsers() []*types.User {
-	panic("implement me")
-}
-
-func (tx *transactionContext) AddUser(user *types.User) error {
-	panic("implement me")
-}
-
-func (tx *transactionContext) UpdateUser(user *types.User) error {
-	panic("implement me")
-}
-
-func (tx *transactionContext) DeleteUser(user *types.User) error {
-	panic("implement me")
 }
 
 func (tx *transactionContext) Commit() (*types.Digest, error) {

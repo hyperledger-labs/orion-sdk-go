@@ -57,7 +57,11 @@ func (t *TestServer) GetAllKeysForDB(name string) map[string][]byte {
 	db, ok := t.dbServer.mockserver.dbs[name]
 	if ok {
 		for k, v := range db.values {
-			res[k] = v.values[v.index]
+			if v.index >= len(v.values) {
+				res[k] = v.values[len(v.values)-1]
+			} else {
+				res[k] = v.values[v.index]
+			}
 		}
 	}
 	return res
