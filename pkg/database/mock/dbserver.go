@@ -50,9 +50,11 @@ func restartMockServer() *mockdbserver {
 			},
 			metas: []*types.Metadata{
 				{
-					Version:          nil,
-					ReadAccessUsers:  nil,
-					WriteAccessUsers: nil,
+					Version: nil,
+					AccessControl: &types.AccessControl{
+						ReadUsers:      map[string]bool{},
+						ReadWriteUsers: map[string]bool{},
+					},
 				},
 			},
 			index: 0,
@@ -201,8 +203,10 @@ func (db *mockdb) PutState(req *types.KVWrite) error {
 						BlockNum: db.server.height.results[db.server.height.index].Height,
 						TxNum:    0,
 					},
-					ReadAccessUsers:  []string{},
-					WriteAccessUsers: []string{},
+					AccessControl: &types.AccessControl{
+						ReadUsers:      map[string]bool{},
+						ReadWriteUsers: map[string]bool{},
+					},
 				},
 			},
 			index: 0,
@@ -214,8 +218,10 @@ func (db *mockdb) PutState(req *types.KVWrite) error {
 				BlockNum: db.server.height.results[db.server.height.index].Height,
 				TxNum:    0,
 			},
-			ReadAccessUsers:  []string{},
-			WriteAccessUsers: []string{},
+			AccessControl: &types.AccessControl{
+				ReadUsers:      map[string]bool{},
+				ReadWriteUsers: map[string]bool{},
+			},
 		})
 	}
 	return nil
