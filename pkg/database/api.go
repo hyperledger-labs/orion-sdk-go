@@ -59,7 +59,7 @@ type DBSession interface {
 // different go routines on you own risk
 type TxContext interface {
 	DataQuerier
-	// Put stores the given KeyFilePath and value
+	// Put stores the given key and value, including ALC update
 	Put(key string, value []byte) error
 	// Delete deletes the given Key
 	Delete(key string) error
@@ -77,7 +77,7 @@ type DataQuerier interface {
 	Get(key string) ([]byte, error)
 }
 
-// Provenance access to historical data and dat integrity proofs
+// Provenance access to historical data and dats integrity proofs
 type Provenance interface {
 	// GetMerkleRoot returns the current block merkle root hash and the last committed
 	// block number

@@ -142,7 +142,6 @@ func TestClient_SubmitTransaction(t *testing.T) {
 			DBName:     "testDb",
 			TxID:       []byte("TX1"),
 			DataModel:  types.Transaction_KV,
-			Statements: nil,
 			Reads:      nil,
 			Writes:     nil,
 		},
