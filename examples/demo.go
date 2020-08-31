@@ -14,6 +14,7 @@ const (
 	DBName = "bdb"
 )
 
+
 func main() {
 	opt := createOptions("6001")
 
@@ -22,8 +23,8 @@ func main() {
 		log.Fatalln(fmt.Sprintf("can't create client: %v", err))
 	}
 
-	fmt.Println("Connecting to database test...")
-	db, err := bdb.OpenDBSession("test", opt.TxOptions)
+	fmt.Printf("Connecting to database %s...\n", DBName)
+	db, err := bdb.OpenDBSession(DBName, opt.TxOptions)
 	if err != nil {
 		log.Fatalln(fmt.Sprintf("can't connect to database: %v", err))
 	}
