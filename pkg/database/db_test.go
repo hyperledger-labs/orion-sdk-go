@@ -163,6 +163,8 @@ func TestCreateDelete(t *testing.T) {
 			}
 		}
 		require.True(t, dbfound)
+
+		require.Equal(t, types.Transaction_DB, s.LastTxType())
 	})
 
 	t.Run("test-db-create-existing-db", func(t *testing.T) {
@@ -209,6 +211,7 @@ func TestCreateDelete(t *testing.T) {
 			}
 		}
 		require.False(t, dbfound)
+		require.Equal(t, types.Transaction_DB, s.LastTxType())
 	})
 
 	t.Run("test-db-double-double-non-exist", func(t *testing.T) {
@@ -389,6 +392,7 @@ func TestTxContextCommitAbort(t *testing.T) {
 		_, err = txCtx.Commit()
 		require.NoError(t, err)
 
+		require.Equal(t, types.Transaction_DATA, s.LastTxType())
 	})
 
 	t.Run("test-txcontext-commit-double", func(t *testing.T) {
