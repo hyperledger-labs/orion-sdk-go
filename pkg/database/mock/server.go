@@ -4,6 +4,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+
+	"github.ibm.com/blockchaindb/protos/types"
 )
 
 type TestServer struct {
@@ -65,4 +67,8 @@ func (t *TestServer) GetAllKeysForDB(name string) map[string][]byte {
 		}
 	}
 	return res
+}
+
+func (t *TestServer) LastTxType() types.Transaction_Type {
+	return t.dbServer.ts.lastTxType
 }

@@ -184,6 +184,10 @@ func (tx *transactionContext) Delete(key string) error {
 }
 
 func (tx *transactionContext) Commit() (*types.Digest, error) {
+	return tx.commit(types.Transaction_DATA)
+}
+
+func (tx *transactionContext) commit(txType types.Transaction_Type) (*types.Digest, error) {
 	if tx.isClosed {
 		return nil, errors.New("transaction context not longer valid")
 	}
@@ -201,6 +205,7 @@ func (tx *transactionContext) Commit() (*types.Digest, error) {
 		DataModel: types.Transaction_KV,
 		Reads:     make([]*types.KVRead, 0),
 		Writes:    make([]*types.KVWrite, 0),
+		Type:      txType,
 	}
 
 	envelope.Payload = payload

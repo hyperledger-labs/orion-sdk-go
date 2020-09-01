@@ -138,12 +138,12 @@ func TestClient_SubmitTransaction(t *testing.T) {
 
 	req := &types.TransactionEnvelope{
 		Payload: &types.Transaction{
-			UserID:     []byte("testUser"),
-			DBName:     "testDb",
-			TxID:       []byte("TX1"),
-			DataModel:  types.Transaction_KV,
-			Reads:      nil,
-			Writes:     nil,
+			UserID:    []byte("testUser"),
+			DBName:    "testDb",
+			TxID:      []byte("TX1"),
+			DataModel: types.Transaction_KV,
+			Reads:     nil,
+			Writes:    nil,
 		},
 		Signature: nil,
 	}

@@ -348,6 +348,8 @@ func runUserTestCases(t *testing.T, testCases []*userTestData, um *dbUserManagem
 			err = um.DeleteUsers(testCase.u)
 		}
 
+		require.Equal(t, types.Transaction_USER, s.LastTxType())
+
 		if testCase.res {
 			require.NoError(t, err)
 			if testCase.equal {
