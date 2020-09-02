@@ -69,6 +69,21 @@ func (t *TestServer) GetAllKeysForDB(name string) map[string][]byte {
 	return res
 }
 
+func (t *TestServer) GetAllMetadataForDB(name string) map[string]*types.Metadata {
+	res := make(map[string]*types.Metadata, 0)
+	db, ok := t.dbServer.mockserver.dbs[name]
+	if ok {
+		for k, v := range db.values {
+			if v.index >= len(v.values) {
+				res[k] = v.metas[len(v.values)-1]
+			} else {
+				res[k] = v.metas[v.index]
+			}
+		}
+	}
+	return res
+}
+
 func (t *TestServer) LastTxType() types.Transaction_Type {
 	return t.dbServer.ts.lastTxType
 }

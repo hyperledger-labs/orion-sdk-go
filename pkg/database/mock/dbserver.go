@@ -203,10 +203,7 @@ func (db *mockdb) PutState(req *types.KVWrite) error {
 						BlockNum: db.server.height.results[db.server.height.index].Height,
 						TxNum:    0,
 					},
-					AccessControl: &types.AccessControl{
-						ReadUsers:      map[string]bool{},
-						ReadWriteUsers: map[string]bool{},
-					},
+					AccessControl: req.ACL,
 				},
 			},
 			index: 0,
@@ -218,10 +215,7 @@ func (db *mockdb) PutState(req *types.KVWrite) error {
 				BlockNum: db.server.height.results[db.server.height.index].Height,
 				TxNum:    0,
 			},
-			AccessControl: &types.AccessControl{
-				ReadUsers:      map[string]bool{},
-				ReadWriteUsers: map[string]bool{},
-			},
+			AccessControl: req.ACL,
 		})
 	}
 	return nil

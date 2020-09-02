@@ -49,7 +49,7 @@ func (u *dbUserManagement) AddUsers(users []*types.User) error {
 		if err != nil {
 			return err
 		}
-		return tx.Put(user.GetID(), msgBytes)
+		return tx.Put(user.GetID(), msgBytes, nil)
 	}
 	return update(users, u.internalUserManagementDatabase, u.connector, createCallback, "create")
 }
@@ -66,7 +66,7 @@ func (u *dbUserManagement) UpdateUsers(users []*types.User) error {
 		if err != nil {
 			return err
 		}
-		return tx.Put(user.GetID(), msgBytes)
+		return tx.Put(user.GetID(), msgBytes, nil)
 	}
 	return update(users, u.internalUserManagementDatabase, u.connector, updateCallback, "update")
 }

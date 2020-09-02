@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
@@ -315,11 +316,11 @@ func TestTxContextPutDelete(t *testing.T) {
 		txCtx, err := db.Begin(txOptions)
 		require.NoError(t, err)
 
-		err = txCtx.Put("key3", []byte("Testvalue31"))
+		err = txCtx.Put("key3", []byte("Testvalue31"), nil)
 		require.NoError(t, err)
 		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
 
-		err = txCtx.Put("key4", []byte("Testvalue41"))
+		err = txCtx.Put("key4", []byte("Testvalue41"), nil)
 		require.NoError(t, err)
 		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
 
@@ -350,10 +351,82 @@ func TestTxContextPutDelete(t *testing.T) {
 
 		db.Close()
 		require.NoError(t, err)
-		err = txCtx.Put("key2", []byte("Val2"))
+		err = txCtx.Put("key2", []byte("Val2"), nil)
 		require.Contains(t, err.Error(), "valid")
 		err = txCtx.Delete("key2")
 		require.Contains(t, err.Error(), "valid")
+	})
+
+	t.Run("test-txcontext-putwithacl", func(t *testing.T) {
+		t.Parallel()
+		db, _, s := openTestDB(t)
+		defer s.Stop()
+
+		txOptions := &config.TxOptions{
+			TxIsolation:   config.Serializable,
+			ReadOptions:   &config.ReadOptions{QuorumSize: 1},
+			CommitOptions: &config.CommitOptions{QuorumSize: 1},
+		}
+
+		txCtx, err := db.Begin(txOptions)
+		require.NoError(t, err)
+
+		acl := &types.AccessControl{
+			ReadUsers: map[string]bool{
+				"u1": true,
+				"u2": true,
+			},
+			ReadWriteUsers: map[string]bool{
+				"u1": true,
+			},
+		}
+		err = txCtx.Put("key3", []byte("Testvalue31"), acl)
+		require.NoError(t, err)
+		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
+
+		err = txCtx.Put("key4", []byte("Testvalue41"), nil)
+		require.NoError(t, err)
+		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
+
+		require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key3")
+		require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key4")
+
+		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key3"], &types.KVWrite{
+			Key:      "key3",
+			IsDelete: false,
+			Value:    []byte("Testvalue31"),
+			ACL: &types.AccessControl{
+				ReadUsers: map[string]bool{
+					"u1": true,
+					"u2": true,
+				},
+				ReadWriteUsers: map[string]bool{
+					"u1": true,
+				},
+			},
+		}))
+
+		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key4"], &types.KVWrite{
+			Key:      "key4",
+			IsDelete: false,
+			Value:    []byte("Testvalue41"),
+		}))
+
+		txCtx.Commit()
+		dataStored := func() bool {
+			meta := s.GetAllMetadataForDB("testDb")["key3"]
+			return proto.Equal(meta.GetAccessControl(), &types.AccessControl{
+				ReadUsers: map[string]bool{
+					"u1": true,
+					"u2": true,
+				},
+				ReadWriteUsers: map[string]bool{
+					"u1": true,
+				},
+			})
+		}
+		require.Eventually(t, dataStored, 1000*time.Millisecond, 10*time.Millisecond)
+		db.Close()
 	})
 }
 
@@ -380,10 +453,10 @@ func TestTxContextCommitAbort(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, []byte("Testvalue21"), key2res)
 
-		err = txCtx.Put("key3", []byte("Testvalue31"))
+		err = txCtx.Put("key3", []byte("Testvalue31"), nil)
 		require.NoError(t, err)
 
-		err = txCtx.Put("key4", []byte("Testvalue41"))
+		err = txCtx.Put("key4", []byte("Testvalue41"), nil)
 		require.NoError(t, err)
 
 		err = txCtx.Delete("key3")
@@ -492,7 +565,7 @@ func TestTxContext_TxIsolation(t *testing.T) {
 		txCtx, err := db.Begin(txOptions)
 		require.NoError(t, err)
 
-		err = txCtx.Put("key1", []byte("NewValue"))
+		err = txCtx.Put("key1", []byte("NewValue"), nil)
 		require.NoError(t, err)
 
 		_, err = txCtx.Get("key1")

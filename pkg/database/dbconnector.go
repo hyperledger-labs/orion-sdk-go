@@ -112,7 +112,7 @@ func (c *dbConnector) CreateDB(dbName string, readACL, writeALC []string) error 
 	if err != nil {
 		return err
 	}
-	if err = tx.Put(dbName, dbConfigBytes); err != nil {
+	if err = tx.Put(dbName, dbConfigBytes, nil); err != nil {
 		return err
 	}
 	if _, err = tx.(*transactionContext).commit(types.Transaction_DB); err != nil {

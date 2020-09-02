@@ -60,7 +60,8 @@ type DBSession interface {
 type TxContext interface {
 	DataQuerier
 	// Put stores the given key and value, including ALC update
-	Put(key string, value []byte) error
+	// In case of nil ACL, it should be inherited from db
+	Put(key string, value []byte, acl *types.AccessControl) error
 	// Delete deletes the given Key
 	Delete(key string) error
 	// Commit commits the transaction and return the
@@ -77,7 +78,7 @@ type DataQuerier interface {
 	Get(key string) ([]byte, error)
 }
 
-// Provenance access to historical data and dats integrity proofs
+// Provenance access to historical data and data integrity proofs
 type Provenance interface {
 	// GetMerkleRoot returns the current block merkle root hash and the last committed
 	// block number

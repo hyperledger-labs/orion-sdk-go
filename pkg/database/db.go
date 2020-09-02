@@ -153,18 +153,20 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	return val, nil
 }
 
-func (tx *transactionContext) Put(key string, value []byte) error {
+func (tx *transactionContext) Put(key string, value []byte, acl *types.AccessControl) error {
 	if tx.isClosed {
 		return errors.New("transaction context not longer valid")
 	}
 	tx.rwset.mu.Lock()
 	defer tx.rwset.mu.Unlock()
 
-	tx.rwset.wset[key] = &types.KVWrite{
+	wset := &types.KVWrite{
 		Key:      key,
 		IsDelete: false,
 		Value:    value,
+		ACL:      acl,
 	}
+	tx.rwset.wset[key] = wset
 	return nil
 }
 

@@ -14,7 +14,6 @@ const (
 	DBName = "bdb"
 )
 
-
 func main() {
 	opt := createOptions("6001")
 
@@ -37,12 +36,12 @@ func main() {
 	}
 
 	fmt.Println("Adding [key1] = \"value1\"")
-	if err = tx.Put("key1", []byte("value1")); err != nil {
+	if err = tx.Put("key1", []byte("value1"), nil); err != nil {
 		log.Fatalln("can't put value for key key1 to database")
 	}
 
 	fmt.Println("Adding [key2] = \"value2\"")
-	if err = tx.Put("key2", []byte("value2")); err != nil {
+	if err = tx.Put("key2", []byte("value2"), nil); err != nil {
 		log.Fatalln("can't put value for key key2 to database")
 	}
 
@@ -72,7 +71,7 @@ func main() {
 	fmt.Printf("[key2] = %s\n", string(val2))
 
 	fmt.Printf("Storing [key3] = \"%s\" + \"%s\"\n", string(val1), string(val2))
-	if err = tx.Put("key3", []byte(string(val1)+string(val2))); err != nil {
+	if err = tx.Put("key3", []byte(string(val1)+string(val2)), nil); err != nil {
 		log.Fatalln("can't put value for key key3 to database")
 	}
 
