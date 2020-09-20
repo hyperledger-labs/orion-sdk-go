@@ -70,7 +70,7 @@ func (c *Client) GetState(ctx context.Context, in *types.GetStateQueryEnvelope) 
 	return res, err
 }
 
-func (c *Client) SubmitTransaction(ctx context.Context, in *types.TransactionEnvelope) (*types.ResponseEnvelope, error) {
+func (c *Client) SubmitTransaction(ctx context.Context, in *types.DataTxEnvelope) (*types.ResponseEnvelope, error) {
 	rel := &url.URL{Path: "/tx"}
 	u := c.BaseURL.ResolveReference(rel)
 

@@ -45,8 +45,9 @@ func (db *blockchainDB) Begin(options *config.TxOptions) (TxContext, error) {
 		db:   db,
 		txID: txID,
 		rwset: &txRWSet{
-			wset: make(map[string]*types.KVWrite),
-			rset: make(map[string]*types.KVRead),
+			writes:  make(map[string]*types.DataWrite),
+			reads:   make(map[string]*types.DataRead),
+			deletes: make(map[string]*types.DataDelete),
 		},
 		TxOptions: options,
 	}
@@ -110,9 +111,10 @@ type transactionContext struct {
 }
 
 type txRWSet struct {
-	wset map[string]*types.KVWrite
-	rset map[string]*types.KVRead
-	mu   sync.Mutex
+	writes  map[string]*types.DataWrite
+	reads   map[string]*types.DataRead
+	deletes map[string]*types.DataDelete
+	mu      sync.Mutex
 }
 
 func (tx *transactionContext) Get(key string) ([]byte, error) {
@@ -139,7 +141,7 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
-	rset := &types.KVRead{
+	rset := &types.DataRead{
 		Key:     key,
 		Version: meta.GetVersion(),
 	}
@@ -149,7 +151,7 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 		tx.isolationError = err
 		return nil, err
 	}
-	tx.rwset.rset[key] = rset
+	tx.rwset.reads[key] = rset
 	return val, nil
 }
 
@@ -160,13 +162,12 @@ func (tx *transactionContext) Put(key string, value []byte, acl *types.AccessCon
 	tx.rwset.mu.Lock()
 	defer tx.rwset.mu.Unlock()
 
-	wset := &types.KVWrite{
-		Key:      key,
-		IsDelete: false,
-		Value:    value,
-		ACL:      acl,
+	wset := &types.DataWrite{
+		Key:   key,
+		Value: value,
+		ACL:   acl,
 	}
-	tx.rwset.wset[key] = wset
+	tx.rwset.writes[key] = wset
 	return nil
 }
 
@@ -177,19 +178,13 @@ func (tx *transactionContext) Delete(key string) error {
 	tx.rwset.mu.Lock()
 	defer tx.rwset.mu.Unlock()
 
-	tx.rwset.wset[key] = &types.KVWrite{
-		Key:      key,
-		IsDelete: true,
-		Value:    nil,
+	tx.rwset.deletes[key] = &types.DataDelete{
+		Key: key,
 	}
 	return nil
 }
 
 func (tx *transactionContext) Commit() (*types.Digest, error) {
-	return tx.commit(types.Transaction_DATA)
-}
-
-func (tx *transactionContext) commit(txType types.Transaction_Type) (*types.Digest, error) {
 	if tx.isClosed {
 		return nil, errors.New("transaction context not longer valid")
 	}
@@ -198,26 +193,29 @@ func (tx *transactionContext) commit(txType types.Transaction_Type) (*types.Dige
 	tx.db.mu.Lock()
 	delete(tx.db.openTx, hex.EncodeToString(tx.txID))
 	tx.db.mu.Unlock()
-	envelope := &types.TransactionEnvelope{}
+	envelope := &types.DataTxEnvelope{}
 
-	payload := &types.Transaction{
-		UserID:    []byte(tx.db.userID),
-		DBName:    tx.db.dbName,
-		TxID:      tx.txID,
-		DataModel: types.Transaction_KV,
-		Reads:     make([]*types.KVRead, 0),
-		Writes:    make([]*types.KVWrite, 0),
-		Type:      txType,
+	payload := &types.DataTx{
+		UserID:      tx.db.userID,
+		DBName:      tx.db.dbName,
+		TxID:        string(tx.txID),
+		DataReads:   make([]*types.DataRead, 0),
+		DataWrites:  make([]*types.DataWrite, 0),
+		DataDeletes: make([]*types.DataDelete, 0),
 	}
 
 	envelope.Payload = payload
 
-	for _, v := range tx.rwset.wset {
-		payload.Writes = append(payload.Writes, v)
+	for _, v := range tx.rwset.writes {
+		payload.DataWrites = append(payload.DataWrites, v)
 	}
 
-	for _, v := range tx.rwset.rset {
-		payload.Reads = append(payload.Reads, v)
+	for _, v := range tx.rwset.reads {
+		payload.DataReads = append(payload.DataReads, v)
+	}
+
+	for _, v := range tx.rwset.deletes {
+		payload.DataDeletes = append(payload.DataDeletes, v)
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -277,8 +275,8 @@ func computeTxID(creator []byte, h hash.Hash) ([]byte, error) {
 	return digest, nil
 }
 
-func validateRSet(tx *transactionContext, rset *types.KVRead) error {
-	if storedRSet, ok := tx.rwset.rset[rset.Key]; ok {
+func validateRSet(tx *transactionContext, rset *types.DataRead) error {
+	if storedRSet, ok := tx.rwset.reads[rset.Key]; ok {
 		if rset.GetVersion() != storedRSet.GetVersion() {
 			if rset.GetVersion() == nil || storedRSet.GetVersion() == nil {
 				return errors.Errorf("tx isolation level not satisfied, Key value deleted, %v, %v", storedRSet, rset)
@@ -289,7 +287,7 @@ func validateRSet(tx *transactionContext, rset *types.KVRead) error {
 		}
 	}
 
-	if v, exist := tx.rwset.wset[rset.Key]; exist {
+	if v, exist := tx.rwset.writes[rset.Key]; exist {
 		return errors.Errorf("tx isolation not satisfied, Key value already changed inside this tx, %v, %v", rset, v)
 	}
 	return nil

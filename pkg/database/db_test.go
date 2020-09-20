@@ -164,8 +164,6 @@ func TestCreateDelete(t *testing.T) {
 			}
 		}
 		require.True(t, dbfound)
-
-		require.Equal(t, types.Transaction_DB, s.LastTxType())
 	})
 
 	t.Run("test-db-create-existing-db", func(t *testing.T) {
@@ -212,7 +210,6 @@ func TestCreateDelete(t *testing.T) {
 			}
 		}
 		require.False(t, dbfound)
-		require.Equal(t, types.Transaction_DB, s.LastTxType())
 	})
 
 	t.Run("test-db-double-double-non-exist", func(t *testing.T) {
@@ -260,22 +257,22 @@ func TestTxContextGet(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, []byte("Testvalue21"), key2res)
 
-		rset1 := &types.KVRead{
+		rset1 := &types.DataRead{
 			Key: "key1",
 			Version: &types.Version{
 				BlockNum: 0,
 				TxNum:    0,
 			},
 		}
-		rset2 := &types.KVRead{
+		rset2 := &types.DataRead{
 			Key: "key2",
 			Version: &types.Version{
 				BlockNum: 0,
 				TxNum:    1,
 			},
 		}
-		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.rset["key1"], rset1))
-		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.rset["key2"], rset2))
+		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.reads["key1"], rset1))
+		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.reads["key2"], rset2))
 
 	})
 
@@ -318,35 +315,31 @@ func TestTxContextPutDelete(t *testing.T) {
 
 		err = txCtx.Put("key3", []byte("Testvalue31"), nil)
 		require.NoError(t, err)
-		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
+		require.Empty(t, txCtx.(*transactionContext).rwset.reads)
 
 		err = txCtx.Put("key4", []byte("Testvalue41"), nil)
 		require.NoError(t, err)
-		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
+		require.Empty(t, txCtx.(*transactionContext).rwset.reads)
 
-		require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key3")
-		require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key4")
+		require.Contains(t, txCtx.(*transactionContext).rwset.writes, "key3")
+		require.Contains(t, txCtx.(*transactionContext).rwset.writes, "key4")
 
-		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key3"], &types.KVWrite{
-			Key:      "key3",
-			IsDelete: false,
-			Value:    []byte("Testvalue31"),
+		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.writes["key3"], &types.DataWrite{
+			Key:   "key3",
+			Value: []byte("Testvalue31"),
 		}))
 
-		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key4"], &types.KVWrite{
-			Key:      "key4",
-			IsDelete: false,
-			Value:    []byte("Testvalue41"),
+		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.writes["key4"], &types.DataWrite{
+			Key:   "key4",
+			Value: []byte("Testvalue41"),
 		}))
 
 		err = txCtx.Delete("key3")
 		require.NoError(t, err)
-		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
-		require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key3")
-		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key3"], &types.KVWrite{
-			Key:      "key3",
-			IsDelete: true,
-			Value:    nil,
+		require.Empty(t, txCtx.(*transactionContext).rwset.reads)
+		require.Contains(t, txCtx.(*transactionContext).rwset.writes, "key3")
+		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.deletes["key3"], &types.DataDelete{
+			Key: "key3",
 		}))
 
 		db.Close()
@@ -382,19 +375,18 @@ func TestTxContextPutDelete(t *testing.T) {
 		}
 		err = txCtx.Put("key3", []byte("Testvalue31"), acl)
 		require.NoError(t, err)
-		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
+		require.Empty(t, txCtx.(*transactionContext).rwset.reads)
 
 		err = txCtx.Put("key4", []byte("Testvalue41"), nil)
 		require.NoError(t, err)
-		require.Empty(t, txCtx.(*transactionContext).rwset.rset)
+		require.Empty(t, txCtx.(*transactionContext).rwset.reads)
 
-		require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key3")
-		require.Contains(t, txCtx.(*transactionContext).rwset.wset, "key4")
+		require.Contains(t, txCtx.(*transactionContext).rwset.writes, "key3")
+		require.Contains(t, txCtx.(*transactionContext).rwset.writes, "key4")
 
-		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key3"], &types.KVWrite{
-			Key:      "key3",
-			IsDelete: false,
-			Value:    []byte("Testvalue31"),
+		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.writes["key3"], &types.DataWrite{
+			Key:   "key3",
+			Value: []byte("Testvalue31"),
 			ACL: &types.AccessControl{
 				ReadUsers: map[string]bool{
 					"u1": true,
@@ -406,10 +398,9 @@ func TestTxContextPutDelete(t *testing.T) {
 			},
 		}))
 
-		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.wset["key4"], &types.KVWrite{
-			Key:      "key4",
-			IsDelete: false,
-			Value:    []byte("Testvalue41"),
+		require.True(t, proto.Equal(txCtx.(*transactionContext).rwset.writes["key4"], &types.DataWrite{
+			Key:   "key4",
+			Value: []byte("Testvalue41"),
 		}))
 
 		txCtx.Commit()
@@ -464,8 +455,6 @@ func TestTxContextCommitAbort(t *testing.T) {
 
 		_, err = txCtx.Commit()
 		require.NoError(t, err)
-
-		require.Equal(t, types.Transaction_DATA, s.LastTxType())
 	})
 
 	t.Run("test-txcontext-commit-double", func(t *testing.T) {

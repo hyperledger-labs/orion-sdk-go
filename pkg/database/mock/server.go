@@ -83,7 +83,3 @@ func (t *TestServer) GetAllMetadataForDB(name string) map[string]*types.Metadata
 	}
 	return res
 }
-
-func (t *TestServer) LastTxType() types.Transaction_Type {
-	return t.dbServer.ts.lastTxType
-}

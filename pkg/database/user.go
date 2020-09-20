@@ -122,7 +122,7 @@ func update(users []*types.User, db DBSession, connector *dbConnector, updateCal
 			return err
 		}
 	}
-	_, err = tx.(*transactionContext).commit(types.Transaction_USER)
+	_, err = tx.Commit()
 	return errors.WithMessagef(err, "can't commit %s transaction for %v", op, users)
 }
 

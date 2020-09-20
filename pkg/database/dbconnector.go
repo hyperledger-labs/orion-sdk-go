@@ -115,7 +115,7 @@ func (c *dbConnector) CreateDB(dbName string, readACL, writeALC []string) error 
 	if err = tx.Put(dbName, dbConfigBytes, nil); err != nil {
 		return err
 	}
-	if _, err = tx.(*transactionContext).commit(types.Transaction_DB); err != nil {
+	if _, err = tx.Commit(); err != nil {
 		return err
 	}
 	return nil
@@ -144,7 +144,7 @@ func (c *dbConnector) DeleteDB(dbName string) error {
 	if err = tx.Delete(dbName); err != nil {
 		return err
 	}
-	if _, err = tx.(*transactionContext).commit(types.Transaction_DB); err != nil {
+	if _, err = tx.Commit(); err != nil {
 		return err
 	}
 	return nil

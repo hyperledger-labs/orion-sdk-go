@@ -178,20 +178,8 @@ func (db *mockdb) GetState(req *types.GetStateQueryEnvelope) ([]byte, *types.Met
 	return val.values[len(val.values)-1], val.metas[len(val.metas)-1]
 }
 
-func (db *mockdb) PutState(req *types.KVWrite) error {
+func (db *mockdb) PutState(req *types.DataWrite) error {
 	_, ok := db.values[req.Key]
-	if req.IsDelete {
-		if !ok {
-			db.values[req.Key] = &value{
-				values: make([][]byte, 0),
-				metas:  make([]*types.Metadata, 0),
-			}
-			return nil
-		}
-		db.values[req.Key].values = append(db.values[req.Key].values, nil)
-		db.values[req.Key].metas = append(db.values[req.Key].metas, nil)
-		db.values[req.Key].index += 1
-	}
 	if !ok {
 		db.values[req.Key] = &value{
 			values: [][]byte{
@@ -218,5 +206,21 @@ func (db *mockdb) PutState(req *types.KVWrite) error {
 			AccessControl: req.ACL,
 		})
 	}
+	return nil
+}
+
+func (db *mockdb) DelState(del *types.DataDelete) error {
+	_, ok := db.values[del.Key]
+
+	if !ok {
+		db.values[del.Key] = &value{
+			values: make([][]byte, 0),
+			metas:  make([]*types.Metadata, 0),
+		}
+		return nil
+	}
+	db.values[del.Key].values = append(db.values[del.Key].values, nil)
+	db.values[del.Key].metas = append(db.values[del.Key].metas, nil)
+	db.values[del.Key].index += 1
 	return nil
 }

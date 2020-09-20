@@ -136,14 +136,14 @@ func TestClient_SubmitTransaction(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 
-	req := &types.TransactionEnvelope{
-		Payload: &types.Transaction{
-			UserID:    []byte("testUser"),
-			DBName:    "testDb",
-			TxID:      []byte("TX1"),
-			DataModel: types.Transaction_KV,
-			Reads:     nil,
-			Writes:    nil,
+	req := &types.DataTxEnvelope{
+		Payload: &types.DataTx{
+			UserID:      "testUser",
+			DBName:      "testDb",
+			TxID:        "TX1",
+			DataWrites:  nil,
+			DataReads:   nil,
+			DataDeletes: nil,
 		},
 		Signature: nil,
 	}

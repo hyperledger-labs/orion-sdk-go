@@ -110,7 +110,7 @@ func (rs *DBServer) handleDataQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (rs *DBServer) handleTransactionSubmit(w http.ResponseWriter, r *http.Request) {
-	tx := new(types.TransactionEnvelope)
+	tx := new(types.DataTxEnvelope)
 	err := json.NewDecoder(r.Body).Decode(tx)
 	if err != nil {
 		composeJSONResponse(w, http.StatusBadRequest, &ErrorResponse{Error: err.Error()})

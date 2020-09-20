@@ -8,8 +8,7 @@ import (
 )
 
 type transactionProcessor struct {
-	dbserver   *mockdbserver
-	lastTxType types.Transaction_Type
+	dbserver *mockdbserver
 }
 
 func NewTransactionServer(dbserver *mockdbserver) (*transactionProcessor, error) {
@@ -18,15 +17,18 @@ func NewTransactionServer(dbserver *mockdbserver) (*transactionProcessor, error)
 	}, nil
 }
 
-func (tp *transactionProcessor) SubmitTransaction(ctx context.Context, tx *types.TransactionEnvelope) error {
+func (tp *transactionProcessor) SubmitTransaction(ctx context.Context, tx *types.DataTxEnvelope) error {
 	db, ok := tp.dbserver.dbs[tx.Payload.DBName]
 	if !ok {
 		return errors.Errorf("database not exist %s", tx.Payload.DBName)
 	}
 
-	tp.lastTxType = tx.Payload.Type
-	for _, kvWrite := range tx.Payload.Writes {
+	for _, kvWrite := range tx.Payload.DataWrites {
 		db.PutState(kvWrite)
+	}
+
+	for _, del := range tx.Payload.DataDeletes {
+		db.DelState(del)
 	}
 	return nil
 }
