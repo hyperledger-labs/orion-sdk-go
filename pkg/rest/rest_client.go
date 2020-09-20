@@ -56,7 +56,7 @@ func (c *Client) GetStatus(ctx context.Context, in *types.GetStatusQueryEnvelope
 }
 
 func (c *Client) GetState(ctx context.Context, in *types.GetStateQueryEnvelope) (*types.GetStateResponseEnvelope, error) {
-	rel := &url.URL{Path: fmt.Sprintf("/db/%s/state/%s", in.Payload.DBName, in.Payload.Key)}
+	rel := &url.URL{Path: fmt.Sprintf("/data/%s/%s", in.Payload.DBName, in.Payload.Key)}
 
 	resp, err := c.executeGetRequest(ctx, rel, in.GetPayload().GetUserID(), in.GetSignature())
 	if err != nil {
@@ -71,7 +71,7 @@ func (c *Client) GetState(ctx context.Context, in *types.GetStateQueryEnvelope) 
 }
 
 func (c *Client) SubmitTransaction(ctx context.Context, in *types.DataTxEnvelope) (*types.ResponseEnvelope, error) {
-	rel := &url.URL{Path: "/tx"}
+	rel := &url.URL{Path: "/data"}
 	u := c.BaseURL.ResolveReference(rel)
 
 	var buf io.ReadWriter
