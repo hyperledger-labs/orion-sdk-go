@@ -39,9 +39,9 @@ func NewDBServer() (*DBServer, error) {
 	}
 
 	rs.router = mux.NewRouter()
-	rs.router.HandleFunc("/data/{dbname}/{key}", rs.handleDataQuery).Methods(http.MethodGet)
-	rs.router.HandleFunc("/db/{dbname}", rs.handleStatusQuery).Methods(http.MethodGet)
-	rs.router.HandleFunc("/data", rs.handleTransactionSubmit).Methods(http.MethodPost)
+	rs.router.HandleFunc(constants.GetData, rs.handleDataQuery).Methods(http.MethodGet)
+	rs.router.HandleFunc(constants.GetDBStatus, rs.handleStatusQuery).Methods(http.MethodGet)
+	rs.router.HandleFunc(constants.PostDataTx, rs.handleTransactionSubmit).Methods(http.MethodPost)
 	return rs, nil
 }
 
