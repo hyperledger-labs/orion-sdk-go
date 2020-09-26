@@ -74,12 +74,12 @@ func (db *blockchainDB) Get(key string) ([]byte, error) {
 	if db.isClosed {
 		return nil, errors.New("db closed")
 	}
-	dq := &types.GetStateQuery{
+	dq := &types.GetDataQuery{
 		UserID: db.userID,
 		DBName: db.dbName,
 		Key:    key,
 	}
-	envelope := &types.GetStateQueryEnvelope{
+	envelope := &types.GetDataQueryEnvelope{
 		Payload: dq,
 	}
 	dqBytes, err := json.Marshal(dq)
@@ -90,7 +90,7 @@ func (db *blockchainDB) Get(key string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
 	}
-	val, _, err := getQueryValue(db, db.ReadOptions, envelope)
+	val, _, err := getQueryValue(db, envelope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
@@ -121,12 +121,12 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	if tx.isClosed {
 		return nil, errors.New("transaction context not longer valid")
 	}
-	dq := &types.GetStateQuery{
+	dq := &types.GetDataQuery{
 		UserID: tx.db.userID,
 		DBName: tx.db.dbName,
 		Key:    key,
 	}
-	envelope := &types.GetStateQueryEnvelope{
+	envelope := &types.GetDataQueryEnvelope{
 		Payload: dq,
 	}
 	dqBytes, err := json.Marshal(dq)
@@ -137,7 +137,7 @@ func (tx *transactionContext) Get(key string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't sign query message %v", dq)
 	}
-	val, meta, err := getQueryValue(tx.db, tx.ReadOptions, envelope)
+	val, meta, err := getQueryValue(tx.db, envelope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get value")
 	}
@@ -294,7 +294,7 @@ func validateRSet(tx *transactionContext, rset *types.DataRead) error {
 }
 
 // Trying to read value, while retrying to reconnect if case of failure
-func getQueryValue(db *blockchainDB, ro *config.ReadOptions, dq *types.GetStateQueryEnvelope) ([]byte, *types.Metadata, error) {
+func getQueryValue(db *blockchainDB, dq *types.GetDataQueryEnvelope) ([]byte, *types.Metadata, error) {
 	valueEnvelope, err := db.GetState(context.Background(), dq)
 	if err != nil {
 		log.Printf("Can't get value from service %s %v", db.RawURL, err)

@@ -24,11 +24,11 @@ type height struct {
 }
 
 type dbStatus struct {
-	values []*types.GetStatusResponse
+	values []*types.GetDBStatusResponse
 	index  int
 }
 
-func (qp *queryProcessor) GetState(ctx context.Context, req *types.GetStateQueryEnvelope) (*types.GetStateResponseEnvelope, error) {
+func (qp *queryProcessor) GetState(ctx context.Context, req *types.GetDataQueryEnvelope) (*types.GetDataResponseEnvelope, error) {
 	db, ok := qp.dbserver.dbs[req.Payload.DBName]
 	var val []byte
 	var meta *types.Metadata
@@ -40,9 +40,9 @@ func (qp *queryProcessor) GetState(ctx context.Context, req *types.GetStateQuery
 	return valueToEnv(val, meta)
 }
 
-func (qp *queryProcessor) GetStatus(ctx context.Context, req *types.GetStatusQueryEnvelope) (*types.GetStatusResponseEnvelope, error) {
+func (qp *queryProcessor) GetStatus(ctx context.Context, req *types.GetDBStatusQueryEnvelope) (*types.GetDBStatusResponseEnvelope, error) {
 	_, ok := qp.dbserver.dbs[req.Payload.DBName]
-	return dbStatusToEnv(&types.GetStatusResponse{
+	return dbStatusToEnv(&types.GetDBStatusResponse{
 		Exist: ok,
 	})
 }
@@ -53,8 +53,8 @@ func NewQueryServer(dbserver *mockdbserver) (*queryProcessor, error) {
 	}, nil
 }
 
-func valueToEnv(val []byte, meta *types.Metadata) (*types.GetStateResponseEnvelope, error) {
-	response := &types.GetStateResponse{
+func valueToEnv(val []byte, meta *types.Metadata) (*types.GetDataResponseEnvelope, error) {
+	response := &types.GetDataResponse{
 		Header: &types.ResponseHeader{
 			NodeID: nodeID,
 		},
@@ -69,13 +69,13 @@ func valueToEnv(val []byte, meta *types.Metadata) (*types.GetStateResponseEnvelo
 	if err != nil {
 		return nil, err
 	}
-	return &types.GetStateResponseEnvelope{
+	return &types.GetDataResponseEnvelope{
 		Payload:   response,
 		Signature: signature,
 	}, nil
 }
 
-func dbStatusToEnv(dbStatus *types.GetStatusResponse) (*types.GetStatusResponseEnvelope, error) {
+func dbStatusToEnv(dbStatus *types.GetDBStatusResponse) (*types.GetDBStatusResponseEnvelope, error) {
 	dbStatusBytes, err := json.Marshal(dbStatus)
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func dbStatusToEnv(dbStatus *types.GetStatusResponse) (*types.GetStatusResponseE
 	if err != nil {
 		return nil, err
 	}
-	return &types.GetStatusResponseEnvelope{
+	return &types.GetDBStatusResponseEnvelope{
 		Payload:   dbStatus,
 		Signature: signature,
 	}, nil

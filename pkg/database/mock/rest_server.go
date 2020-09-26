@@ -58,8 +58,8 @@ func (rs *DBServer) handleStatusQuery(w http.ResponseWriter, r *http.Request) {
 		composeJSONResponse(w, http.StatusBadRequest, &ErrorResponse{Error: "query error - no dbname provided"})
 		return
 	}
-	dbQueryEnvelope := &types.GetStatusQueryEnvelope{
-		Payload: &types.GetStatusQuery{
+	dbQueryEnvelope := &types.GetDBStatusQueryEnvelope{
+		Payload: &types.GetDBStatusQuery{
 			UserID: user,
 			DBName: dbname,
 		},
@@ -92,8 +92,8 @@ func (rs *DBServer) handleDataQuery(w http.ResponseWriter, r *http.Request) {
 		composeJSONResponse(w, http.StatusBadRequest, &ErrorResponse{Error: "query error - no key provided"})
 		return
 	}
-	dataQueryEnvelope := &types.GetStateQueryEnvelope{
-		Payload: &types.GetStateQuery{
+	dataQueryEnvelope := &types.GetDataQueryEnvelope{
+		Payload: &types.GetDataQuery{
 			UserID: user,
 			DBName: dbname,
 			Key:    key,

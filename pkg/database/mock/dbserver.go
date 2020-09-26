@@ -134,11 +134,11 @@ func restartMockServer() *mockdbserver {
 
 	dbStatusResults := make(map[string]*dbStatus)
 	testDBResult := &dbStatus{
-		values: make([]*types.GetStatusResponse, 0),
+		values: make([]*types.GetDBStatusResponse, 0),
 		index:  0,
 	}
 
-	testDBResult.values = append(testDBResult.values, &types.GetStatusResponse{
+	testDBResult.values = append(testDBResult.values, &types.GetDBStatusResponse{
 		Header: &types.ResponseHeader{
 			NodeID: nodeID,
 		},
@@ -154,9 +154,9 @@ func restartMockServer() *mockdbserver {
 	return mockserver
 }
 
-func (dbs *mockdbserver) GetStatus(ctx context.Context, req *types.GetStatusQueryEnvelope) (*types.GetStatusResponseEnvelope, error) {
+func (dbs *mockdbserver) GetStatus(ctx context.Context, req *types.GetDBStatusQueryEnvelope) (*types.GetDBStatusResponseEnvelope, error) {
 	_, ok := dbs.dbs[req.Payload.DBName]
-	return dbStatusToEnv(&types.GetStatusResponse{
+	return dbStatusToEnv(&types.GetDBStatusResponse{
 		Header: &types.ResponseHeader{
 			NodeID: nodeID,
 		},
@@ -164,7 +164,7 @@ func (dbs *mockdbserver) GetStatus(ctx context.Context, req *types.GetStatusQuer
 	})
 }
 
-func (db *mockdb) GetState(req *types.GetStateQueryEnvelope) ([]byte, *types.Metadata) {
+func (db *mockdb) GetState(req *types.GetDataQueryEnvelope) ([]byte, *types.Metadata) {
 	val, ok := db.values[req.Payload.Key]
 	if !ok {
 		return nil, nil

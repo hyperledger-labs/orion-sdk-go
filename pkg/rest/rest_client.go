@@ -40,7 +40,7 @@ func NewRESTClient(rawurl string, httpClient *http.Client) (*Client, error) {
 	return res, nil
 }
 
-func (c *Client) GetStatus(ctx context.Context, in *types.GetStatusQueryEnvelope) (*types.GetStatusResponseEnvelope, error) {
+func (c *Client) GetStatus(ctx context.Context, in *types.GetDBStatusQueryEnvelope) (*types.GetDBStatusResponseEnvelope, error) {
 	rel := &url.URL{Path: fmt.Sprintf("/db/%s", in.Payload.DBName)}
 
 	resp, err := c.executeGetRequest(ctx, rel, in.GetPayload().GetUserID(), in.GetSignature())
@@ -50,12 +50,12 @@ func (c *Client) GetStatus(ctx context.Context, in *types.GetStatusQueryEnvelope
 
 	defer resp.Body.Close()
 
-	res := &types.GetStatusResponseEnvelope{}
+	res := &types.GetDBStatusResponseEnvelope{}
 	err = json.NewDecoder(resp.Body).Decode(res)
 	return res, err
 }
 
-func (c *Client) GetState(ctx context.Context, in *types.GetStateQueryEnvelope) (*types.GetStateResponseEnvelope, error) {
+func (c *Client) GetState(ctx context.Context, in *types.GetDataQueryEnvelope) (*types.GetDataResponseEnvelope, error) {
 	rel := &url.URL{Path: fmt.Sprintf("/data/%s/%s", in.Payload.DBName, in.Payload.Key)}
 
 	resp, err := c.executeGetRequest(ctx, rel, in.GetPayload().GetUserID(), in.GetSignature())
@@ -65,7 +65,7 @@ func (c *Client) GetState(ctx context.Context, in *types.GetStateQueryEnvelope) 
 
 	defer resp.Body.Close()
 
-	res := &types.GetStateResponseEnvelope{}
+	res := &types.GetDataResponseEnvelope{}
 	err = json.NewDecoder(resp.Body).Decode(res)
 	return res, err
 }

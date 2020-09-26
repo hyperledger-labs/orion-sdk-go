@@ -7,11 +7,11 @@ import (
 )
 
 var nodeSigner *crypto.Signer
-var nodeID []byte
+var nodeID string
 
 func init() {
 	nodeOptions := createNodeSignerOptions()
-	nodeID = []byte("node1")
+	nodeID = "node1"
 	var err error
 	nodeSigner, err = crypto.NewSigner(nodeOptions)
 	if err != nil {

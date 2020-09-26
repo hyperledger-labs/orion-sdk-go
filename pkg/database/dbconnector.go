@@ -210,11 +210,11 @@ func (c *dbConnector) getClientForDB(db *blockchainDB) (*rest.Client, error) {
 }
 
 func checkDB(client *rest.Client, db *blockchainDB) (bool, error) {
-	query := &types.GetStatusQuery{
+	query := &types.GetDBStatusQuery{
 		UserID: db.userID,
 		DBName: db.dbName,
 	}
-	envelope := &types.GetStatusQueryEnvelope{
+	envelope := &types.GetDBStatusQueryEnvelope{
 		Payload:   query,
 		Signature: nil,
 	}

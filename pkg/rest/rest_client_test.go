@@ -27,8 +27,8 @@ func TestClient_GetState(t *testing.T) {
 	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port), http.DefaultClient)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
-	req := &types.GetStateQueryEnvelope{
-		Payload: &types.GetStateQuery{
+	req := &types.GetDataQueryEnvelope{
+		Payload: &types.GetDataQuery{
 			UserID: "testUser",
 			DBName: "testDb",
 			Key:    "key1",
@@ -55,8 +55,8 @@ func TestClient_GetStateError(t *testing.T) {
 	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port), http.DefaultClient)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
-	req := &types.GetStateQueryEnvelope{
-		Payload: &types.GetStateQuery{
+	req := &types.GetDataQueryEnvelope{
+		Payload: &types.GetDataQuery{
 			UserID: "testUser",
 			DBName: "testDb",
 			Key:    "key1",
@@ -82,8 +82,8 @@ func TestClient_GetStatus(t *testing.T) {
 	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port), http.DefaultClient)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
-	req := &types.GetStatusQueryEnvelope{
-		Payload: &types.GetStatusQuery{
+	req := &types.GetDBStatusQueryEnvelope{
+		Payload: &types.GetDBStatusQuery{
 			UserID: "testUser",
 			DBName: "testDb",
 		},
@@ -109,8 +109,8 @@ func TestClient_GetStatusError(t *testing.T) {
 	rc, err := NewRESTClient(fmt.Sprintf("http://localhost:%s", port), http.DefaultClient)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
-	req := &types.GetStatusQueryEnvelope{
-		Payload: &types.GetStatusQuery{
+	req := &types.GetDBStatusQueryEnvelope{
+		Payload: &types.GetDBStatusQuery{
 			UserID: "testUser",
 			DBName: "testDb",
 		},
