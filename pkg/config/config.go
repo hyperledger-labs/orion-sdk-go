@@ -1,51 +1,36 @@
 package config
 
-import (
-	"github.ibm.com/blockchaindb/library/pkg/crypto"
-	"github.ibm.com/blockchaindb/library/pkg/crypto_utils"
-)
-
-// Options - database options, including connection options, user crypto materials locations and transaction options
-type Options struct {
-	ConnectionOptions []*ConnectionOption
-	User              *IdentityOptions
-	ServersVerify     *crypto_utils.VerificationOptions
-	*TxOptions
+// Replica
+type Replica struct {
+	// ID replica's ID
+	ID string
+	// Endpoint the URI of the replica to connect to
+	Endpoint string
 }
 
-// IdentityOptions contains client is and path to its signing entity
-type IdentityOptions struct {
-	Signer *crypto.SignerOptions
+// ConnectionConfig required configuration in order to
+// open session with BCDB instance, replica set informations
+// servers root CAs
+type ConnectionConfig struct {
+	// List of replicas URIs client can connect to
+	ReplicaSet []*Replica
+	// Keeps path to the server's root CA
+	RootCAs []string
+}
+
+// SessionConfig keeps per database session
+// configuration information
+type SessionConfig struct {
+	UserConfig *UserConfig
+}
+
+// UserConfig user related information
+// maintains wallet with public and private keys
+type UserConfig struct {
+	// UserID the identity of the user
 	UserID string
-}
-
-// TransactionIsolation - database transaction isolation level
-type TransactionIsolation int
-
-const (
-	Serializable TransactionIsolation = iota + 1
-	PhantomRead
-	RepeatableRead
-)
-
-// TxOptions - transaction execution options, including tx isolation level, number of consistent reads and commits
-type TxOptions struct {
-	TxIsolation   TransactionIsolation
-	ReadOptions   *ReadOptions
-	CommitOptions *CommitOptions
-}
-
-//ConnectionOption - how to connect to database single server
-type ConnectionOption struct {
-	URL string
-}
-
-// ReadOptions - transaction read quorum
-type ReadOptions struct {
-	QuorumSize int
-}
-
-// CommitOptions - transaction commit quorum
-type CommitOptions struct {
-	QuorumSize int
+	// CertPath path to the user's certificate
+	CertPath string
+	// PrivateKeyPath path to the user's private key
+	PrivateKeyPath string
 }
