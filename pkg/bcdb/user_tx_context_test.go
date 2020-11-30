@@ -83,7 +83,7 @@ func TestUserContext_AddAndRetrieveUser(t *testing.T) {
 	}, time.Minute, 200*time.Millisecond)
 }
 
-func TestUserContext_MallformedRequest(t *testing.T) {
+func TestUserContext_MalformedRequest(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin"})
 	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
@@ -167,7 +167,7 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 					restClient: restClient,
 					logger:     logger,
 					replicaSet: map[string]*url.URL{
-						"node1": &url.URL{
+						"node1": {
 							Path: "http://localhost:8888",
 						},
 					},

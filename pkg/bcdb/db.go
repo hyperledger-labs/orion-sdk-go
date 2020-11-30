@@ -34,6 +34,7 @@ type BCDB interface {
 type DBSession interface {
 	UsersTx() (UsersTxContext, error)
 	DataTx(database string) (DataTxContext, error)
+	DBsTx() (DBsTxContext, error)
 	ConfigTx() (ConfigTxContext, error)
 }
 
@@ -236,6 +237,31 @@ func (d *dbSession) UsersTx() (UsersTxContext, error) {
 		},
 	}
 	return userTx, nil
+}
+
+// DBsTx returns database management transaction context
+func (d *dbSession) DBsTx() (DBsTxContext, error) {
+	httpClient := d.newHTTPClient()
+
+	nodesCerts, err := d.getServerCertificates(httpClient)
+	if err != nil {
+		return nil, err
+	}
+
+	dbsTx := &dbsTxContext{
+		commonTxContext: commonTxContext{
+			userID:     d.userID,
+			signer:     d.signer,
+			userCert:   d.userCert,
+			replicaSet: d.replicaSet,
+			nodesCerts: nodesCerts,
+			restClient: NewRestClient(d.userID, httpClient, d.signer),
+			logger:     d.logger,
+		},
+		createdDBs: map[string]bool{},
+		deletedDBs: map[string]bool{},
+	}
+	return dbsTx, nil
 }
 
 // DataTx returns data's transaction context
