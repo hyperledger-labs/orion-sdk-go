@@ -75,13 +75,14 @@ func (u *userTxContext) GetUser(userID string) (*types.User, error) {
 
 	if response.StatusCode != http.StatusOK {
 		u.logger.Errorf("error getting user's record, server returned %s", response.Status)
+		//TODO log error message from response body
 		return nil, errors.New(fmt.Sprintf("error getting user's record, server returned %s", response.Status))
 	}
 
 	res := &types.GetUserResponseEnvelope{}
 	err = json.NewDecoder(response.Body).Decode(res)
 	if err != nil {
-		u.logger.Errorf("failed to decode json response, due to", err)
+		u.logger.Errorf("failed to decode json response, due to %s", err)
 		return nil, err
 	}
 

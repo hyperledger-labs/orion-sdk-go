@@ -2,6 +2,8 @@ package bcdb
 
 import (
 	"crypto/tls"
+	"fmt"
+	config2 "github.ibm.com/blockchaindb/sdk/pkg/config"
 	"io/ioutil"
 	"os"
 	"path"
@@ -107,4 +109,34 @@ func createTestLogger(t *testing.T) *logger.SugarLogger {
 	require.NoError(t, err)
 	require.NotNil(t, logger)
 	return logger
+}
+
+func openUserSession(t *testing.T, bcdb BCDB, user string, tempDir string) DBSession {
+	// New session with alice user context
+	session, err := bcdb.Session(&config2.SessionConfig{
+		UserConfig: &config2.UserConfig{
+			UserID:         user,
+			CertPath:       path.Join(tempDir, user+".pem"),
+			PrivateKeyPath: path.Join(tempDir, user+".key"),
+		},
+	})
+	require.NoError(t, err)
+
+	return session
+}
+
+func createDBInstance(t *testing.T, tempDir string, serverPort string) BCDB {
+	// Create new connection
+	bcdb, err := Create(&config2.ConnectionConfig{
+		RootCAs: []string{path.Join(tempDir, "serverRootCACert.pem")},
+		ReplicaSet: []*config2.Replica{
+			{
+				ID:       "testNode1",
+				Endpoint: fmt.Sprintf("http://localhost:%s", serverPort),
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	return bcdb
 }

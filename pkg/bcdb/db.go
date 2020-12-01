@@ -34,7 +34,10 @@ type BCDB interface {
 type DBSession interface {
 	UsersTx() (UsersTxContext, error)
 	DataTx(database string) (DataTxContext, error)
+	ConfigTx() (ConfigTxContext, error)
 }
+
+var ErrTxSpent = errors.New("transaction committed or aborted")
 
 // TxContet an abstract API to capture general purpose
 // functionality for all types of transactions context
@@ -63,7 +66,7 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 		Encoding:      "console",
 		Name:          "bcdb-client",
 	}
-	logger, err := logger.New(c)
+	dbLogger, err := logger.New(c)
 	if err != nil {
 		return nil, err
 	}
@@ -73,19 +76,19 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 	for _, rootCAPath := range config.RootCAs {
 		rootCABytes, err := ioutil.ReadFile(rootCAPath)
 		if err != nil {
-			logger.Errorf("failed to read root CA certificate, due to", err)
+			dbLogger.Errorf("failed to read root CA certificate, due to", err)
 			return nil, errors.Wrap(err, "failed to read root CA certificate")
 		}
 		// TODO there are might be multiple PEM encoded blocks need to make
 		// sure we read correct one
 		pemBlock, _ := pem.Decode(rootCABytes)
-		if err != nil {
-			logger.Errorf("failed decoding root CA certificate, due to", err)
-			return nil, errors.Wrap(err, "failed decoding root CA certificate")
+		if pemBlock == nil {
+			dbLogger.Error("failed decoding root CA certificate")
+			return nil, errors.New("failed decoding root CA certificate")
 		}
 		rootCACert, err := x509.ParseCertificate(pemBlock.Bytes)
 		if err != nil {
-			logger.Errorf("failed to parse X509 root CA certificate, due to", err)
+			dbLogger.Errorf("failed to parse X509 root CA certificate, due to", err)
 			return nil, errors.Wrap(err, "failed to parse X509 root CA certificate")
 		}
 		certsPool.AddCert(rootCACert)
@@ -95,7 +98,7 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 	for _, uri := range config.ReplicaSet {
 		replicaURL, err := url.Parse(uri.Endpoint)
 		if err != nil {
-			logger.Errorf("error parsing replica URI, %s", uri.Endpoint)
+			dbLogger.Errorf("error parsing replica URI, %s", uri.Endpoint)
 			return nil, errors.Wrapf(err, "error parsing replica URI, %s", uri.Endpoint)
 		}
 		urls[uri.ID] = replicaURL
@@ -104,7 +107,7 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 	return &bDB{
 		replicaSet: urls,
 		rootCAs:    certsPool,
-		logger:     logger,
+		logger:     dbLogger,
 	}, nil
 }
 
@@ -258,6 +261,36 @@ func (d *dbSession) DataTx(database string) (DataTxContext, error) {
 		dataDeletes: make(map[string]*types.DataDelete),
 	}
 	return dataTx, nil
+}
+
+// ConfigTx returns config transaction context
+func (d *dbSession) ConfigTx() (ConfigTxContext, error) {
+	httpClient := d.newHTTPClient()
+
+	nodesCerts, err := d.getServerCertificates(httpClient)
+	if err != nil {
+		return nil, err
+	}
+	configTx := &configTxContext{
+		commonTxContext: commonTxContext{
+			userID:     d.userID,
+			signer:     d.signer,
+			userCert:   d.userCert,
+			replicaSet: d.replicaSet,
+			nodesCerts: nodesCerts,
+			restClient: NewRestClient(d.userID, httpClient, d.signer),
+			logger:     d.logger,
+		},
+		oldConfig:            nil,
+		readOldConfigVersion: nil,
+		newConfig:            nil,
+	}
+
+	if err = configTx.queryClusterConfig(); err != nil {
+		return nil, err
+	}
+
+	return configTx, nil
 }
 
 func (d *dbSession) getServerCertificates(httpClient *http.Client) (map[string]*x509.Certificate, error) {

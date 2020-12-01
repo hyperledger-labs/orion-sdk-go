@@ -3,14 +3,12 @@ package bcdb
 import (
 	"bytes"
 	"encoding/pem"
-	"fmt"
 	"io/ioutil"
 	"path"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.ibm.com/blockchaindb/sdk/pkg/config"
 	"github.ibm.com/blockchaindb/server/pkg/server"
 	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
 	"github.ibm.com/blockchaindb/server/pkg/types"
@@ -179,44 +177,12 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 func connectAndOpenAdminSession(t *testing.T, testServer *server.BCDBHTTPServer, tempDir string, clientCertTempDir string) (BCDB, DBSession) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
-
 	// Create new connection
-	bcdb, err := Create(&config.ConnectionConfig{
-		RootCAs: []string{path.Join(tempDir, "serverRootCACert.pem")},
-		ReplicaSet: []*config.Replica{
-			{
-				ID:       "testNode1",
-				Endpoint: fmt.Sprintf("http://localhost:%s", serverPort),
-			},
-		},
-	})
-	require.NoError(t, err)
-
+	bcdb := createDBInstance(t, tempDir, serverPort)
 	// New session with admin user context
-	session, err := bcdb.Session(&config.SessionConfig{
-		UserConfig: &config.UserConfig{
-			UserID:         "admin",
-			CertPath:       path.Join(clientCertTempDir, "admin.pem"),
-			PrivateKeyPath: path.Join(clientCertTempDir, "admin.key"),
-		},
-	})
-	require.NoError(t, err)
+	session := openUserSession(t, bcdb, "admin", clientCertTempDir)
 
 	return bcdb, session
-}
-
-func openUserSession(t *testing.T, bcdb BCDB, user string, tempDir string) DBSession {
-	// New session with alice user context
-	session, err := bcdb.Session(&config.SessionConfig{
-		UserConfig: &config.UserConfig{
-			UserID:         user,
-			CertPath:       path.Join(tempDir, user+".pem"),
-			PrivateKeyPath: path.Join(tempDir, user+".key"),
-		},
-	})
-	require.NoError(t, err)
-
-	return session
 }
 
 func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byte) {
