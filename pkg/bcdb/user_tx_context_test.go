@@ -2,7 +2,6 @@ package bcdb
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -10,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"testing"
 	"time"
@@ -19,112 +17,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb/mocks"
 	sdkConfig "github.ibm.com/blockchaindb/sdk/pkg/config"
-	serverConfig "github.ibm.com/blockchaindb/server/config"
 	"github.ibm.com/blockchaindb/server/pkg/constants"
-	"github.ibm.com/blockchaindb/server/pkg/logger"
-	"github.ibm.com/blockchaindb/server/pkg/server"
 	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
 	"github.ibm.com/blockchaindb/server/pkg/types"
 )
 
-func setupTestServer(t *testing.T) (*server.BCDBHTTPServer, tls.Certificate, string, error) {
-	tempDir, err := ioutil.TempDir("/tmp", "userTxContextTest")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		os.RemoveAll(tempDir)
-	})
-
-	rootCAPemCert, caPrivKey, err := testutils.GenerateRootCA("BCDB RootCA", "127.0.0.1")
-	require.NoError(t, err)
-	require.NotNil(t, rootCAPemCert)
-	require.NotNil(t, caPrivKey)
-
-	keyPair, err := tls.X509KeyPair(rootCAPemCert, caPrivKey)
-	require.NoError(t, err)
-	require.NotNil(t, keyPair)
-
-	serverRootCACertFile, err := os.Create(path.Join(tempDir, "serverRootCACert.pem"))
-	require.NoError(t, err)
-	serverRootCACertFile.Write(rootCAPemCert)
-	serverRootCACertFile.Close()
-
-	pemCert, privKey, err := testutils.IssueCertificate("BCDB Instance", "127.0.0.1", keyPair)
-	require.NoError(t, err)
-
-	pemCertFile, err := os.Create(path.Join(tempDir, "server.pem"))
-	require.NoError(t, err)
-	pemCertFile.Write(pemCert)
-	pemCertFile.Close()
-
-	pemPrivKeyFile, err := os.Create(path.Join(tempDir, "server.key"))
-	require.NoError(t, err)
-	pemPrivKeyFile.Write(privKey)
-	pemPrivKeyFile.Close()
-
-	pemAdminCert, pemAdminKey, err := testutils.IssueCertificate("BCDB Admin", "127.0.0.1", keyPair)
-	pemAdminCertFile, err := os.Create(path.Join(tempDir, "admin.pem"))
-	require.NoError(t, err)
-	pemAdminCertFile.Write(pemAdminCert)
-	pemAdminCertFile.Close()
-
-	pemAdminKeyFile, err := os.Create(path.Join(tempDir, "admin.key"))
-	require.NoError(t, err)
-	pemAdminKeyFile.Write(pemAdminKey)
-	pemAdminKeyFile.Close()
-
-	server, err := server.New(&serverConfig.Configurations{
-		Node: serverConfig.NodeConf{
-			Identity: serverConfig.IdentityConf{
-				ID:              "testNode1",
-				CertificatePath: path.Join(tempDir, "server.pem"),
-				KeyPath:         path.Join(tempDir, "server.key"),
-			},
-			Database: serverConfig.DatabaseConf{
-				Name:            "leveldb",
-				LedgerDirectory: path.Join(tempDir, "ledger"),
-			},
-			Network: serverConfig.NetworkConf{
-				Address: "127.0.0.1",
-				Port:    0, // use ephemeral port for testing
-			},
-			QueueLength: serverConfig.QueueLengthConf{
-				Block:                     1,
-				Transaction:               1,
-				ReorderedTransactionBatch: 1,
-			},
-
-			LogLevel: "debug",
-		},
-		Admin: serverConfig.AdminConf{
-			ID:              "admin",
-			CertificatePath: path.Join(tempDir, "admin.pem"),
-		},
-		RootCA: serverConfig.RootCAConf{
-			CertificatePath: path.Join(tempDir, "serverRootCACert.pem"),
-		},
-		Consensus: serverConfig.ConsensusConf{
-			Algorithm:                   "solo",
-			BlockTimeout:                500 * time.Millisecond,
-			MaxBlockSize:                1,
-			MaxTransactionCountPerBlock: 1,
-		},
-	})
-	return server, keyPair, tempDir, err
-}
-
 func TestUserContext_AddAndRetrieveUser(t *testing.T) {
-	testServer, caKeyPair, tempDir, err := setupTestServer(t)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
+	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
-
-	pemUserCert, _, err := testutils.IssueCertificate("BCDB User", "127.0.0.1", caKeyPair)
-	pemAdminCertFile, err := os.Create(path.Join(tempDir, "user.pem"))
-	require.NoError(t, err)
-	_, err = pemAdminCertFile.Write(pemUserCert)
-	require.NoError(t, err)
-	err = pemAdminCertFile.Close()
-	require.NoError(t, err)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -145,8 +48,8 @@ func TestUserContext_AddAndRetrieveUser(t *testing.T) {
 	session, err := bcdb.Session(&sdkConfig.SessionConfig{
 		UserConfig: &sdkConfig.UserConfig{
 			UserID:         "admin",
-			CertPath:       path.Join(tempDir, "admin.pem"),
-			PrivateKeyPath: path.Join(tempDir, "admin.key"),
+			CertPath:       path.Join(clientCertTemDir, "admin.pem"),
+			PrivateKeyPath: path.Join(clientCertTemDir, "admin.key"),
 		},
 	})
 	require.NoError(t, err)
@@ -155,6 +58,7 @@ func TestUserContext_AddAndRetrieveUser(t *testing.T) {
 	tx, err := session.UsersTx()
 	require.NoError(t, err)
 
+	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	certBlock, _ := pem.Decode(pemUserCert)
 	err = tx.PutUser(&types.User{
 		ID:          "alice",
@@ -180,18 +84,11 @@ func TestUserContext_AddAndRetrieveUser(t *testing.T) {
 }
 
 func TestUserContext_MallformedRequest(t *testing.T) {
-	testServer, caKeyPair, tempDir, err := setupTestServer(t)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin"})
+	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
-
-	pemUserCert, _, err := testutils.IssueCertificate("BCDB User", "127.0.0.1", caKeyPair)
-	pemAdminCertFile, err := os.Create(path.Join(tempDir, "user.pem"))
-	require.NoError(t, err)
-	_, err = pemAdminCertFile.Write(pemUserCert)
-	require.NoError(t, err)
-	err = pemAdminCertFile.Close()
-	require.NoError(t, err)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -211,8 +108,8 @@ func TestUserContext_MallformedRequest(t *testing.T) {
 	session, err := bcdb.Session(&sdkConfig.SessionConfig{
 		UserConfig: &sdkConfig.UserConfig{
 			UserID:         "adminX",
-			CertPath:       path.Join(tempDir, "admin.pem"),
-			PrivateKeyPath: path.Join(tempDir, "admin.key"),
+			CertPath:       path.Join(clientCertTemDir, "admin.pem"),
+			PrivateKeyPath: path.Join(clientCertTemDir, "admin.key"),
 		},
 	})
 	require.NoError(t, err)
@@ -264,13 +161,15 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 			restClient := tt.restClientFactory()
 			signer := &mocks.Signer{}
 			usrCtx := &userTxContext{
-				signer:     signer,
-				userID:     "testUserId",
-				restClient: restClient,
-				logger:     logger,
-				replicaSet: map[string]*url.URL{
-					"node1": &url.URL{
-						Path: "http://localhost:8888",
+				commonTxContext: commonTxContext{
+					signer:     signer,
+					userID:     "testUserId",
+					restClient: restClient,
+					logger:     logger,
+					replicaSet: map[string]*url.URL{
+						"node1": &url.URL{
+							Path: "http://localhost:8888",
+						},
 					},
 				},
 			}
@@ -328,13 +227,15 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 
 	logger := createTestLogger(t)
 	usrCtx := &userTxContext{
-		signer:     signer,
-		userID:     "testUserId",
-		restClient: restClient,
-		logger:     logger,
-		replicaSet: map[string]*url.URL{
-			"node1": &url.URL{
-				Path: "http://localhost:8888",
+		commonTxContext: commonTxContext{
+			signer:     signer,
+			userID:     "testUserId",
+			restClient: restClient,
+			logger:     logger,
+			replicaSet: map[string]*url.URL{
+				"node1": &url.URL{
+					Path: "http://localhost:8888",
+				},
 			},
 		},
 	}
@@ -390,18 +291,4 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 
 	_, err = usrCtx.Commit()
 	require.NoError(t, err)
-}
-
-func createTestLogger(t *testing.T) *logger.SugarLogger {
-	c := &logger.Config{
-		Level:         "debug",
-		OutputPath:    []string{"stdout"},
-		ErrOutputPath: []string{"stderr"},
-		Encoding:      "console",
-		Name:          "bcdb-client",
-	}
-	logger, err := logger.New(c)
-	require.NoError(t, err)
-	require.NotNil(t, logger)
-	return logger
 }

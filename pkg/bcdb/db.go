@@ -33,6 +33,7 @@ type BCDB interface {
 // DBSession captures user's session
 type DBSession interface {
 	UsersTx() (UsersTxContext, error)
+	DataTx(database string) (DataTxContext, error)
 }
 
 // TxContet an abstract API to capture general purpose
@@ -213,6 +214,70 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (ma
 
 // UsersTx returns user's transaction context
 func (d *dbSession) UsersTx() (UsersTxContext, error) {
+	httpClient := d.newHTTPClient()
+
+	nodesCerts, err := d.getServerCertificates(httpClient)
+	if err != nil {
+		return nil, err
+	}
+
+	userTx := &userTxContext{
+		commonTxContext: commonTxContext{
+			userID:     d.userID,
+			signer:     d.signer,
+			userCert:   d.userCert,
+			replicaSet: d.replicaSet,
+			nodesCerts: nodesCerts,
+			restClient: NewRestClient(d.userID, httpClient, d.signer),
+			logger:     d.logger,
+		},
+	}
+	return userTx, nil
+}
+
+// DataTx returns data's transaction context
+func (d *dbSession) DataTx(database string) (DataTxContext, error) {
+	httpClient := d.newHTTPClient()
+
+	nodesCerts, err := d.getServerCertificates(httpClient)
+	if err != nil {
+		return nil, err
+	}
+	dataTx := &dataTxContext{
+		commonTxContext: commonTxContext{
+			userID:     d.userID,
+			signer:     d.signer,
+			userCert:   d.userCert,
+			replicaSet: d.replicaSet,
+			nodesCerts: nodesCerts,
+			restClient: NewRestClient(d.userID, httpClient, d.signer),
+			logger:     d.logger,
+		},
+		database:    database,
+		dataWrites:  make(map[string]*types.DataWrite),
+		dataDeletes: make(map[string]*types.DataDelete),
+	}
+	return dataTx, nil
+}
+
+func (d *dbSession) getServerCertificates(httpClient *http.Client) (map[string]*x509.Certificate, error) {
+	var nodesCerts map[string]*x509.Certificate
+	var err error
+	for _, replica := range d.replicaSet {
+		nodesCerts, err = d.getNodesCerts(replica, httpClient)
+		if err != nil {
+			continue
+		}
+	}
+
+	if len(nodesCerts) == 0 {
+		d.logger.Errorf("failed to obtain server's certificate")
+		return nil, errors.New("failed to obtain server's certificate")
+	}
+	return nodesCerts, nil
+}
+
+func (d *dbSession) newHTTPClient() *http.Client {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
@@ -228,30 +293,7 @@ func (d *dbSession) UsersTx() (UsersTxContext, error) {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-
-	var nodesCerts map[string]*x509.Certificate
-	var err error
-	for _, replica := range d.replicaSet {
-		nodesCerts, err = d.getNodesCerts(replica, httpClient)
-		if err != nil {
-			continue
-		}
-	}
-
-	if len(nodesCerts) == 0 {
-		d.logger.Errorf("failed to obtain server's certificate")
-		return nil, errors.New("failed to obtain server's certificate")
-	}
-
-	return &userTxContext{
-		userID:     d.userID,
-		signer:     d.signer,
-		replicaSet: d.replicaSet,
-		nodesCerts: nodesCerts,
-		userCert:   d.userCert,
-		logger:     d.logger,
-		restClient: NewRestClient(d.userID, httpClient, d.signer),
-	}, nil
+	return httpClient
 }
 
 func ComputeTxID(userCert []byte) (string, error) {

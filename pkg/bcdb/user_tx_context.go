@@ -2,16 +2,16 @@ package bcdb
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.ibm.com/blockchaindb/server/pkg/constants"
 	"github.ibm.com/blockchaindb/server/pkg/cryptoservice"
-	"github.ibm.com/blockchaindb/server/pkg/logger"
 	"github.ibm.com/blockchaindb/server/pkg/types"
 )
 
@@ -33,56 +33,18 @@ type UsersTxContext interface {
 }
 
 type userTxContext struct {
-	userID      string
-	signer      Signer
-	userCert    []byte
-	replicaSet  map[string]*url.URL
-	nodesCerts  map[string]*x509.Certificate
-	restClient  RestClient
+	commonTxContext
 	userReads   []*types.UserRead
 	userWrites  []*types.UserWrite
 	userDeletes []*types.UserDelete
-	logger      *logger.SugarLogger
 }
 
 func (u *userTxContext) Commit() (string, error) {
-	postUser := &url.URL{
-		Path: constants.PostUserTx,
-	}
-	replica := u.selectReplica()
-	postUserEndpoint := replica.ResolveReference(postUser)
-
-	txID, err := ComputeTxID(u.userCert)
-	if err != nil {
-		return "", err
-	}
-
-	u.logger.Debugf("compose transaction enveloped with txID = %s", txID)
-	envelope, err := u.composeEnvelope(txID)
-	if err != nil {
-		u.logger.Errorf("failed to compose transaction envelope, due to", err)
-		return txID, err
-	}
-
-	ctx := context.TODO() // TODO: Replace with timeout
-	response, err := u.restClient.Submit(ctx, postUserEndpoint.String(), envelope)
-	if err != nil {
-		u.logger.Errorf("failed to submit transaction txID = %s, due to", txID, err)
-		return txID, err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		u.logger.Errorf("error status from server, %s", response.Status)
-		return txID, errors.New(fmt.Sprintf("error status from server, %s", response.Status))
-	}
-
-	u.cleanCtx()
-	return txID, nil
+	return u.commit(u, constants.PostUserTx)
 }
 
 func (u *userTxContext) Abort() error {
-	u.cleanCtx()
-	return nil
+	return u.abort(u)
 }
 
 func (u *userTxContext) PutUser(user *types.User, acl *types.AccessControl) error {
@@ -138,15 +100,7 @@ func (u *userTxContext) RemoveUser(userID string) error {
 	return nil
 }
 
-func (u *userTxContext) selectReplica() *url.URL {
-	// Pick first replica to send request to
-	for _, replica := range u.replicaSet {
-		return replica
-	}
-	return nil
-}
-
-func (u *userTxContext) composeEnvelope(txID string) (*types.UserAdministrationTxEnvelope, error) {
+func (u *userTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	payload := &types.UserAdministrationTx{
 		UserID:      u.userID,
 		TxID:        txID,
