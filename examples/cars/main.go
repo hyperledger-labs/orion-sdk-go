@@ -4,18 +4,29 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.ibm.com/blockchaindb/sdk/examples/cars/commands"
-	"gopkg.in/alecthomas/kingpin.v2"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
+
+	"github.ibm.com/blockchaindb/sdk/examples/cars/commands"
+	"github.ibm.com/blockchaindb/server/pkg/logger"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func main() {
 	kingpin.Version("0.0.1")
 
-	output, exit, err := executeForArgs(os.Args[1:])
+	c := &logger.Config{
+		Level:         "debug",
+		OutputPath:    []string{"stdout"},
+		ErrOutputPath: []string{"stderr"},
+		Encoding:      "console",
+		Name:          "bcdb-client",
+	}
+	logger, err := logger.New(c)
+
+	output, exit, err := executeForArgs(os.Args[1:], logger)
 	if err != nil {
 		kingpin.Fatalf("parsing arguments: %s. Try --help", err)
 	}
@@ -23,7 +34,7 @@ func main() {
 	os.Exit(exit)
 }
 
-func executeForArgs(args []string) (output string, exit int, err error) {
+func executeForArgs(args []string, logger *logger.SugarLogger) (output string, exit int, err error) {
 	//
 	// command line flags
 	//
@@ -32,7 +43,8 @@ func executeForArgs(args []string) (output string, exit int, err error) {
 
 	generate := app.Command("generate", "Generate crypto material for all roles: admin, dmv, dealer, alice, bob; and the BCDB server.")
 
-	start := app.Command("start", "Start the server, load it with users, create databases.")
+	init := app.Command("init", "Initialize the server, load it with users, create databases.")
+	replica := init.Flag("server", "URI of blockchain DB replica, http://host:port, to connect to").Short('s').URL()
 
 	command := kingpin.MustParse(app.Parse(args))
 
@@ -53,23 +65,12 @@ func executeForArgs(args []string) (output string, exit int, err error) {
 		}
 		return "Generated demo materials to: " + *demoDir, 0, nil
 
-	case start.FullCommand():
-		err := commands.Start(*demoDir)
+	case init.FullCommand():
+		err := commands.Init(*demoDir, *replica, logger)
 		if err != nil {
 			return "", 1, err
 		}
 		return "Generated crypto material to: " + *demoDir, 0, nil
-
-		//case join.FullCommand():
-		//	resp, err = osnadmin.Join(osnURL, marshaledConfigBlock, caCertPool, tlsClientCert)
-		//case list.FullCommand():
-		//	if *listChannelID != "" {
-		//		resp, err = osnadmin.ListSingleChannel(osnURL, *listChannelID, caCertPool, tlsClientCert)
-		//		break
-		//	}
-		//	resp, err = osnadmin.ListAllChannels(osnURL, caCertPool, tlsClientCert)
-		//case remove.FullCommand():
-		//	resp, err = osnadmin.Remove(osnURL, *removeChannelID, caCertPool, tlsClientCert)
 	}
 
 	if err != nil {

@@ -1,12 +1,14 @@
 package main
 
 import (
-	"github.com/stretchr/testify/require"
-	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
 	"io/ioutil"
 	"os"
 	"path"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"github.ibm.com/blockchaindb/server/pkg/logger"
+	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
 )
 
 func TestCars_Generate(t *testing.T) {
@@ -17,7 +19,16 @@ func TestCars_Generate(t *testing.T) {
 	args := []string{
 		"-d", path.Join(tempDir), "generate",
 	}
-	out, exitCode, err := executeForArgs(args)
+	c := &logger.Config{
+		Level:         "debug",
+		OutputPath:    []string{"stdout"},
+		ErrOutputPath: []string{"stderr"},
+		Encoding:      "console",
+		Name:          "bcdb-client",
+	}
+	logger, err := logger.New(c)
+
+	out, exitCode, err := executeForArgs(args, logger)
 	require.Equal(t, out, "Generated demo materials to: "+path.Join(tempDir))
 	require.Equal(t, 0, exitCode)
 	require.NoError(t, err)
