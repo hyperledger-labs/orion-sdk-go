@@ -59,6 +59,7 @@ func TestUserContext_AddAndRetrieveUser(t *testing.T) {
 	require.NoError(t, err)
 
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
+	require.NoError(t, err)
 	certBlock, _ := pem.Decode(pemUserCert)
 	err = tx.PutUser(&types.User{
 		ID:          "alice",

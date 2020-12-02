@@ -78,12 +78,14 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte("value2"), res2)
 
-	tx.Put("key1", []byte("value3"), &types.AccessControl{
+	err = tx.Put("key1", []byte("value3"), &types.AccessControl{
 		ReadUsers:      map[string]bool{"alice": true},
 		ReadWriteUsers: map[string]bool{"alice": true},
 	})
+	require.NoError(t, err)
 
-	tx.Delete("key2")
+	err = tx.Delete("key2")
+	require.NoError(t, err)
 
 	dataTx, ok := tx.(*dataTxContext)
 	require.True(t, ok)
@@ -96,12 +98,15 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	require.False(t, key1DeleteExist)
 	require.True(t, key2DeleteExist)
 
-	tx.Put("key2", []byte("value4"), &types.AccessControl{
+	err = tx.Put("key2", []byte("value4"), &types.AccessControl{
 		ReadUsers:      map[string]bool{"alice": true},
 		ReadWriteUsers: map[string]bool{"alice": true},
 	})
+	require.NoError(t, err)
 
-	tx.Delete("key1")
+	err = tx.Delete("key1")
+	require.NoError(t, err)
+
 	_, key1WriteExist = dataTx.dataWrites["key1"]
 	_, key2WriteExist = dataTx.dataWrites["key2"]
 	_, key1DeleteExist = dataTx.dataDeletes["key1"]
@@ -155,14 +160,17 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	_, err = tx.Get("key1")
 	require.Error(t, err)
 	require.Contains(t, "error getting user's record, server returned 403 Forbidden", err.Error())
-	tx.Abort()
+	err = tx.Abort()
+	require.NoError(t, err)
 
 	txUpdateUser, err := aliceSession.DataTx("bdb")
 	require.NoError(t, err)
-	txUpdateUser.Put("key1", []byte("value2"), &types.AccessControl{
+	err = txUpdateUser.Put("key1", []byte("value2"), &types.AccessControl{
 		ReadUsers:      map[string]bool{"alice": true, "bob": true},
 		ReadWriteUsers: map[string]bool{"alice": true},
 	})
+	require.NoError(t, err)
+
 	_, err = txUpdateUser.Commit()
 	require.NoError(t, err)
 	validateValue(t, "key1", "value2", aliceSession)
@@ -213,7 +221,8 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 			alice.ID == userName &&
 			bytes.Equal(certBlock.Bytes, alice.Certificate)
 	}, time.Minute, 200*time.Millisecond)
-	tx.Abort()
+	err = tx.Abort()
+	require.NoError(t, err)
 }
 
 func putKeyAndValidate(t *testing.T, key string, value string, user string, session DBSession) {

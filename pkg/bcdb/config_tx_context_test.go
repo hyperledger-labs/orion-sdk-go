@@ -55,6 +55,7 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	clusterConfig.Admins = nil
 	clusterConfig.RootCACertificate = nil
 	clusterConfigAgain, err := tx.GetClusterConfig()
+	require.NoError(t, err)
 	require.NotNil(t, clusterConfigAgain.Nodes, "it is a deep copy")
 	require.NotNil(t, clusterConfigAgain.Admins, "it is a deep copy")
 	require.NotNil(t, clusterConfigAgain.RootCACertificate, "it is a deep copy")
@@ -275,6 +276,7 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, tx1)
 	err = tx1.AddAdmin(admin2)
+	require.NoError(t, err)
 
 	txID, err := tx1.Commit()
 	require.NoError(t, err)
@@ -593,7 +595,7 @@ func TestConfigTxContext_Commit(t *testing.T) {
 	require.NoError(t, err)
 	node1 := config.Nodes[0]
 	node1.Port++
-	tx.UpdateClusterNode(config.Nodes[0])
+	err = tx.UpdateClusterNode(config.Nodes[0])
 	require.NoError(t, err)
 	_, err = tx.Commit()
 	require.NoError(t, err)
