@@ -2,17 +2,18 @@ package commands
 
 import (
 	"encoding/pem"
-	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
-	"github.ibm.com/blockchaindb/sdk/pkg/config"
-	"github.ibm.com/blockchaindb/server/pkg/logger"
-	"github.ibm.com/blockchaindb/server/pkg/types"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
+	"github.ibm.com/blockchaindb/sdk/pkg/config"
+	"github.ibm.com/blockchaindb/server/pkg/logger"
+	"github.ibm.com/blockchaindb/server/pkg/types"
 )
 
 const CarDBName = "carDB"
@@ -149,8 +150,8 @@ func initUsers(demoDir string, session bcdb.DBSession, logger *logger.SugarLogge
 			&types.User{
 				ID:          role,
 				Certificate: certBlock.Bytes,
-				Privilege:   &types.Privilege{
-					DBPermission:          map[string]types.Privilege_Access{CarDBName: 1},
+				Privilege: &types.Privilege{
+					DBPermission: map[string]types.Privilege_Access{CarDBName: 1},
 				},
 			}, &types.AccessControl{
 				ReadWriteUsers: bcdb.UsersMap("admin"),

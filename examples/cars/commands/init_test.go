@@ -1,16 +1,17 @@
 package commands
 
 import (
-	"github.com/stretchr/testify/require"
-	"github.ibm.com/blockchaindb/server/config"
-	"github.ibm.com/blockchaindb/server/pkg/logger"
-	"github.ibm.com/blockchaindb/server/pkg/server"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"github.ibm.com/blockchaindb/server/config"
+	"github.ibm.com/blockchaindb/server/pkg/logger"
+	"github.ibm.com/blockchaindb/server/pkg/server"
 )
 
 func TestInit(t *testing.T) {

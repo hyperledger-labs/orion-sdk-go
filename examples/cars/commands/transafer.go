@@ -1,21 +1,319 @@
 package commands
 
-import "github.com/pkg/errors"
+import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"time"
 
-func TransferTo(demoDir, sellerID, buyerID, car string) (out string, err error) {
+	"github.com/pkg/errors"
+	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
+	"github.ibm.com/blockchaindb/server/pkg/crypto"
+	"github.ibm.com/blockchaindb/server/pkg/logger"
+	"github.ibm.com/blockchaindb/server/pkg/types"
+)
 
-	//TODO
-	return "", errors.New("not implemented yet")
+type TransferToRecord struct {
+	Owner           string
+	Buyer           string
+	CarRegistration string
 }
 
-func TransferReceive(demoDir, buyerID, transferToRequestID string) (out string, err error) {
+const TransferToRecordKeyPrefix = "transfer-to~"
 
-	//TODO
-	return "", errors.New("not implemented yet")
+func (r *TransferToRecord) RequestID() string {
+	str := r.Owner + "_" + r.Buyer + "_" + r.CarRegistration
+	sha256Hash, _ := crypto.ComputeSHA256Hash([]byte(str))
+	return base64.URLEncoding.EncodeToString(sha256Hash)
 }
 
-func Transfer(demoDir, dmvID, transferToRequestID, transferRcvRequestID string) (out string, err error) {
+type TransferReceiveRecord struct {
+	Buyer               string
+	CarRegistration     string
+	TransferToRecordKey string
+}
 
-	//TODO
-	return "", errors.New("not implemented yet")
+func (r *TransferToRecord) Key() string {
+	return TransferToRecordKeyPrefix + r.RequestID()
+}
+
+const TransferReceiveRecordKeyPrefix = "transfer-receive~"
+
+func (r *TransferReceiveRecord) RequestID() string {
+	str := r.Buyer + "_" + r.CarRegistration + "_" + r.TransferToRecordKey
+	sha256Hash, _ := crypto.ComputeSHA256Hash([]byte(str))
+	return base64.URLEncoding.EncodeToString(sha256Hash)
+}
+
+func (r *TransferReceiveRecord) Key() string {
+	return TransferReceiveRecordKeyPrefix + r.RequestID()
+}
+
+func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.SugarLogger) (out string, err error) {
+	lg.Debugf("owner-ID: %s, buyer-ID: %s, Car-Reg", ownerID, buyerID, carRegistration)
+
+	serverUrl, err := loadServerUrl(demoDir)
+	if err != nil {
+		return "", errors.Wrap(err, "error loading server URL")
+	}
+
+	db, err := createDBInstance(demoDir, serverUrl)
+	if err != nil {
+		return "", errors.Wrap(err, "error creating database instance")
+	}
+
+	session, err := createUserSession(demoDir, db, ownerID)
+	if err != nil {
+		return "", errors.Wrap(err, "error creating database session")
+	}
+
+	dataTx, err := session.DataTx(CarDBName)
+	if err != nil {
+		return "", errors.Wrap(err, "error creating data transaction")
+	}
+
+	carKey := CarRecordKeyPrefix + carRegistration
+	carRecBytes, err := dataTx.Get(carKey)
+	if err != nil {
+		return "", errors.Wrapf(err, "error getting car record, key: %s", carKey)
+	}
+	if len(carRecBytes) == 0 {
+		return "", errors.Wrapf(err, "car record does not exist, key: %s", carKey)
+	}
+
+	carRec := &CarRecord{}
+	if err = json.Unmarshal(carRecBytes, carRec); err != nil {
+		return "", errors.Wrapf(err, "error unmarshaling data transaction value, key: %s", carKey)
+	}
+
+	if carRec.Owner != ownerID {
+		return "", errors.Errorf("car has different owner")
+	}
+
+	ttRecord := &TransferToRecord{
+		Owner:           ownerID,
+		Buyer:           buyerID,
+		CarRegistration: carRegistration,
+	}
+	ttRecBytes, err := json.Marshal(ttRecord)
+	ttRecKey := ttRecord.Key()
+	err = dataTx.Put(ttRecKey, ttRecBytes,
+		&types.AccessControl{
+			ReadUsers:      bcdb.UsersMap("dmv", buyerID),
+			ReadWriteUsers: bcdb.UsersMap(ownerID),
+		},
+	)
+	if err != nil {
+		return "", errors.Wrap(err, "error during data transaction")
+	}
+
+	txID, err := dataTx.Commit()
+	if err != nil {
+		return "", errors.Wrap(err, "error during transaction commit")
+	}
+
+	if err = waitForTxCommit(session, ttRecKey, txID); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("TransferTo: committed, txID: %s, Key: %s", txID, ttRecKey), nil
+}
+
+func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey string, lg *logger.SugarLogger) (out string, err error) {
+	lg.Debugf("buyer-ID: %s, Car-Reg: %s, Rec-Key", buyerID, carRegistration, transferToRecordKey)
+
+	serverUrl, err := loadServerUrl(demoDir)
+	if err != nil {
+		return "", errors.Wrap(err, "error loading server URL")
+	}
+
+	db, err := createDBInstance(demoDir, serverUrl)
+	if err != nil {
+		return "", errors.Wrap(err, "error creating database instance")
+	}
+
+	session, err := createUserSession(demoDir, db, buyerID)
+	if err != nil {
+		return "", errors.Wrap(err, "error creating database session")
+	}
+
+	dataTx, err := session.DataTx(CarDBName)
+	if err != nil {
+		return "", errors.Wrap(err, "error creating data transaction")
+	}
+
+	ttRec := &TransferToRecord{}
+	recordBytes, err := dataTx.Get(transferToRecordKey)
+	if err != nil {
+		return "", errors.Wrapf(err, "error getting TransferTo : %s", transferToRecordKey)
+	}
+	if recordBytes == nil {
+		return "", errors.Errorf("TransferTo not found: %s", transferToRecordKey)
+	}
+
+	if err = json.Unmarshal(recordBytes, ttRec); err != nil {
+		return "", errors.Wrapf(err, "error unmarshaling data transaction value, key: %s", transferToRecordKey)
+	}
+
+	lg.Infof("Inspecting TransferTo: %s", ttRec)
+	reqID := transferToRecordKey[len(TransferToRecordKeyPrefix):]
+	if reqID != ttRec.RequestID() {
+		return "", errors.Errorf("TransferTo content compromised: expected: %s != actual: %s", reqID, ttRec.RequestID())
+	}
+	if buyerID != ttRec.Buyer {
+		return "", errors.New("TransferTo has different buyer")
+	}
+	if carRegistration != ttRec.CarRegistration {
+		return "", errors.New("TransferTo has different car")
+	}
+
+	// TODO do provenance of owner and respective Tx
+
+	trRec := &TransferReceiveRecord{
+		Buyer:               buyerID,
+		CarRegistration:     carRegistration,
+		TransferToRecordKey: transferToRecordKey,
+	}
+	trRecBytes, err := json.Marshal(trRec)
+	if err != nil {
+		return "", errors.Wrapf(err, "error marshaling transfer-receive record: %s", trRec)
+	}
+	trRecKey := trRec.Key()
+
+	err = dataTx.Put(trRecKey, trRecBytes, &types.AccessControl{
+		ReadUsers:      bcdb.UsersMap("dmv", ttRec.Owner),
+		ReadWriteUsers: bcdb.UsersMap(buyerID),
+	})
+	if err != nil {
+		return "", errors.Wrap(err, "error during data transaction")
+	}
+
+	txID, err := dataTx.Commit()
+	if err != nil {
+		return "", errors.Wrap(err, "error during transaction commit")
+	}
+
+	if err = waitForTxCommit(session, trRecKey, txID); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("TransferReceive: committed, txID: %s, Key: %s", txID, trRecKey), nil
+}
+
+func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, lg *logger.SugarLogger) (out string, err error) {
+	lg.Debugf("dmv-ID: %s, TrnsTo-Key: %s, TrnsRcv-Key: %s", dmvID, transferToRecordKey, transferRcvRecordKey)
+	serverUrl, err := loadServerUrl(demoDir)
+	if err != nil {
+		return "", errors.Wrap(err, "error loading server URL")
+	}
+
+	db, err := createDBInstance(demoDir, serverUrl)
+	if err != nil {
+		return "", errors.Wrap(err, "error creating database instance")
+	}
+
+	session, err := createUserSession(demoDir, db, dmvID)
+	if err != nil {
+		return "", errors.Wrap(err, "error creating database session")
+	}
+
+	dataTx, err := session.DataTx(CarDBName)
+	if err != nil {
+		return "", errors.Wrap(err, "error creating data transaction")
+	}
+
+	ttRec := &TransferToRecord{}
+	recordBytes, err := dataTx.Get(transferToRecordKey)
+	if err != nil {
+		return "", errors.Wrapf(err, "error getting TransferTo : %s", transferToRecordKey)
+	}
+	if recordBytes == nil {
+		return "", errors.Errorf("TransferTo not found: %s", transferToRecordKey)
+	}
+	if err = json.Unmarshal(recordBytes, ttRec); err != nil {
+		return "", errors.Wrapf(err, "error unmarshaling data transaction value, key: %s", transferToRecordKey)
+	}
+
+	trRec := &TransferReceiveRecord{}
+	recordBytes, err = dataTx.Get(transferRcvRecordKey)
+	if err != nil {
+		return "", errors.Wrapf(err, "error getting TransferTo : %s", transferToRecordKey)
+	}
+	if recordBytes == nil {
+		return "", errors.Errorf("TransferReceive not found: %s", transferToRecordKey)
+	}
+	if err = json.Unmarshal(recordBytes, trRec); err != nil {
+		return "", errors.Wrapf(err, "error unmarshaling data transaction value, key: %s", transferRcvRecordKey)
+	}
+
+	//TODO validate content of both records, also with respect to each other
+
+	carRec := &CarRecord{}
+	carKey := CarRecordKeyPrefix + ttRec.CarRegistration
+	recordBytes, err = dataTx.Get(carKey)
+	if err != nil {
+		return "", errors.Wrapf(err, "error getting TransferTo : %s", carKey)
+	}
+	if recordBytes == nil {
+		return "", errors.Errorf("Car not found: %s", carKey)
+	}
+	if err = json.Unmarshal(recordBytes, carRec); err != nil {
+		return "", errors.Wrapf(err, "error unmarshaling data transaction value, key: %s", carKey)
+	}
+
+	if carRec.Owner != ttRec.Owner {
+		return "", errors.New("Car has different owner")
+	}
+
+	carRec.Owner = ttRec.Buyer
+	recordBytes, err = json.Marshal(carRec)
+
+	err = dataTx.Put(carKey, recordBytes,
+		&types.AccessControl{
+			ReadUsers:      bcdb.UsersMap(ttRec.Buyer),
+			ReadWriteUsers: bcdb.UsersMap(dmvID),
+		},
+	)
+	if err != nil {
+		return "", errors.Wrap(err, "error during data transaction")
+	}
+
+	txID, err := dataTx.Commit()
+	if err != nil {
+		return "", errors.Wrap(err, "error during transaction commit")
+	}
+
+	if err = waitForCarNewOwnerCommit(session, carKey, carRec.Owner, txID); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Transfer: committed, txID: %s, Key: %s", txID, carKey), nil
+}
+
+func waitForCarNewOwnerCommit(session bcdb.DBSession, carKey, newOwner, txID string) error {
+wait_for_commit:
+	for {
+		select {
+		case <-time.After(1 * time.Second):
+			return errors.Errorf("timeout while waiting for transaction %s to commit to BCDB", txID)
+
+		case <-time.After(50 * time.Millisecond):
+			pollTx, err := session.DataTx(CarDBName)
+			if err != nil {
+				return errors.Wrap(err, "error creating data transaction")
+			}
+
+			recordBytes, err := pollTx.Get(carKey)
+			if recordBytes != nil && err == nil {
+				carRec := &CarRecord{}
+				if err = json.Unmarshal(recordBytes, carRec); err == nil {
+					if carRec.Owner == newOwner {
+						break wait_for_commit
+					}
+				}
+			}
+		}
+	}
+
+	return nil
 }

@@ -11,7 +11,7 @@ import (
 	"github.ibm.com/blockchaindb/server/pkg/logger"
 )
 
-func TestMint(t *testing.T) {
+func TestTransfer(t *testing.T) {
 	demoDir, err := ioutil.TempDir("/tmp", "cars-demo-test")
 	require.NoError(t, err)
 	defer os.RemoveAll(demoDir)
@@ -48,13 +48,14 @@ func TestMint(t *testing.T) {
 	err = Init(demoDir, serverUrl, logger)
 	require.NoError(t, err)
 
-	out, err := MintRequest(demoDir, "dealer", "Test.Car.1", logger)
+	carReg := "Test.Car.1"
+	out, err := MintRequest(demoDir, "dealer", carReg, logger)
 	require.NoError(t, err)
 	require.Contains(t, out, "MintRequest: committed")
 
 	index := strings.Index(out, "Key:")
 	mintRequestKey := strings.TrimSpace(out[index+4:])
-	require.True(t, strings.HasPrefix(mintRequestKey, "mint-request~"))
+	require.True(t, strings.HasPrefix(mintRequestKey, MintRequestRecordKeyPrefix))
 
 	out, err = MintApprove(demoDir, "dmv", mintRequestKey, logger)
 	require.NoError(t, err)
@@ -62,5 +63,29 @@ func TestMint(t *testing.T) {
 
 	index = strings.Index(out, "Key:")
 	carKey := strings.TrimSpace(out[index+4:])
-	require.True(t, strings.HasPrefix(carKey, "car~"))
+	require.True(t, strings.HasPrefix(carKey, CarRecordKeyPrefix))
+
+	out, err = TransferTo(demoDir, "dealer", "alice", carReg, logger)
+	require.NoError(t, err)
+	require.Contains(t, out, "TransferTo: committed")
+
+	index = strings.Index(out, "Key:")
+	ttKey := strings.TrimSpace(out[index+4:])
+	require.True(t, strings.HasPrefix(ttKey, TransferToRecordKeyPrefix))
+
+	out, err = TransferReceive(demoDir, "alice", carReg, ttKey, logger)
+	require.NoError(t, err)
+	require.Contains(t, out, "TransferReceive: committed")
+
+	index = strings.Index(out, "Key:")
+	trKey := strings.TrimSpace(out[index+4:])
+	require.True(t, strings.HasPrefix(trKey, TransferReceiveRecordKeyPrefix))
+
+	out, err = Transfer(demoDir, "dmv", ttKey, trKey, logger)
+	require.NoError(t, err)
+	require.Contains(t, out, "Transfer: committed")
+
+	index = strings.Index(out, "Key:")
+	newOwnerKey := strings.TrimSpace(out[index+4:])
+	require.True(t, strings.HasPrefix(newOwnerKey, CarRecordKeyPrefix))
 }

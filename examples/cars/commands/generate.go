@@ -2,10 +2,11 @@ package commands
 
 import (
 	"crypto/tls"
-	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
 	"os"
 	"path"
 	"strings"
+
+	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
 )
 
 // Generate demo materials:
@@ -13,7 +14,6 @@ import (
 // server config under demoDir/config
 // server db dir under demoDir/database
 func Generate(demoDir string) error {
-
 	if !strings.HasSuffix(demoDir, "/") {
 		demoDir = demoDir + "/"
 	}

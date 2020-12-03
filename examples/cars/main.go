@@ -52,7 +52,7 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 
 	mintApprove := app.Command("mint-approve", "Approve a request to mint a car, create car record.")
 	maUserID := mintApprove.Flag("user", "DMV user ID").Short('u').Required().String()
-	maRequestID := mintApprove.Flag("mint-request-id", "mint request ID").Short('r').Required().String()
+	maRequestRecKey := mintApprove.Flag("mint-request-key", "mint-request record key").Short('k').Required().String()
 
 	transferTo := app.Command("transfer-to", "A seller issues an contract to sell a car")
 	ttUserID := transferTo.Flag("user", "seller user ID").Short('u').Required().String()
@@ -61,7 +61,8 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 
 	transferReceive := app.Command("transfer-receive", "A buyer agrees to the contract to sell a car")
 	trUserID := transferReceive.Flag("user", "buyer user ID").Short('u').Required().String()
-	trContractID := transferReceive.Flag("transfer-to-id", "transfer-to request ID").Short('r').Required().String()
+	trCar := transferReceive.Flag("car", "car registration plate").Short('c').Required().String()
+	trTrsToRecordKey := transferReceive.Flag("transfer-to-key", "transfer-to record key").Short('k').Required().String()
 	command := kingpin.MustParse(app.Parse(args))
 
 	//
@@ -93,7 +94,7 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 		return fmt.Sprintf("Issued mint request:\n%s\n", out), 0, nil
 
 	case mintApprove.FullCommand():
-		out, err := commands.MintApprove(*demoDir, *maUserID, *maRequestID)
+		out, err := commands.MintApprove(*demoDir, *maUserID, *maRequestRecKey, lg)
 		if err != nil {
 			return "", 1, err
 		}
@@ -101,7 +102,7 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 		return fmt.Sprintf("Approved mint request:\n%s\n", out), 0, nil
 
 	case transferTo.FullCommand():
-		out, err := commands.TransferTo(*demoDir, *ttUserID, *ttBuyerID, *ttCar)
+		out, err := commands.TransferTo(*demoDir, *ttUserID, *ttBuyerID, *ttCar, lg)
 		if err != nil {
 			return "", 1, err
 		}
@@ -109,7 +110,7 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 		return fmt.Sprintf("Issued transfer-to:\n%s\n", out), 0, nil
 
 	case transferReceive.FullCommand():
-		out, err := commands.TransferReceive(*demoDir, *trUserID, *trContractID)
+		out, err := commands.TransferReceive(*demoDir, *trUserID, *trCar, *trTrsToRecordKey, lg)
 
 		if err != nil {
 			return "", 1, err
