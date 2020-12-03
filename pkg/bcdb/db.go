@@ -36,6 +36,7 @@ type DBSession interface {
 	DataTx(database string) (DataTxContext, error)
 	DBsTx() (DBsTxContext, error)
 	ConfigTx() (ConfigTxContext, error)
+	Provenance() (Provenance, error)
 }
 
 var ErrTxSpent = errors.New("transaction committed or aborted")
@@ -49,6 +50,18 @@ type TxContext interface {
 	// Abort cancel submission and abandon all changes
 	// within given transaction context
 	Abort() error
+}
+
+type Provenance interface {
+	// GetBlockHeader returns block header from ledger
+	GetBlockHeader(blockNum uint64)	(*types.BlockHeader, error)
+	// GetLedgerPath returns cryptographically verifiable path between any block pairs in ledger skip list
+	GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeader, error)
+	// GetTransactionProof returns intermediate hashes from hash(tx, validating info) to root of
+	// tx merkle tree stored in block header
+	GetTransactionProof(blockNum uint64, txIndex int) ([][]byte, error)
+	// GetTransactionReceipt return block header where tx is stored and tx index inside block
+	GetTransactionReceipt(txId string) (*types.TxReceipt, error)
 }
 
 //go:generate mockery --dir . --name Signer --case underscore --output mocks/
@@ -317,6 +330,28 @@ func (d *dbSession) ConfigTx() (ConfigTxContext, error) {
 	}
 
 	return configTx, nil
+}
+
+// DataTx returns data's transaction context
+func (d *dbSession) Provenance() (Provenance, error) {
+	httpClient := d.newHTTPClient()
+
+	nodesCerts, err := d.getServerCertificates(httpClient)
+	if err != nil {
+		return nil, err
+	}
+	provenance := &provenance{
+		commonTxContext: commonTxContext{
+			userID:     d.userID,
+			signer:     d.signer,
+			userCert:   d.userCert,
+			replicaSet: d.replicaSet,
+			nodesCerts: nodesCerts,
+			restClient: NewRestClient(d.userID, httpClient, d.signer),
+			logger:     d.logger,
+		},
+	}
+	return provenance, nil
 }
 
 func (d *dbSession) getServerCertificates(httpClient *http.Client) (map[string]*x509.Certificate, error) {

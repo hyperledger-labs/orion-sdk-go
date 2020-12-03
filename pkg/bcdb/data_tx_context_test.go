@@ -3,6 +3,7 @@ package bcdb
 import (
 	"bytes"
 	"encoding/pem"
+	"github.com/gogo/protobuf/proto"
 	"io/ioutil"
 	"path"
 	"testing"
@@ -226,32 +227,41 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 }
 
 func putKeyAndValidate(t *testing.T, key string, value string, user string, session DBSession) {
+	putMultipleKeysAndValidate(t, []string{key}, []string{value}, user, session)
+	return
+}
+
+func putMultipleKeysAndValidate(t *testing.T, key []string, value []string, user string, session DBSession) (txEnvelopes []proto.Message){
 	// Creating new key
-	tx, err := session.DataTx("bdb")
-	require.NoError(t, err)
+	for i := 0; i < len(key); i++ {
+		tx, err := session.DataTx("bdb")
+		require.NoError(t, err)
 
-	err = tx.Put(key, []byte(value), &types.AccessControl{
-		ReadUsers:      map[string]bool{user: true},
-		ReadWriteUsers: map[string]bool{user: true},
-	})
-	require.NoError(t, err)
+		err = tx.Put(key[i], []byte(value[i]), &types.AccessControl{
+			ReadUsers:      map[string]bool{user: true},
+			ReadWriteUsers: map[string]bool{user: true},
+		})
+		require.NoError(t, err)
 
-	_, err = tx.Commit()
-	require.NoError(t, err)
+		_, err = tx.Commit()
+		require.NoError(t, err)
+		txEnvelopes = append(txEnvelopes, tx.TxEnvelope())
+	}
 
 	// Start another tx to query and make sure
 	// results was successfully committed
-	tx, err = session.DataTx("bdb")
+	tx, err := session.DataTx("bdb")
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		val, err := tx.Get(key)
+		val, err := tx.Get(key[len(key) - 1])
 
 		return err == nil && val != nil &&
-			bytes.Equal(val, []byte(value))
+			bytes.Equal(val, []byte(value[len(key) - 1]))
 	}, time.Minute, 200*time.Millisecond)
-
+	return txEnvelopes
 }
+
 
 func validateValue(t *testing.T, key string, value string, session DBSession) {
 	// Start another tx to query and make sure

@@ -23,6 +23,8 @@ type DataTxContext interface {
 	Get(key string) ([]byte, error)
 	// Delete value for key
 	Delete(key string) error
+	// TxEnvelope returns transaction envelope, can be called only after Commit(), otherwise will return nil
+	TxEnvelope() proto.Message
 }
 
 type dataTxContext struct {
@@ -31,6 +33,7 @@ type dataTxContext struct {
 	dataReads   []*types.DataRead
 	dataWrites  map[string]*types.DataWrite
 	dataDeletes map[string]*types.DataDelete
+	txEnvelope  proto.Message
 }
 
 func (d *dataTxContext) Commit() (string, error) {
@@ -58,9 +61,12 @@ func (d *dataTxContext) Put(key string, value []byte, acl *types.AccessControl) 
 // Get existing key value
 func (d *dataTxContext) Get(key string) ([]byte, error) {
 	// TODO Should we check if key already part of d.dataWrites and/or d.dataDeletes? Dirty reads case...
-	getData := &url.URL{
-		Path: constants.URLForGetData(d.database, key),
+	getData, err := url.Parse(constants.URLForGetData(d.database, key))
+	if err != nil {
+		d.logger.Errorf("failed to parse ledger data query path %s, due to %s", constants.URLForGetData(d.database, key), err)
+		return nil, err
 	}
+
 	replica := d.selectReplica()
 	configREST := replica.ResolveReference(getData)
 
@@ -108,6 +114,10 @@ func (d *dataTxContext) Delete(key string) error {
 	return nil
 }
 
+func (d *dataTxContext) TxEnvelope() proto.Message {
+	return d.txEnvelope
+}
+
 func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	var dataWrites []*types.DataWrite
 	var dataDeletes []*types.DataDelete
@@ -133,11 +143,11 @@ func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return &types.DataTxEnvelope{
+	d.txEnvelope = &types.DataTxEnvelope{
 		Payload:   payload,
 		Signature: signature,
-	}, nil
+	}
+	return d.txEnvelope, nil
 }
 
 func (d *dataTxContext) cleanCtx() {

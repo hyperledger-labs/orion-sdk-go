@@ -18,6 +18,10 @@ import (
 )
 
 func setupTestServer(t *testing.T, clientCertTempDir string) (*server.BCDBHTTPServer, tls.Certificate, string, error) {
+	return setupTestServerWithParams(t, clientCertTempDir, 500 * time.Millisecond, 1)
+}
+
+func setupTestServerWithParams(t *testing.T, clientCertTempDir string, blockTime time.Duration, txPerBlock uint32) (*server.BCDBHTTPServer, tls.Certificate, string, error) {
 	tempDir, err := ioutil.TempDir("/tmp", "userTxContextTest")
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -89,9 +93,9 @@ func setupTestServer(t *testing.T, clientCertTempDir string) (*server.BCDBHTTPSe
 		},
 		Consensus: config.ConsensusConf{
 			Algorithm:                   "solo",
-			BlockTimeout:                500 * time.Millisecond,
+			BlockTimeout:                blockTime,
 			MaxBlockSize:                1,
-			MaxTransactionCountPerBlock: 1,
+			MaxTransactionCountPerBlock: txPerBlock,
 		},
 	})
 	return server, keyPair, tempDir, err
