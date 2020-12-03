@@ -152,3 +152,42 @@ func (p *provenance) GetTransactionReceipt(txId string) (*types.TxReceipt, error
 
 	return res.GetPayload().GetReceipt(), nil
 }
+
+func (p *provenance) GetHistoricalData(dbName, key string) ([]*types.ValueWithMetadata, error) {
+	panic("Not implemented")
+}
+
+func (p *provenance) GetHistoricalDataAt(dbName, key string, version *types.Version) (*types.ValueWithMetadata, error){
+	panic("Not implemented")
+}
+
+func (p *provenance) GetPreviousHistoricalData(dbName, key string, version *types.Version) ([]*types.ValueWithMetadata, error){
+	panic("Not implemented")
+}
+
+func (p *provenance) GetNextHistoricalData(dbName, key string, version *types.Version) ([]*types.ValueWithMetadata, error){
+	panic("Not implemented")
+}
+
+func (p *provenance) GetDataReadByUser(userID string) ([]*types.KVWithMetadata, error){
+	panic("Not implemented")
+}
+
+func (p *provenance) GetDataWrittenByUser(userID string) ([]*types.KVWithMetadata, error){
+	panic("Not implemented")
+}
+
+func (p *provenance) GetReaders(dbName, key string) ([]string, error){
+	panic("Not implemented")
+}
+
+func (p *provenance) GetWriters(dbName, key string) ([]string, error){
+	panic("Not implemented")
+}
+
+func (p *provenance) GetTxIDsSubmittedByUser(userID string) ([]string, error){
+	panic("Not implemented")
+}
+
+
+

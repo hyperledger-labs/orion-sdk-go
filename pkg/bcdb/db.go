@@ -62,6 +62,16 @@ type Provenance interface {
 	GetTransactionProof(blockNum uint64, txIndex int) ([][]byte, error)
 	// GetTransactionReceipt return block header where tx is stored and tx index inside block
 	GetTransactionReceipt(txId string) (*types.TxReceipt, error)
+
+	GetHistoricalData(dbName, key string) ([]*types.ValueWithMetadata, error)
+	GetHistoricalDataAt(dbName, key string, version *types.Version) (*types.ValueWithMetadata, error)
+	GetPreviousHistoricalData(dbName, key string, version *types.Version) ([]*types.ValueWithMetadata, error)
+	GetNextHistoricalData(dbName, key string, version *types.Version) ([]*types.ValueWithMetadata, error)
+	GetDataReadByUser(userID string) ([]*types.KVWithMetadata, error)
+	GetDataWrittenByUser(userID string) ([]*types.KVWithMetadata, error)
+	GetReaders(dbName, key string) ([]string, error)
+	GetWriters(dbName, key string) ([]string, error)
+	GetTxIDsSubmittedByUser(userID string) ([]string, error)
 }
 
 //go:generate mockery --dir . --name Signer --case underscore --output mocks/
@@ -403,5 +413,5 @@ func ComputeTxID(userCert []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return base64.StdEncoding.EncodeToString(sha256Hash), err
+	return base64.URLEncoding.EncodeToString(sha256Hash), err
 }
