@@ -2,21 +2,64 @@ package commands
 
 import (
 	"encoding/pem"
-	"io/ioutil"
-	"net/url"
-	"path"
-	"sync"
-	"time"
-
+	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
 	"github.ibm.com/blockchaindb/server/pkg/types"
+	"io/ioutil"
+	"net/url"
+	"os"
+	"path"
+	"sync"
+	"time"
 )
+
+const CarDBName = "carDB"
 
 // Init the server, load users, create databases, set permissions
 func Init(demoDir string, url *url.URL, logger *logger.SugarLogger) error {
 
+	bcDB, err := createDBInstance(demoDir, url)
+	if err != nil {
+		logger.Errorf("error creating database instance, due to %s", err)
+		return err
+	}
+
+	if err = saveServerUrl(demoDir, url); err != nil {
+		return err
+	}
+
+	logger.Debugf("initialize database session with admin user in context")
+	session, err := createUserSession(demoDir, bcDB, "admin")
+	if err != nil {
+		logger.Errorf("error creating database session, due to %s", err)
+		return err
+	}
+
+	if err = initDB(session, logger); err != nil {
+		return err
+	}
+
+	if err = initUsers(demoDir, session, logger); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createUserSession(demoDir string, bcdb bcdb.BCDB, user string) (bcdb.DBSession, error) {
+	session, err := bcdb.Session(&config.SessionConfig{
+		UserConfig: &config.UserConfig{
+			UserID:         user,
+			CertPath:       path.Join(demoDir, "crypto", user, user+".pem"),
+			PrivateKeyPath: path.Join(demoDir, "crypto", user, user+".key"),
+		},
+	})
+	return session, err
+}
+
+func createDBInstance(demoDir string, url *url.URL) (bcdb.BCDB, error) {
 	bcdb, err := bcdb.Create(&config.ConnectionConfig{
 		RootCAs: []string{
 			path.Join(demoDir, "crypto", "CA", "CA.pem"),
@@ -28,30 +71,38 @@ func Init(demoDir string, url *url.URL, logger *logger.SugarLogger) error {
 			},
 		},
 	})
+
+	return bcdb, err
+}
+
+func saveServerUrl(demoDir string, url *url.URL) error {
+	serverUrlFile, err := os.Create(path.Join(demoDir, "server.url"))
 	if err != nil {
-		logger.Errorf("error creating database instance, due to %s", err)
 		return err
 	}
-
-	logger.Debugf("initialize database session with admin user in context")
-	session, err := bcdb.Session(&config.SessionConfig{
-		UserConfig: &config.UserConfig{
-			UserID:         "admin",
-			CertPath:       path.Join(demoDir, "crypto", "admin", "admin.pem"),
-			PrivateKeyPath: path.Join(demoDir, "crypto", "admin", "admin.key"),
-		},
-	})
+	_, err = serverUrlFile.WriteString(url.String())
 	if err != nil {
-		logger.Errorf("error creating database session, due to %s", err)
 		return err
 	}
+	return serverUrlFile.Close()
+}
 
+func loadServerUrl(demoDir string) (*url.URL, error) {
+	urlBytes, err := ioutil.ReadFile(path.Join(demoDir, "server.url"))
+	url, err := url.Parse(string(urlBytes))
+	if err != nil {
+		return nil, err
+	}
+	return url, nil
+}
+
+func initDB(session bcdb.DBSession, logger *logger.SugarLogger) error {
 	tx, err := session.DBsTx()
 	if err != nil {
 		return err
 	}
 
-	err = tx.CreateDB("carDB")
+	err = tx.CreateDB(CarDBName)
 	if err != nil {
 		return err
 	}
@@ -66,23 +117,27 @@ func Init(demoDir string, url *url.URL, logger *logger.SugarLogger) error {
 	wg.Add(1)
 	go func() {
 		for {
-			exist, err := tx.Exists("carDB")
-			if exist && err != nil {
-				return
+			exist, err := tx.Exists(CarDBName)
+			if exist && err == nil {
+				break
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
 		wg.Done()
 	}()
 	wg.Wait()
-	logger.Debug("databse carDB has been created")
 
-	usersTx, err := session.UsersTx()
-	if err != nil {
-		return err
-	}
+	logger.Debug("database carDB has been created")
+	return nil
+}
 
+func initUsers(demoDir string, session bcdb.DBSession, logger *logger.SugarLogger) error {
 	for _, role := range []string{"dmv", "dealer", "alice", "bob"} {
+		usersTx, err := session.UsersTx()
+		if err != nil {
+			return err
+		}
+
 		certPath := path.Join(demoDir, "crypto", role, role+".pem")
 		certFile, err := ioutil.ReadFile(certPath)
 		if err != nil {
@@ -94,25 +149,53 @@ func Init(demoDir string, url *url.URL, logger *logger.SugarLogger) error {
 			ID:          role,
 			Certificate: certBlock.Bytes,
 		}, &types.AccessControl{
-			ReadWriteUsers: map[string]bool{
-				"carDB": true,
-			},
-			ReadUsers: map[string]bool{
-				"carDB": true,
-			},
+			ReadWriteUsers: bcdb.UsersMap("admin"),
+			ReadUsers:      bcdb.UsersMap("admin"),
 		})
 		if err != nil {
-			tx.Abort()
+			usersTx.Abort()
 			return err
 		}
+
+		txID, err := usersTx.Commit()
+		if err != nil {
+			logger.Errorf("cannot commit transaction to add users, due to %s", err)
+			return err
+		}
+		logger.Debugf("transaction to provision user record has been submitted, ID: %s, txID = %s", role, txID)
+
+		err = waitForUserTxCommit(session, role, txID)
+		if err != nil {
+			return err
+		}
+		logger.Debugf("transaction to provision user record has been committed, ID: %s, txID = %s", role, txID)
 	}
 
-	txID, err = usersTx.Commit()
-	if err != nil {
-		logger.Errorf("cannot commit transaction to add users, due to %s", err)
-		return err
+	return nil
+}
+
+func waitForUserTxCommit(session bcdb.DBSession, key, txID string) error {
+wait_for_commit:
+	for {
+		select {
+		case <-time.After(1 * time.Second):
+			return errors.Errorf("timeout while waiting for transaction %s to commit to BCDB", txID)
+
+		case <-time.After(50 * time.Millisecond):
+			userTx, err := session.UsersTx()
+			if err != nil {
+				return errors.Wrap(err, "error creating data transaction")
+			}
+
+			recordBytes, err := userTx.GetUser(key)
+			if err != nil {
+				return errors.Wrapf(err, "error while waiting for transaction %s to commit to BCDB", txID)
+			}
+			if recordBytes != nil {
+				break wait_for_commit
+			}
+		}
 	}
-	logger.Debugf("transaction to provision users records has been submitted, txID = %s", txID)
 
 	return nil
 }

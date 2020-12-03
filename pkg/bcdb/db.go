@@ -374,12 +374,13 @@ func (d *dbSession) getServerCertificates(httpClient *http.Client) (map[string]*
 	for _, replica := range d.replicaSet {
 		nodesCerts, err = d.getNodesCerts(replica, httpClient)
 		if err != nil {
+			d.logger.Errorf("failed to obtain server's certificate, replica: %s", replica)
 			continue
 		}
 	}
 
 	if len(nodesCerts) == 0 {
-		d.logger.Errorf("failed to obtain server's certificate")
+		d.logger.Errorf("failed to obtain server's certificate, replicaSet: %s", d.replicaSet)
 		return nil, errors.New("failed to obtain server's certificate")
 	}
 	return nodesCerts, nil
@@ -418,4 +419,12 @@ func ComputeTxID(userCert []byte) (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(sha256Hash), err
+}
+
+func UsersMap(users ...string) map[string]bool {
+	m := make(map[string]bool)
+	for _, u := range users {
+		m[u] = true
+	}
+	return m
 }

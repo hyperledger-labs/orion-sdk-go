@@ -46,11 +46,23 @@ func executeForArgs(args []string, logger *logger.SugarLogger) (output string, e
 	init := app.Command("init", "Initialize the server, load it with users, create databases.")
 	replica := init.Flag("server", "URI of blockchain DB replica, http://host:port, to connect to").Short('s').URL()
 
-	command := kingpin.MustParse(app.Parse(args))
+	mintRequest := app.Command("mint-request", "Issue a request to mint a car by a dealer.")
+	mrUserID := mintRequest.Flag("user", "dealer user ID").Short('u').Required().String()
+	mrCarRegistry := mintRequest.Flag("car", "car registration plate").Short('c').Required().String()
 
-	//
-	// flag validation
-	//
+	mintApprove := app.Command("mint-approve", "Approve a request to mint a car, create car record.")
+	maUserID := mintApprove.Flag("user", "DMV user ID").Short('u').Required().String()
+	maRequestID := mintApprove.Flag("mint-request-id", "mint request ID").Short('r').Required().String()
+
+	transferTo := app.Command("transfer-to", "A seller issues an contract to sell a car")
+	ttUserID := transferTo.Flag("user", "seller user ID").Short('u').Required().String()
+	ttBuyerID := transferTo.Flag("buyer", "buyer user ID").Short('b').Required().String()
+	ttCar := transferTo.Flag("car", "car registration plate").Short('c').Required().String()
+
+	transferReceive := app.Command("transfer-receive", "A buyer agrees to the contract to sell a car")
+	trUserID := transferReceive.Flag("user", "buyer user ID").Short('u').Required().String()
+	trContractID := transferReceive.Flag("transfer-to-id", "transfer-to request ID").Short('r').Required().String()
+	command := kingpin.MustParse(app.Parse(args))
 
 	//
 	// call the underlying implementations
@@ -71,6 +83,39 @@ func executeForArgs(args []string, logger *logger.SugarLogger) (output string, e
 			return "", 1, err
 		}
 		return "Generated crypto material to: " + *demoDir, 0, nil
+
+	case mintRequest.FullCommand():
+		out, err := commands.MintRequest(*demoDir, *mrUserID, *mrCarRegistry)
+		if err != nil {
+			return "", 1, err
+		}
+
+		return fmt.Sprintf("Issued mint request:\n%s\n", out), 0, nil
+
+	case mintApprove.FullCommand():
+		out, err := commands.MintApprove(*demoDir, *maUserID, *maRequestID)
+		if err != nil {
+			return "", 1, err
+		}
+
+		return fmt.Sprintf("Approved mint request:\n%s\n", out), 0, nil
+
+	case transferTo.FullCommand():
+		out, err := commands.TransferTo(*demoDir, *ttUserID, *ttBuyerID, *ttCar)
+		if err != nil {
+			return "", 1, err
+		}
+
+		return fmt.Sprintf("Issued transfer-to:\n%s\n", out), 0, nil
+
+	case transferReceive.FullCommand():
+		out, err := commands.TransferReceive(*demoDir, *trUserID, *trContractID)
+
+		if err != nil {
+			return "", 1, err
+		}
+
+		return fmt.Sprintf("Issued transfer-receive:\n%s\n", out), 0, nil
 	}
 
 	if err != nil {
