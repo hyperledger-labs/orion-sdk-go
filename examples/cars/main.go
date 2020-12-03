@@ -24,9 +24,9 @@ func main() {
 		Encoding:      "console",
 		Name:          "bcdb-client",
 	}
-	logger, err := logger.New(c)
+	lg, err := logger.New(c)
 
-	output, exit, err := executeForArgs(os.Args[1:], logger)
+	output, exit, err := executeForArgs(os.Args[1:], lg)
 	if err != nil {
 		kingpin.Fatalf("parsing arguments: %s. Try --help", err)
 	}
@@ -34,7 +34,7 @@ func main() {
 	os.Exit(exit)
 }
 
-func executeForArgs(args []string, logger *logger.SugarLogger) (output string, exit int, err error) {
+func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit int, err error) {
 	//
 	// command line flags
 	//
@@ -78,14 +78,14 @@ func executeForArgs(args []string, logger *logger.SugarLogger) (output string, e
 		return "Generated demo materials to: " + *demoDir, 0, nil
 
 	case init.FullCommand():
-		err := commands.Init(*demoDir, *replica, logger)
+		err := commands.Init(*demoDir, *replica, lg)
 		if err != nil {
 			return "", 1, err
 		}
 		return "Generated crypto material to: " + *demoDir, 0, nil
 
 	case mintRequest.FullCommand():
-		out, err := commands.MintRequest(*demoDir, *mrUserID, *mrCarRegistry)
+		out, err := commands.MintRequest(*demoDir, *mrUserID, *mrCarRegistry, lg)
 		if err != nil {
 			return "", 1, err
 		}

@@ -18,11 +18,11 @@ import (
 const CarDBName = "carDB"
 
 // Init the server, load users, create databases, set permissions
-func Init(demoDir string, url *url.URL, logger *logger.SugarLogger) error {
+func Init(demoDir string, url *url.URL, lg *logger.SugarLogger) error {
 
 	bcDB, err := createDBInstance(demoDir, url)
 	if err != nil {
-		logger.Errorf("error creating database instance, due to %s", err)
+		lg.Errorf("error creating database instance, due to %s", err)
 		return err
 	}
 
@@ -30,18 +30,18 @@ func Init(demoDir string, url *url.URL, logger *logger.SugarLogger) error {
 		return err
 	}
 
-	logger.Debugf("initialize database session with admin user in context")
+	lg.Debugf("initialize database session with admin user in context")
 	session, err := createUserSession(demoDir, bcDB, "admin")
 	if err != nil {
-		logger.Errorf("error creating database session, due to %s", err)
+		lg.Errorf("error creating database session, due to %s", err)
 		return err
 	}
 
-	if err = initDB(session, logger); err != nil {
+	if err = initDB(session, lg); err != nil {
 		return err
 	}
 
-	if err = initUsers(demoDir, session, logger); err != nil {
+	if err = initUsers(demoDir, session, lg); err != nil {
 		return err
 	}
 
@@ -60,7 +60,7 @@ func createUserSession(demoDir string, bcdb bcdb.BCDB, user string) (bcdb.DBSess
 }
 
 func createDBInstance(demoDir string, url *url.URL) (bcdb.BCDB, error) {
-	bcdb, err := bcdb.Create(&config.ConnectionConfig{
+	bcDB, err := bcdb.Create(&config.ConnectionConfig{
 		RootCAs: []string{
 			path.Join(demoDir, "crypto", "CA", "CA.pem"),
 		},
@@ -72,7 +72,7 @@ func createDBInstance(demoDir string, url *url.URL) (bcdb.BCDB, error) {
 		},
 	})
 
-	return bcdb, err
+	return bcDB, err
 }
 
 func saveServerUrl(demoDir string, url *url.URL) error {
@@ -89,14 +89,14 @@ func saveServerUrl(demoDir string, url *url.URL) error {
 
 func loadServerUrl(demoDir string) (*url.URL, error) {
 	urlBytes, err := ioutil.ReadFile(path.Join(demoDir, "server.url"))
-	url, err := url.Parse(string(urlBytes))
+	serverUrl, err := url.Parse(string(urlBytes))
 	if err != nil {
 		return nil, err
 	}
-	return url, nil
+	return serverUrl, nil
 }
 
-func initDB(session bcdb.DBSession, logger *logger.SugarLogger) error {
+func initDB(session bcdb.DBSession, lg *logger.SugarLogger) error {
 	tx, err := session.DBsTx()
 	if err != nil {
 		return err
@@ -108,10 +108,10 @@ func initDB(session bcdb.DBSession, logger *logger.SugarLogger) error {
 	}
 	txID, err := tx.Commit()
 	if err != nil {
-		logger.Errorf("cannot commit transaction to create cars db, due to %s", err)
+		lg.Errorf("cannot commit transaction to create cars db, due to %s", err)
 		return err
 	}
-	logger.Debugf("transaction to create carDB has been submitted, txID = %s", txID)
+	lg.Debugf("transaction to create carDB has been submitted, txID = %s", txID)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -127,7 +127,7 @@ func initDB(session bcdb.DBSession, logger *logger.SugarLogger) error {
 	}()
 	wg.Wait()
 
-	logger.Debug("database carDB has been created")
+	lg.Debug("database carDB has been created")
 	return nil
 }
 
@@ -145,13 +145,17 @@ func initUsers(demoDir string, session bcdb.DBSession, logger *logger.SugarLogge
 			return err
 		}
 		certBlock, _ := pem.Decode(certFile)
-		err = usersTx.PutUser(&types.User{
-			ID:          role,
-			Certificate: certBlock.Bytes,
-		}, &types.AccessControl{
-			ReadWriteUsers: bcdb.UsersMap("admin"),
-			ReadUsers:      bcdb.UsersMap("admin"),
-		})
+		err = usersTx.PutUser(
+			&types.User{
+				ID:          role,
+				Certificate: certBlock.Bytes,
+				Privilege:   &types.Privilege{
+					DBPermission:          map[string]types.Privilege_Access{CarDBName: 1},
+				},
+			}, &types.AccessControl{
+				ReadWriteUsers: bcdb.UsersMap("admin"),
+				ReadUsers:      bcdb.UsersMap("admin"),
+			})
 		if err != nil {
 			usersTx.Abort()
 			return err

@@ -11,8 +11,6 @@ import (
 )
 
 func TestMintRequest(t *testing.T) {
-	t.Skip("server bug #296")
-
 	demoDir, err := ioutil.TempDir("/tmp", "cars-demo-test")
 	require.NoError(t, err)
 	defer os.RemoveAll(demoDir)
@@ -49,7 +47,7 @@ func TestMintRequest(t *testing.T) {
 	err = Init(demoDir, serverUrl, logger)
 	require.NoError(t, err)
 
-	out, err := MintRequest(demoDir, "dealer", "Test.Car.1")
+	out, err := MintRequest(demoDir, "dealer", "Test.Car.1", logger)
 	require.NoError(t, err)
 	fmt.Println(out)
 }

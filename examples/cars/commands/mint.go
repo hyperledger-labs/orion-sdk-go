@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
 	"github.ibm.com/blockchaindb/server/pkg/crypto"
+	"github.ibm.com/blockchaindb/server/pkg/logger"
 	"github.ibm.com/blockchaindb/server/pkg/types"
 	"time"
 )
@@ -17,13 +18,13 @@ type MintRequestRecord struct {
 }
 
 func (r *MintRequestRecord) Key() string {
-	return "mint-request:" + r.RequestID()
+	return "mint-request~" + r.RequestID()
 }
 
 func (r *MintRequestRecord) RequestID() string {
 	str := r.Dealer + "_" + r.Car
 	sha256Hash, _ := crypto.ComputeSHA256Hash([]byte(str))
-	return base64.StdEncoding.EncodeToString(sha256Hash)
+	return base64.URLEncoding.EncodeToString(sha256Hash)
 }
 
 type CarRecord struct {
@@ -36,8 +37,8 @@ func (r *CarRecord) Key() string {
 }
 
 // MintRequest a dealer issues a mint-request for a car.
-func MintRequest(demoDir, dealerID, carRegistration string) (out string, err error) {
-	fmt.Printf("MintRequest: dealer-ID: %s, Car: %s \n", dealerID, carRegistration)
+func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogger) (out string, err error) {
+	lg.Debugf("dealer-ID: %s, Car: %s", dealerID, carRegistration)
 
 	serverUrl, err := loadServerUrl(demoDir)
 	if err != nil {
@@ -66,6 +67,9 @@ func MintRequest(demoDir, dealerID, carRegistration string) (out string, err err
 	}
 
 	recordBytes, err := dataTx.Get(key)
+	if err != nil {
+		return "", errors.Wrapf(err, "error getting MintRequest: %s", key)
+	}
 	if recordBytes != nil {
 		return "", errors.Errorf("MintRequest already exists: %s", key)
 	}
