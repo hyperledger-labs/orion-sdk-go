@@ -144,3 +144,16 @@ func createDBInstance(t *testing.T, tempDir string, serverPort string) BCDB {
 
 	return bcdb
 }
+
+func startServerConnectOpenAdminCreateUserAndUserSession(t *testing.T, testServer *server.BCDBHTTPServer, serverTempDir string, certTempDir string, user string) (BCDB, DBSession, DBSession){
+	testServer.Start()
+
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, serverTempDir, certTempDir)
+	pemUserCert, err := ioutil.ReadFile(path.Join(certTempDir, user + ".pem"))
+	require.NoError(t, err)
+	addUser(t, user, adminSession, pemUserCert)
+	userSession := openUserSession(t, bcdb, user, certTempDir)
+
+	return bcdb, adminSession, userSession
+}
+

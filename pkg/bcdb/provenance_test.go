@@ -3,8 +3,6 @@ package bcdb
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"path"
 	"testing"
 	"time"
 
@@ -20,13 +18,7 @@ func Test_provenance_GetBlockHeader(t *testing.T) {
 	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
-
-	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
-	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
-	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
-	aliceSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, tempDir, clientCertTemDir, "alice")
 
 	for i := 1; i < 10; i++ {
 		putKeyAndValidate(t, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
@@ -47,13 +39,7 @@ func Test_provenance_GetLedgerPath(t *testing.T) {
 	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
-
-	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
-	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
-	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
-	aliceSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, tempDir, clientCertTemDir, "alice")
 
 	for i := 1; i < 10; i++ {
 		putKeyAndValidate(t, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
@@ -128,13 +114,7 @@ func Test_provenance_GetTransactionProof(t *testing.T) {
 	testServer, _, tempDir, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 10)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
-
-	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
-	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
-	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
-	aliceSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, tempDir, clientCertTemDir, "alice")
 
 	txEnvelopesPerBlock := make([][]proto.Message, 0)
 
@@ -214,13 +194,7 @@ func Test_provenance_GetTransactionReceipt(t *testing.T) {
 	testServer, _, tempDir, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 10)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
-
-	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
-	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
-	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
-	aliceSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, tempDir, clientCertTemDir, "alice")
 
 	txEnvelopesPerBlock := make([][]proto.Message, 0)
 
@@ -285,6 +259,60 @@ func Test_provenance_GetTransactionReceipt(t *testing.T) {
 			} else {
 				require.Error(t, err)
 				require.Nil(t, receipt)
+			}
+		})
+	}
+}
+
+func Test_provenance_GetHistoricalData(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
+	testServer, _, tempDir, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 1)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, tempDir, clientCertTemDir, "alice")
+
+	txEnvelopesPerBlock := make([][]proto.Message, 0)
+
+	// 25 blocks, each 1 tx
+	for i := 0; i < 5; i++ {
+		keys := make([]string, 0)
+		values := make([]string, 0)
+		for j := 0; j < 5; j++ {
+			keys = append(keys, fmt.Sprintf("key%d", j))
+			values = append(values, fmt.Sprintf("value%d_%d", i, j))
+		}
+		txEnvelopesPerBlock = append(txEnvelopesPerBlock, putMultipleKeysAndValidate(t, keys, values, "alice", aliceSession))
+	}
+
+	tests := []struct {
+		name    string
+		key     string
+		values  [][]byte
+		wantErr bool
+	}{
+		{
+			name:    "key0 - 5 values",
+			key:     "key0",
+			values:  [][]byte{[]byte("value0_0"), []byte("value1_0"), []byte("value2_0"), []byte("value3_0"), []byte("value4_0")},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := aliceSession.Provenance()
+			require.NoError(t, err)
+			hData, err := p.GetHistoricalData("bdb", tt.key)
+			if !tt.wantErr {
+				require.NoError(t, err)
+				require.NotNil(t, hData)
+				resValues := make([][]byte, 0)
+				for _, d := range hData {
+					resValues = append(resValues, d.Value)
+				}
+				require.ElementsMatch(t, tt.values, resValues)
+			} else {
+				require.Error(t, err)
+				require.Nil(t, hData)
 			}
 		})
 	}
