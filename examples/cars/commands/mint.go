@@ -96,7 +96,7 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	if err = waitForTxCommit(session, key, txID); err != nil {
+	if err = waitForTxCommit(session, txID); err != nil {
 		return "", err
 	}
 
@@ -177,32 +177,32 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	if err = waitForTxCommit(session, carKey, txID); err != nil {
+	if err = waitForTxCommit(session, txID); err != nil {
 		return "", err
 	}
 
 	return fmt.Sprintf("MintApprove: committed, txID: %s, Key: %s", txID, carKey), nil
 }
 
-func waitForTxCommit(session bcdb.DBSession, key, txID string) error {
-wait_for_commit:
+func waitForTxCommit(session bcdb.DBSession, txID string) error {
+	p, err := session.Provenance()
+	if err != nil {
+		return errors.Wrap(err, "error accessing provenance data")
+	}
 	for {
 		select {
 		case <-time.After(1 * time.Second):
 			return errors.Errorf("timeout while waiting for transaction %s to commit to BCDB", txID)
 
 		case <-time.After(50 * time.Millisecond):
-			pollTx, err := session.DataTx(CarDBName)
-			if err != nil {
-				return errors.Wrap(err, "error creating data transaction")
-			}
-
-			recordBytes, err := pollTx.Get(key)
-			if recordBytes != nil && err == nil {
-				break wait_for_commit
+			receipt, err := p.GetTransactionReceipt(txID)
+			if err == nil {
+				validationInfo := receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()]
+				if validationInfo.GetFlag() == types.Flag_VALID {
+					return nil
+				}
+				return errors.Errorf("transaction [%s] is invalid, reason %s ", txID, validationInfo.GetReasonIfInvalid())
 			}
 		}
 	}
-
-	return nil
 }

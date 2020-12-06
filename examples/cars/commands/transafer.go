@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
@@ -112,7 +111,7 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	if err = waitForTxCommit(session, ttRecKey, txID); err != nil {
+	if err = waitForTxCommit(session, txID); err != nil {
 		return "", err
 	}
 
@@ -193,7 +192,7 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	if err = waitForTxCommit(session, trRecKey, txID); err != nil {
+	if err = waitForTxCommit(session, txID); err != nil {
 		return "", err
 	}
 
@@ -283,37 +282,9 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	if err = waitForCarNewOwnerCommit(session, carKey, carRec.Owner, txID); err != nil {
+	if err = waitForTxCommit(session, txID); err != nil {
 		return "", err
 	}
 
 	return fmt.Sprintf("Transfer: committed, txID: %s, Key: %s", txID, carKey), nil
-}
-
-func waitForCarNewOwnerCommit(session bcdb.DBSession, carKey, newOwner, txID string) error {
-wait_for_commit:
-	for {
-		select {
-		case <-time.After(1 * time.Second):
-			return errors.Errorf("timeout while waiting for transaction %s to commit to BCDB", txID)
-
-		case <-time.After(50 * time.Millisecond):
-			pollTx, err := session.DataTx(CarDBName)
-			if err != nil {
-				return errors.Wrap(err, "error creating data transaction")
-			}
-
-			recordBytes, err := pollTx.Get(carKey)
-			if recordBytes != nil && err == nil {
-				carRec := &CarRecord{}
-				if err = json.Unmarshal(recordBytes, carRec); err == nil {
-					if carRec.Owner == newOwner {
-						break wait_for_commit
-					}
-				}
-			}
-		}
-	}
-
-	return nil
 }
