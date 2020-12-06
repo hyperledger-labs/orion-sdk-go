@@ -14,11 +14,13 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+const demoDirEnvar = "CARS_DEMO_DIR"
+
 func main() {
 	kingpin.Version("0.0.1")
 
 	c := &logger.Config{
-		Level:         "debug",
+		Level:         "info",
 		OutputPath:    []string{"stdout"},
 		ErrOutputPath: []string{"stderr"},
 		Encoding:      "console",
@@ -39,12 +41,17 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 	// command line flags
 	//
 	app := kingpin.New("cars", "Car registry demo")
-	demoDir := app.Flag("demo-dir", "Path to the folder that will contain all the material for the demo").Short('d').Required().String()
+	demoDir := app.Flag("demo-dir",
+		fmt.Sprintf("Path to the folder that will contain all the material for the demo. If missing, taken from envar: %s", demoDirEnvar)).
+		Short('d').
+		Envar(demoDirEnvar).
+		Required().
+		String()
 
 	generate := app.Command("generate", "Generate crypto material for all roles: admin, dmv, dealer, alice, bob; and the BCDB server.")
 
 	init := app.Command("init", "Initialize the server, load it with users, create databases.")
-	replica := init.Flag("server", "URI of blockchain DB replica, http://host:port, to connect to").Short('s').URL()
+	replica := init.Flag("server", "URI of blockchain DB replica, http://host:port, to connect to").Short('s').Required().URL()
 
 	mintRequest := app.Command("mint-request", "Issue a request to mint a car by a dealer.")
 	mrUserID := mintRequest.Flag("user", "dealer user ID").Short('u').Required().String()
@@ -83,7 +90,7 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 		if err != nil {
 			return "", 1, err
 		}
-		return "Generated crypto material to: " + *demoDir, 0, nil
+		return "Initialized server from: " + *demoDir, 0, nil
 
 	case mintRequest.FullCommand():
 		out, err := commands.MintRequest(*demoDir, *mrUserID, *mrCarRegistry, lg)
