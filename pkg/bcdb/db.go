@@ -54,7 +54,7 @@ type TxContext interface {
 
 type Provenance interface {
 	// GetBlockHeader returns block header from ledger
-	GetBlockHeader(blockNum uint64)	(*types.BlockHeader, error)
+	GetBlockHeader(blockNum uint64) (*types.BlockHeader, error)
 	// GetLedgerPath returns cryptographically verifiable path between any block pairs in ledger skip list
 	GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeader, error)
 	// GetTransactionProof returns intermediate hashes from hash(tx, validating info) to root of
@@ -83,8 +83,12 @@ type Signer interface {
 // Create prepares connection context to work with BCDB instance
 // loads root CA certificates
 func Create(config *config.ConnectionConfig) (BCDB, error) {
+	logLevel := config.LogLevel
+	if len(logLevel) == 0 {
+		logLevel = "info"
+	}
 	c := &logger.Config{
-		Level:         "debug",
+		Level:         logLevel,
 		OutputPath:    []string{"stdout"},
 		ErrOutputPath: []string{"stderr"},
 		Encoding:      "console",

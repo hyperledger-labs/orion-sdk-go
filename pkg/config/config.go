@@ -16,6 +16,8 @@ type ConnectionConfig struct {
 	ReplicaSet []*Replica
 	// Keeps path to the server's root CA
 	RootCAs []string
+	// LogLevel
+	LogLevel string
 }
 
 // SessionConfig keeps per database session
