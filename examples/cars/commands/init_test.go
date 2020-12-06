@@ -77,7 +77,7 @@ func setupTestServer(t *testing.T, demoDir string) (*server.BCDBHTTPServer, stri
 	server, err := server.New(&config.Configurations{
 		Node: config.NodeConf{
 			Identity: config.IdentityConf{
-				ID:              "node",
+				ID:              "demo",
 				CertificatePath: path.Join(cryptoDir, "server", "server.pem"),
 				KeyPath:         path.Join(cryptoDir, "server", "server.key"),
 			},

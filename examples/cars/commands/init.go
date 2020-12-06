@@ -67,7 +67,7 @@ func createDBInstance(demoDir string, url *url.URL) (bcdb.BCDB, error) {
 		},
 		ReplicaSet: []*config.Replica{
 			{
-				ID:       "node",
+				ID:       "demo",
 				Endpoint: url.String(),
 			},
 		},
