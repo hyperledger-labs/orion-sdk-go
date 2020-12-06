@@ -2,11 +2,15 @@ package commands
 
 import (
 	"crypto/tls"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
+	"time"
 
+	"github.ibm.com/blockchaindb/server/config"
 	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
+	"gopkg.in/yaml.v2"
 )
 
 // Generate demo materials:
@@ -26,6 +30,11 @@ func Generate(demoDir string) error {
 		if err := os.MkdirAll(path.Join(demoDir, subdir), 0755); err != nil {
 			return err
 		}
+	}
+
+	err := writeConfigFile(demoDir)
+	if err != nil {
+		return err
 	}
 
 	for _, role := range []string{"admin", "dmv", "dealer", "alice", "bob", "server", "CA"} {
@@ -89,4 +98,54 @@ func Generate(demoDir string) error {
 	}
 
 	return nil
+}
+
+func writeConfigFile(demoDir string) error {
+	config := &config.Configurations{
+		Node: config.NodeConf{
+			Identity: config.IdentityConf{
+				ID:              "demo",
+				CertificatePath: path.Join(demoDir, "crypto", "server", "server.pem"),
+				KeyPath:         path.Join(demoDir, "crypto", "server", "server.key"),
+			},
+			Network: config.NetworkConf{
+				Address: "127.0.0.1",
+				Port:    8080,
+			},
+			LogLevel: "debug",
+			Database: config.DatabaseConf{
+				Name:            "leveldb",
+				LedgerDirectory: path.Join(demoDir, "database"),
+			},
+			QueueLength: config.QueueLengthConf{
+				ReorderedTransactionBatch: 1,
+				Transaction:               1,
+				Block:                     1,
+			},
+		},
+		Admin: config.AdminConf{
+			ID:              "admin",
+			CertificatePath: path.Join(demoDir, "crypto", "admin", "admin.pem"),
+		},
+		RootCA: config.RootCAConf{
+			CertificatePath: path.Join(demoDir, "crypto", "CA", "CA.pem"),
+		},
+		Consensus: config.ConsensusConf{
+			MaxTransactionCountPerBlock: 1,
+			MaxBlockSize:                1,
+			BlockTimeout:                100 * time.Millisecond,
+			Algorithm:                   "solo",
+		},
+	}
+
+	c, err := yaml.Marshal(config)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(path.Join(demoDir, "config", "config.yaml"), c, 0644)
+	if err != nil {
+		return err
+	}
+	return err
 }
