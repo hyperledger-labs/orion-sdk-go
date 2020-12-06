@@ -35,6 +35,10 @@ type CarRecord struct {
 	CarRegistration string
 }
 
+func (r *CarRecord) String() string {
+	return fmt.Sprintf("{CarRegistration: %s, Owner: %s}", r.CarRegistration, r.Owner)
+}
+
 const CarRecordKeyPrefix = "car~"
 
 func (r *CarRecord) Key() string {

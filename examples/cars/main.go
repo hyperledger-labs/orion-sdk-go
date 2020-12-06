@@ -70,6 +70,17 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 	trUserID := transferReceive.Flag("user", "buyer user ID").Short('u').Required().String()
 	trCar := transferReceive.Flag("car", "car registration plate").Short('c').Required().String()
 	trTrsToRecordKey := transferReceive.Flag("transfer-to-key", "transfer-to record key").Short('k').Required().String()
+
+	transferOwnership := app.Command("transfer", "Transfer car ownership between a seller and a buyer")
+	toUserID := transferOwnership.Flag("user", "dmv user ID").Short('u').Required().String()
+	toTrsToRecordKey := transferOwnership.Flag("transfer-to-key", "transfer-to record key").Short('k').Required().String()
+	toTrsRcvRecordKey := transferOwnership.Flag("transfer-receive-key", "transfer-receive record key").Short('r').Required().String()
+
+	listCar := app.Command("list-car", "List a car record")
+	lsCarUserID := listCar.Flag("user", "user ID").Short('u').Required().String()
+	lsCarCar := listCar.Flag("car", "car registration plate").Short('c').Required().String()
+	lsCarProv := listCar.Flag("provenance", "complete provenance info on a car.").Short('p').Bool()
+
 	command := kingpin.MustParse(app.Parse(args))
 
 	//
@@ -81,21 +92,25 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 	case generate.FullCommand():
 		err := commands.Generate(*demoDir)
 		if err != nil {
-			return "", 1, err
+			fmt.Println(command)
+			return errorOutput(err), 1, nil
 		}
+
 		return "Generated demo materials to: " + *demoDir, 0, nil
 
 	case init.FullCommand():
 		err := commands.Init(*demoDir, *replica, lg)
 		if err != nil {
-			return "", 1, err
+			fmt.Println(command)
+			return errorOutput(err), 1, nil
 		}
 		return "Initialized server from: " + *demoDir, 0, nil
 
 	case mintRequest.FullCommand():
 		out, err := commands.MintRequest(*demoDir, *mrUserID, *mrCarRegistry, lg)
 		if err != nil {
-			return "", 1, err
+			fmt.Println(command)
+			return errorOutput(err), 1, nil
 		}
 
 		return fmt.Sprintf("Issued mint request:\n%s\n", out), 0, nil
@@ -103,7 +118,9 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 	case mintApprove.FullCommand():
 		out, err := commands.MintApprove(*demoDir, *maUserID, *maRequestRecKey, lg)
 		if err != nil {
-			return "", 1, err
+			fmt.Println(command)
+			return errorOutput(err), 1, nil
+
 		}
 
 		return fmt.Sprintf("Approved mint request:\n%s\n", out), 0, nil
@@ -111,7 +128,9 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 	case transferTo.FullCommand():
 		out, err := commands.TransferTo(*demoDir, *ttUserID, *ttBuyerID, *ttCar, lg)
 		if err != nil {
-			return "", 1, err
+			fmt.Println(command)
+
+			return errorOutput(err), 1, nil
 		}
 
 		return fmt.Sprintf("Issued transfer-to:\n%s\n", out), 0, nil
@@ -120,13 +139,34 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 		out, err := commands.TransferReceive(*demoDir, *trUserID, *trCar, *trTrsToRecordKey, lg)
 
 		if err != nil {
-			return "", 1, err
+			fmt.Println(command)
+			return errorOutput(err), 1, nil
+
 		}
 
 		return fmt.Sprintf("Issued transfer-receive:\n%s\n", out), 0, nil
+
+	case transferOwnership.FullCommand():
+		out, err := commands.Transfer(*demoDir, *toUserID, *toTrsToRecordKey, *toTrsRcvRecordKey, lg)
+		if err != nil {
+			fmt.Println(command)
+			return errorOutput(err), 1, nil
+		}
+
+		return fmt.Sprintf("Issued transfer-receive:\n%s\n", out), 0, nil
+
+	case listCar.FullCommand():
+		out, err := commands.ListCar(*demoDir, *lsCarUserID, *lsCarCar, *lsCarProv, lg)
+		if err != nil {
+			fmt.Println(command)
+			return errorOutput(err), 1, nil
+		}
+
+		return fmt.Sprintf("%s\n", out), 0, nil
 	}
 
 	if err != nil {
+		fmt.Println(command)
 		return errorOutput(err), 1, nil
 	}
 

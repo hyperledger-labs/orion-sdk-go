@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -81,6 +82,10 @@ func TestTransfer(t *testing.T) {
 	trKey := strings.TrimSpace(out[index+4:])
 	require.True(t, strings.HasPrefix(trKey, TransferReceiveRecordKeyPrefix))
 
+	out, err = ListCar(demoDir, "dmv", carReg, false, logger)
+	require.NoError(t, err)
+	fmt.Println(out)
+
 	out, err = Transfer(demoDir, "dmv", ttKey, trKey, logger)
 	require.NoError(t, err)
 	require.Contains(t, out, "Transfer: committed")
@@ -88,4 +93,8 @@ func TestTransfer(t *testing.T) {
 	index = strings.Index(out, "Key:")
 	newOwnerKey := strings.TrimSpace(out[index+4:])
 	require.True(t, strings.HasPrefix(newOwnerKey, CarRecordKeyPrefix))
+
+	out, err = ListCar(demoDir, "dmv", carReg, false, logger)
+	require.NoError(t, err)
+	fmt.Println(out)
 }
