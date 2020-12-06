@@ -1,49 +1,15 @@
 package commands
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
-	"github.ibm.com/blockchaindb/server/pkg/crypto"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
 	"github.ibm.com/blockchaindb/server/pkg/types"
 )
-
-type MintRequestRecord struct {
-	Dealer          string
-	CarRegistration string
-}
-
-const MintRequestRecordKeyPrefix = "mint-request~"
-
-func (r *MintRequestRecord) Key() string {
-	return MintRequestRecordKeyPrefix + r.RequestID()
-}
-
-func (r *MintRequestRecord) RequestID() string {
-	str := r.Dealer + "_" + r.CarRegistration
-	sha256Hash, _ := crypto.ComputeSHA256Hash([]byte(str))
-	return base64.URLEncoding.EncodeToString(sha256Hash)
-}
-
-type CarRecord struct {
-	Owner           string
-	CarRegistration string
-}
-
-func (r *CarRecord) String() string {
-	return fmt.Sprintf("{CarRegistration: %s, Owner: %s}", r.CarRegistration, r.Owner)
-}
-
-const CarRecordKeyPrefix = "car~"
-
-func (r *CarRecord) Key() string {
-	return CarRecordKeyPrefix + r.CarRegistration
-}
 
 // MintRequest a dealer issues a mint-request for a car.
 func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogger) (out string, err error) {

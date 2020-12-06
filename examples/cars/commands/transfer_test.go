@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -84,7 +83,8 @@ func TestTransfer(t *testing.T) {
 
 	out, err = ListCar(demoDir, "dmv", carReg, false, logger)
 	require.NoError(t, err)
-	fmt.Println(out)
+	require.Contains(t, out, "ListCar: executed")
+	require.Contains(t, out, "Owner: dealer")
 
 	out, err = Transfer(demoDir, "dmv", ttKey, trKey, logger)
 	require.NoError(t, err)
@@ -96,5 +96,12 @@ func TestTransfer(t *testing.T) {
 
 	out, err = ListCar(demoDir, "dmv", carReg, false, logger)
 	require.NoError(t, err)
-	fmt.Println(out)
+	require.Contains(t, out, "ListCar: executed")
+	require.Contains(t, out, "Owner: alice")
+
+	out, err = ListCar(demoDir, "dmv", carReg, true, logger)
+	require.NoError(t, err)
+	require.Contains(t, out, "ListCar: executed")
+	require.Contains(t, out, "Owner: dealer")
+	require.Contains(t, out, "Owner: alice")
 }

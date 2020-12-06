@@ -1,52 +1,14 @@
 package commands
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
-	"github.ibm.com/blockchaindb/server/pkg/crypto"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
 	"github.ibm.com/blockchaindb/server/pkg/types"
 )
-
-type TransferToRecord struct {
-	Owner           string
-	Buyer           string
-	CarRegistration string
-}
-
-const TransferToRecordKeyPrefix = "transfer-to~"
-
-func (r *TransferToRecord) RequestID() string {
-	str := r.Owner + "_" + r.Buyer + "_" + r.CarRegistration
-	sha256Hash, _ := crypto.ComputeSHA256Hash([]byte(str))
-	return base64.URLEncoding.EncodeToString(sha256Hash)
-}
-
-type TransferReceiveRecord struct {
-	Buyer               string
-	CarRegistration     string
-	TransferToRecordKey string
-}
-
-func (r *TransferToRecord) Key() string {
-	return TransferToRecordKeyPrefix + r.RequestID()
-}
-
-const TransferReceiveRecordKeyPrefix = "transfer-receive~"
-
-func (r *TransferReceiveRecord) RequestID() string {
-	str := r.Buyer + "_" + r.CarRegistration + "_" + r.TransferToRecordKey
-	sha256Hash, _ := crypto.ComputeSHA256Hash([]byte(str))
-	return base64.URLEncoding.EncodeToString(sha256Hash)
-}
-
-func (r *TransferReceiveRecord) Key() string {
-	return TransferReceiveRecordKeyPrefix + r.RequestID()
-}
 
 func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.SugarLogger) (out string, err error) {
 	lg.Debugf("owner-ID: %s, buyer-ID: %s, Car-Reg", ownerID, buyerID, carRegistration)
