@@ -29,11 +29,19 @@ func (p *TxProof) Verify(receipt *types.TxReceipt, tx proto.Message) (bool, erro
 	if err != nil {
 		return false, errors.Wrapf(err, "can't serialize validation info [%s] to json", valInfo.String())
 	}
-	currHash, err := crypto.ComputeSHA256Hash(append(txBytes, viBytes...))
+	txHash, err := crypto.ComputeSHA256Hash(append(txBytes, viBytes...))
 	if err != nil {
 		return false, errors.Wrap(err, "can't calculate concatenated hash of tx and its validation info")
 	}
-	for _, pHash := range p.intermediateHashes {
+	var currHash []byte
+	for i, pHash := range p.intermediateHashes {
+		if i == 0 {
+			if !bytes.Equal(txHash, pHash) {
+				return false, nil
+			}
+			currHash = txHash
+			continue
+		}
 		currHash, err = crypto.ConcatenateHashes(currHash, pHash)
 		if err != nil {
 			return false, errors.Wrap(err, "can't calculate hash of two concatenated hashes")
