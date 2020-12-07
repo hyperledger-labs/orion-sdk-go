@@ -41,7 +41,7 @@ func (p *provenance) GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockH
 	return res.GetPayload().GetBlockHeaders(), nil
 }
 
-func (p *provenance) GetTransactionProof(blockNum uint64, txIndex int) ([][]byte, error) {
+func (p *provenance) GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, error) {
 	path := constants.URLTxProof(blockNum, txIndex)
 	res := &types.GetTxProofResponseEnvelope{}
 	err := p.handleRequest(path, &types.GetTxProofQuery{
@@ -53,7 +53,7 @@ func (p *provenance) GetTransactionProof(blockNum uint64, txIndex int) ([][]byte
 		p.logger.Errorf("failed to execute transaction proof query %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetPayload().GetHashes(), nil
+	return &TxProof{res.GetPayload().GetHashes()}, nil
 }
 
 func (p *provenance) GetTransactionReceipt(txId string) (*types.TxReceipt, error) {

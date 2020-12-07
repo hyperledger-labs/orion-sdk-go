@@ -59,7 +59,7 @@ type Provenance interface {
 	GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeader, error)
 	// GetTransactionProof returns intermediate hashes from hash(tx, validating info) to root of
 	// tx merkle tree stored in block header
-	GetTransactionProof(blockNum uint64, txIndex int) ([][]byte, error)
+	GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, error)
 	// GetTransactionReceipt return block header where tx is stored and tx index inside block
 	GetTransactionReceipt(txId string) (*types.TxReceipt, error)
 

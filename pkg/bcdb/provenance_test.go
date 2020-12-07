@@ -1,14 +1,12 @@
 package bcdb
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
-	"github.ibm.com/blockchaindb/server/pkg/crypto"
 	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
 	"github.ibm.com/blockchaindb/server/pkg/types"
 )
@@ -170,18 +168,14 @@ func Test_provenance_GetTransactionProof(t *testing.T) {
 				txEnv := txEnvelopesPerBlock[tt.block-3][tt.txIdx]
 				blockHeader, err := p.GetBlockHeader(tt.block)
 				require.NoError(t, err)
-				valInfo := blockHeader.GetValidationInfo()[tt.txIdx]
-				txBytes, err := json.Marshal(txEnv)
-				require.NoError(t, err)
-				viBytes, err := json.Marshal(valInfo)
-				require.NoError(t, err)
-				currHash, err := crypto.ComputeSHA256Hash(append(txBytes, viBytes...))
-				require.NoError(t, err)
-				for _, pHash := range proof {
-					currHash, err = crypto.ConcatenateHashes(currHash, pHash)
-					require.NoError(t, err)
+				receipt := &types.TxReceipt{
+					Header:  blockHeader,
+					TxIndex: uint64(tt.txIdx),
 				}
-				require.EqualValues(t, blockHeader.GetTxMerkelTreeRootHash(), currHash)
+
+				res, err := proof.Verify(receipt, txEnv)
+				require.NoError(t, err)
+				require.True(t, res)
 			} else {
 				require.Error(t, err)
 			}
