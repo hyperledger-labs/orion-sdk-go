@@ -128,10 +128,6 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.Errorf("MintRequest content compromised: expected: %s != actual: %s", reqID, mintReqRec.RequestID())
 	}
 
-	//TODO Do provenance query on dealer and respective TX
-	// check dealer
-	// check car
-
 	carRecord := &CarRecord{
 		Owner:           mintReqRec.Dealer,
 		CarRegistration: mintReqRec.CarRegistration,

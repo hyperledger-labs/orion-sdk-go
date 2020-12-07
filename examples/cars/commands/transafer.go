@@ -230,8 +230,6 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 		return "", errors.Wrapf(err, "error unmarshaling data transaction value, key: %s", transferRcvRecordKey)
 	}
 
-	//TODO validate content of both records, also with respect to each other
-
 	carRec := &CarRecord{}
 	carKey := CarRecordKeyPrefix + ttRec.CarRegistration
 	recordBytes, err = dataTx.Get(carKey)
@@ -245,8 +243,8 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 		return "", errors.Wrapf(err, "error unmarshaling data transaction value, key: %s", carKey)
 	}
 
-	if carRec.Owner != ttRec.Owner {
-		return "", errors.New("Car has different owner")
+	if err = validateTransfer(carRec, ttRec, trRec); err != nil {
+		return "", errors.WithMessage(err, "transfer validation failed")
 	}
 
 	carRec.Owner = ttRec.Buyer
@@ -284,4 +282,19 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 	}
 
 	return fmt.Sprintf("Transfer: committed, txID: %s, Key: %s", txID, carKey), nil
+}
+
+// Any validation, including provenance
+func validateTransfer(carRec *CarRecord, ttRec *TransferToRecord, trRec *TransferReceiveRecord) error {
+	if ttRec.Buyer != trRec.Buyer {
+		return errors.New("Records have different buyers")
+	}
+	if ttRec.CarRegistration != trRec.CarRegistration {
+		return errors.New("Records have different cars")
+	}
+	if carRec.Owner != ttRec.Owner {
+		return errors.New("Car has different owner")
+	}
+
+	return nil
 }
