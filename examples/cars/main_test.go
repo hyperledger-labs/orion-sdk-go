@@ -24,7 +24,7 @@ func TestCars_Generate(t *testing.T) {
 		OutputPath:    []string{"stdout"},
 		ErrOutputPath: []string{"stderr"},
 		Encoding:      "console",
-		Name:          "bcdb-client",
+		Name:          "cars-demo",
 	}
 	logger, err := logger.New(c)
 
