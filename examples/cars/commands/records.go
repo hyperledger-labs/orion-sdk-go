@@ -6,12 +6,17 @@ import (
 	"github.ibm.com/blockchaindb/server/pkg/crypto"
 )
 
+const (
+	CarRecordKeyPrefix             = "car~"
+	MintRequestRecordKeyPrefix     = "mint-request~"
+	TransferToRecordKeyPrefix      = "transfer-to~"
+	TransferReceiveRecordKeyPrefix = "transfer-receive~"
+)
+
 type MintRequestRecord struct {
 	Dealer          string
 	CarRegistration string
 }
-
-const MintRequestRecordKeyPrefix = "mint-request~"
 
 func (r *MintRequestRecord) Key() string {
 	return MintRequestRecordKeyPrefix + r.RequestID()
@@ -32,8 +37,6 @@ func (r *CarRecord) String() string {
 	return fmt.Sprintf("{CarRegistration: %s, Owner: %s}", r.CarRegistration, r.Owner)
 }
 
-const CarRecordKeyPrefix = "car~"
-
 func (r *CarRecord) Key() string {
 	return CarRecordKeyPrefix + r.CarRegistration
 }
@@ -43,8 +46,6 @@ type TransferToRecord struct {
 	Buyer           string
 	CarRegistration string
 }
-
-const TransferToRecordKeyPrefix = "transfer-to~"
 
 func (r *TransferToRecord) RequestID() string {
 	str := r.Owner + "_" + r.Buyer + "_" + r.CarRegistration
@@ -61,8 +62,6 @@ type TransferReceiveRecord struct {
 func (r *TransferToRecord) Key() string {
 	return TransferToRecordKeyPrefix + r.RequestID()
 }
-
-const TransferReceiveRecordKeyPrefix = "transfer-receive~"
 
 func (r *TransferReceiveRecord) RequestID() string {
 	str := r.Buyer + "_" + r.CarRegistration + "_" + r.TransferToRecordKey

@@ -73,7 +73,19 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	if err = waitForTxCommit(session, txID); err != nil {
+	txEnv := dataTx.TxEnvelope()
+	if txEnv == nil {
+		return "", errors.New("error getting transaction envelope")
+	}
+
+	txReceipt, err := waitForTxCommit(session, txID)
+	if err != nil {
+		return "", err
+	}
+	lg.Infof("TransferTo committed successfully: %s", txID)
+
+	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
+	if err != nil {
 		return "", err
 	}
 
@@ -154,7 +166,19 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	if err = waitForTxCommit(session, txID); err != nil {
+	txEnv := dataTx.TxEnvelope()
+	if txEnv == nil {
+		return "", errors.New("error getting transaction envelope")
+	}
+
+	txReceipt, err := waitForTxCommit(session, txID)
+	if err != nil {
+		return "", err
+	}
+	lg.Infof("TransferReceive committed successfully: %s", txID)
+
+	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
+	if err != nil {
 		return "", err
 	}
 
@@ -244,7 +268,19 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	if err = waitForTxCommit(session, txID); err != nil {
+	txEnv := dataTx.TxEnvelope()
+	if txEnv == nil {
+		return "", errors.New("error getting transaction envelope")
+	}
+
+	txReceipt, err := waitForTxCommit(session, txID)
+	if err != nil {
+		return "", err
+	}
+	lg.Infof("Transfer committed successfully: %s", txID)
+
+	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
+	if err != nil {
 		return "", err
 	}
 

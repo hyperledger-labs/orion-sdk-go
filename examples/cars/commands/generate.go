@@ -26,7 +26,7 @@ func Generate(demoDir string) error {
 		return err
 	}
 
-	for _, subdir := range []string{"crypto", "database", "config"} {
+	for _, subdir := range []string{"crypto", "database", "config", "txs"} {
 		if err := os.MkdirAll(path.Join(demoDir, subdir), 0755); err != nil {
 			return err
 		}

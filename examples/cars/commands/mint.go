@@ -3,6 +3,9 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/golang/protobuf/proto"
+	"io/ioutil"
+	"path"
 	"time"
 
 	"github.com/pkg/errors"
@@ -66,7 +69,19 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	if err = waitForTxCommit(session, txID); err != nil {
+	txEnv := dataTx.TxEnvelope()
+	if txEnv == nil {
+		return "", errors.New("error getting transaction envelope")
+	}
+
+	txReceipt, err := waitForTxCommit(session, txID)
+	if err != nil {
+		return "", err
+	}
+	lg.Infof("MintRequest committed successfully: %s", txID)
+
+	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
+	if err != nil {
 		return "", err
 	}
 
@@ -147,32 +162,73 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	if err = waitForTxCommit(session, txID); err != nil {
+	txEnv := dataTx.TxEnvelope()
+	if txEnv == nil {
+		return "", errors.New("error getting transaction envelope")
+	}
+
+	txReceipt, err := waitForTxCommit(session, txID)
+	if err != nil {
+		return "", err
+	}
+	lg.Infof("MintApprove committed successfully: %s", txID)
+
+	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
+	if err != nil {
 		return "", err
 	}
 
 	return fmt.Sprintf("MintApprove: committed, txID: %s, Key: %s", txID, carKey), nil
 }
 
-func waitForTxCommit(session bcdb.DBSession, txID string) error {
+func waitForTxCommit(session bcdb.DBSession, txID string) (*types.TxReceipt, error) {
 	p, err := session.Provenance()
 	if err != nil {
-		return errors.Wrap(err, "error accessing provenance data")
+		return nil, errors.Wrap(err, "error accessing provenance data")
 	}
 	for {
 		select {
-		case <-time.After(1 * time.Second):
-			return errors.Errorf("timeout while waiting for transaction %s to commit to BCDB", txID)
+		case <-time.After(5 * time.Second):
+			return nil, errors.Errorf("timeout while waiting for transaction %s to commit to BCDB", txID)
 
 		case <-time.After(50 * time.Millisecond):
 			receipt, err := p.GetTransactionReceipt(txID)
 			if err == nil {
 				validationInfo := receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()]
 				if validationInfo.GetFlag() == types.Flag_VALID {
-					return nil
+					return receipt, nil
 				}
-				return errors.Errorf("transaction [%s] is invalid, reason %s ", txID, validationInfo.GetReasonIfInvalid())
+				return nil, errors.Errorf("transaction [%s] is invalid, reason %s ", txID, validationInfo.GetReasonIfInvalid())
 			}
 		}
 	}
+}
+
+func marshalOrPanic(msg proto.Message) []byte {
+	b, err := proto.Marshal(msg)
+	if err != nil {
+		panic(err.Error())
+	}
+	return b
+}
+
+func saveTxEvidence(demoDir, txID string, txEnv proto.Message, txReceipt *types.TxReceipt, lg *logger.SugarLogger) error {
+	envFile := path.Join(demoDir, "txs", txID+".envelope")
+	err := ioutil.WriteFile(envFile, marshalOrPanic(txEnv), 0644)
+	if err != nil {
+		return err
+	}
+
+	rctFile := path.Join(demoDir, "txs", txID+".receipt")
+	err = ioutil.WriteFile(rctFile, marshalOrPanic(txReceipt), 0644)
+	if err != nil {
+		return err
+	}
+
+	lg.Infof("Saved tx envelope, file: %s", envFile)
+	lg.Infof("Saved tx envelope: %s",  txEnv)
+	lg.Infof("Saved tx receipt, file: %s", rctFile)
+	lg.Infof("Saved tx receipt, file: %s", txReceipt)
+
+	return nil
 }
