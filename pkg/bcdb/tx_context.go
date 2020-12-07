@@ -3,6 +3,7 @@ package bcdb
 import (
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -68,6 +69,27 @@ func (t *commonTxContext) selectReplica() *url.URL {
 	// Pick first replica to send request to
 	for _, replica := range t.replicaSet {
 		return replica
+	}
+	return nil
+}
+
+func (t *commonTxContext) handleRequest(rawurl string, query proto.Message, res proto.Message) error {
+	parsedURL, err := url.Parse(rawurl)
+	if err != nil {
+		return err
+	}
+	restURL := t.selectReplica().ResolveReference(parsedURL).String()
+	response, err := t.restClient.Query(context.TODO(), restURL, query)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != http.StatusOK {
+		return errors.New(fmt.Sprintf("error handling request, server returned %s", response.Status))
+	}
+	err = json.NewDecoder(response.Body).Decode(res)
+	if err != nil {
+		t.logger.Errorf("failed to decode json response, due to", err)
+		return err
 	}
 	return nil
 }

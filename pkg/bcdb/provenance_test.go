@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"github.ibm.com/blockchaindb/server/pkg/crypto"
 	"github.ibm.com/blockchaindb/server/pkg/server/testutils"

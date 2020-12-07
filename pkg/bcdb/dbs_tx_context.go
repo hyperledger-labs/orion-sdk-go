@@ -1,13 +1,6 @@
 package bcdb
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net/http"
-	"net/url"
-
 	"github.com/golang/protobuf/proto"
 	"github.ibm.com/blockchaindb/server/pkg/constants"
 	"github.ibm.com/blockchaindb/server/pkg/cryptoservice"
@@ -50,35 +43,16 @@ func (d *dbsTxContext) DeleteDB(dbName string) error {
 }
 
 func (d *dbsTxContext) Exists(dbName string) (bool, error) {
-	getDBStatus := &url.URL{
-		Path: constants.URLForGetDBStatus(dbName),
-	}
-	replica := d.selectReplica()
-	statusREST := replica.ResolveReference(getDBStatus)
-
-	ctx := context.TODO() // TODO: Replace with timeout
-	response, err := d.restClient.Query(ctx, statusREST.String(), &types.GetDBStatusQuery{
+	path := constants.URLForGetDBStatus(dbName)
+	res := &types.GetDBStatusResponseEnvelope{}
+	err := d.handleRequest(path, &types.GetDBStatusQuery{
 		UserID: d.userID,
 		DBName: dbName,
-	})
-
+	}, res)
 	if err != nil {
-		d.logger.Errorf("failed to get database status dbName = %s, due to %s", dbName, err)
+		d.logger.Errorf("failed to execute database status query, path = %s, due to %s", path, err)
 		return false, err
 	}
-
-	if response.StatusCode != http.StatusOK {
-		d.logger.Errorf("error getting database status, dbName = %s, server returned %s", dbName, response.Status)
-		return false, errors.New(fmt.Sprintf("error getting database status, dbName = %s, server returned %s", dbName, response.Status))
-	}
-
-	res := &types.GetDBStatusResponseEnvelope{}
-	err = json.NewDecoder(response.Body).Decode(res)
-	if err != nil {
-		d.logger.Errorf("failed to decode json response, due to", err)
-		return false, err
-	}
-
 	return res.GetPayload().GetExist(), nil
 }
 

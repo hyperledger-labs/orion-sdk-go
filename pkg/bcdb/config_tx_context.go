@@ -1,9 +1,6 @@
 package bcdb
 
 import (
-	"context"
-	"encoding/json"
-	"net/http"
 	"net/url"
 
 	"github.com/golang/protobuf/proto"
@@ -234,31 +231,13 @@ func (c *configTxContext) queryClusterConfig() error {
 		return nil
 	}
 
-	getNodeConfigPath := &url.URL{
-		Path: constants.URLForGetConfig(),
-	}
-	replica := c.selectReplica()
-	configREST := replica.ResolveReference(getNodeConfigPath)
-
-	ctx := context.TODO() // TODO: Replace with timeout
-	response, err := c.restClient.Query(ctx, configREST.String(), &types.GetConfigQuery{
-		UserID: c.userID,
-	})
-	if err != nil {
-		c.logger.Errorf("failed to send query transaction to obtain record for NodeConfig, due to: %s", err)
-		return err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		c.logger.Errorf("error getting NodeConfig record, server returned %s", response.Status)
-		//TODO log error message from response body
-		return errors.Errorf("error getting NodeConfig record, server returned %s", response.Status)
-	}
-
 	res := &types.GetConfigResponseEnvelope{}
-	err = json.NewDecoder(response.Body).Decode(res)
+	path := constants.URLForGetConfig()
+	err := c.handleRequest(path, &types.GetConfigQuery{
+		UserID: c.userID,
+	}, res)
 	if err != nil {
-		c.logger.Errorf("failed to decode json response, due to %s", err)
+		c.logger.Errorf("failed to execute cluster config query path %s, due to %s", path, err)
 		return err
 	}
 

@@ -3,12 +3,12 @@ package bcdb
 import (
 	"bytes"
 	"encoding/pem"
-	"github.com/gogo/protobuf/proto"
 	"io/ioutil"
 	"path"
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"github.ibm.com/blockchaindb/server/pkg/server"
 	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
@@ -160,7 +160,7 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	require.NoError(t, err)
 	_, err = tx.Get("key1")
 	require.Error(t, err)
-	require.Contains(t, "error getting user's record, server returned 403 Forbidden", err.Error())
+	require.Contains(t, "error handling request, server returned 403 Forbidden", err.Error())
 	err = tx.Abort()
 	require.NoError(t, err)
 
@@ -231,7 +231,7 @@ func putKeyAndValidate(t *testing.T, key string, value string, user string, sess
 	return
 }
 
-func putMultipleKeysAndValidate(t *testing.T, key []string, value []string, user string, session DBSession) (txEnvelopes []proto.Message){
+func putMultipleKeysAndValidate(t *testing.T, key []string, value []string, user string, session DBSession) (txEnvelopes []proto.Message) {
 	// Creating new key
 	for i := 0; i < len(key); i++ {
 		tx, err := session.DataTx("bdb")
@@ -254,14 +254,13 @@ func putMultipleKeysAndValidate(t *testing.T, key []string, value []string, user
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		val, err := tx.Get(key[len(key) - 1])
+		val, err := tx.Get(key[len(key)-1])
 
 		return err == nil && val != nil &&
-			bytes.Equal(val, []byte(value[len(key) - 1]))
+			bytes.Equal(val, []byte(value[len(key)-1]))
 	}, time.Minute, 200*time.Millisecond)
 	return txEnvelopes
 }
-
 
 func validateValue(t *testing.T, key string, value string, session DBSession) {
 	// Start another tx to query and make sure

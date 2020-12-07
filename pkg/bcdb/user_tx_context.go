@@ -1,15 +1,7 @@
 package bcdb
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net/http"
-	"net/url"
-
 	"github.com/golang/protobuf/proto"
-
 	"github.ibm.com/blockchaindb/server/pkg/constants"
 	"github.ibm.com/blockchaindb/server/pkg/cryptoservice"
 	"github.ibm.com/blockchaindb/server/pkg/types"
@@ -57,35 +49,16 @@ func (u *userTxContext) PutUser(user *types.User, acl *types.AccessControl) erro
 }
 
 func (u *userTxContext) GetUser(userID string) (*types.User, error) {
-	getUser := &url.URL{
-		Path: constants.URLForGetUser(userID),
-	}
-	replica := u.selectReplica()
-	configREST := replica.ResolveReference(getUser)
-
-	ctx := context.TODO() // TODO: Replace with timeout
-	response, err := u.restClient.Query(ctx, configREST.String(), &types.GetUserQuery{
+	path := constants.URLForGetUser(userID)
+	res := &types.GetUserResponseEnvelope{}
+	err := u.handleRequest(path, &types.GetUserQuery{
 		UserID:       u.userID,
 		TargetUserID: userID,
-	})
+	}, res)
 	if err != nil {
-		u.logger.Errorf("failed to send query transaction to obtain record for userID = %s, due to %s", userID, err)
+		u.logger.Errorf("failed to execute user query, path = %s, due to %s", path, err)
 		return nil, err
 	}
-
-	if response.StatusCode != http.StatusOK {
-		u.logger.Errorf("error getting user's record, server returned %s", response.Status)
-		//TODO log error message from response body
-		return nil, errors.New(fmt.Sprintf("error getting user's record, server returned %s", response.Status))
-	}
-
-	res := &types.GetUserResponseEnvelope{}
-	err = json.NewDecoder(response.Body).Decode(res)
-	if err != nil {
-		u.logger.Errorf("failed to decode json response, due to %s", err)
-		return nil, err
-	}
-
 	u.userReads = append(u.userReads, &types.UserRead{
 		UserID:  userID,
 		Version: res.GetPayload().GetMetadata().GetVersion(),

@@ -1,13 +1,6 @@
 package bcdb
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net/http"
-	"net/url"
-
 	"github.com/golang/protobuf/proto"
 	"github.ibm.com/blockchaindb/server/pkg/constants"
 	"github.ibm.com/blockchaindb/server/pkg/cryptoservice"
@@ -61,35 +54,15 @@ func (d *dataTxContext) Put(key string, value []byte, acl *types.AccessControl) 
 // Get existing key value
 func (d *dataTxContext) Get(key string) ([]byte, error) {
 	// TODO Should we check if key already part of d.dataWrites and/or d.dataDeletes? Dirty reads case...
-	getData, err := url.Parse(constants.URLForGetData(d.database, key))
-	if err != nil {
-		d.logger.Errorf("failed to parse ledger data query path %s, due to %s", constants.URLForGetData(d.database, key), err)
-		return nil, err
-	}
-
-	replica := d.selectReplica()
-	configREST := replica.ResolveReference(getData)
-
-	ctx := context.TODO() // TODO: Replace with timeout
-	response, err := d.restClient.Query(ctx, configREST.String(), &types.GetDataQuery{
+	path := constants.URLForGetData(d.database, key)
+	res := &types.GetDataResponseEnvelope{}
+	err := d.handleRequest(path, &types.GetDataQuery{
 		UserID: d.userID,
 		DBName: d.database,
 		Key:    key,
-	})
+	}, res)
 	if err != nil {
-		d.logger.Errorf("failed to send query transaction to obtain record for (db, key) = (%s, %s), due to %s", d.database, key, err)
-		return nil, err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		d.logger.Errorf("error getting user's record, server returned %s", response.Status)
-		return nil, errors.New(fmt.Sprintf("error getting user's record, server returned %s", response.Status))
-	}
-
-	res := &types.GetDataResponseEnvelope{}
-	err = json.NewDecoder(response.Body).Decode(res)
-	if err != nil {
-		d.logger.Errorf("failed to decode json response, due to", err)
+		d.logger.Errorf("failed to execute ledger data query path %s, due to %s", path, err)
 		return nil, err
 	}
 
