@@ -318,6 +318,8 @@ github.ibm.com/blockchaindb/server v0.0.0-20201203070131-0a35c74463bb h1:5r3Ix/J
 github.ibm.com/blockchaindb/server v0.0.0-20201203070131-0a35c74463bb/go.mod h1:SIBoHqQVEFIawDi8lzygOumCeM59NUw5Zu0i7UA8XFo=
 github.ibm.com/blockchaindb/server v0.0.0-20201206145220-b8c720de22b4 h1:ZLavCkW6mW6Z2KCBo/BBVdcHmY8AaHGa78lETgt2R7U=
 github.ibm.com/blockchaindb/server v0.0.0-20201206145220-b8c720de22b4/go.mod h1:SIBoHqQVEFIawDi8lzygOumCeM59NUw5Zu0i7UA8XFo=
+github.ibm.com/blockchaindb/server v0.0.0-20201207181411-c331b5e865b5 h1:4YCkAhI8bz+tYqEwg/OynV0dFcYZvsRicz/lQqDHEFA=
+github.ibm.com/blockchaindb/server v0.0.0-20201207181411-c331b5e865b5/go.mod h1:SIBoHqQVEFIawDi8lzygOumCeM59NUw5Zu0i7UA8XFo=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.mongodb.org/mongo-driver v1.0.4/go.mod h1:u7ryQJ+DOzQmeO7zB6MHyr8jkEQvC8vH7qLUO4lqsUM=
