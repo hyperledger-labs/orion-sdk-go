@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		kingpin.Fatalf("parsing arguments: %s. Try --help", err)
 	}
-	fmt.Printf("\n%s\n",output)
+	fmt.Printf("\n%s\n", output)
 	os.Exit(exit)
 }
 
@@ -51,7 +51,6 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 	generate := app.Command("generate", "Generate crypto material for all roles: admin, dmv, dealer, alice, bob; and the BCDB server.")
 
 	init := app.Command("init", "Initialize the server, load it with users, create databases.")
-	replica := init.Flag("server", "URI of blockchain DB replica, http://host:port, to connect to").Short('s').Required().URL()
 
 	mintRequest := app.Command("mint-request", "Issue a request to mint a car by a dealer.")
 	mrUserID := mintRequest.Flag("user", "dealer user ID").Short('u').Required().String()
@@ -103,7 +102,7 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 		return "Generated demo materials to: " + *demoDir, 0, nil
 
 	case init.FullCommand():
-		err := commands.Init(*demoDir, *replica, lg)
+		err := commands.Init(*demoDir, lg)
 		if err != nil {
 			fmt.Println(command)
 			return errorOutput(err), 1, nil

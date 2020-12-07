@@ -39,6 +39,9 @@ func TestInit(t *testing.T) {
 	serverUrl, err := url.Parse("http://127.0.0.1:" + serverPort)
 	require.NoError(t, err)
 
+	err = saveServerUrl(demoDir, serverUrl)
+	require.NoError(t, err)
+
 	c := &logger.Config{
 		Level:         "debug",
 		OutputPath:    []string{"stdout"},
@@ -48,7 +51,7 @@ func TestInit(t *testing.T) {
 	}
 	logger, err := logger.New(c)
 
-	err = Init(demoDir, serverUrl, logger)
+	err = Init(demoDir, logger)
 	require.NoError(t, err)
 }
 

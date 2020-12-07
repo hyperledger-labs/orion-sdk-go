@@ -2,7 +2,9 @@ package commands
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -147,5 +149,15 @@ func writeConfigFile(demoDir string) error {
 	if err != nil {
 		return err
 	}
+
+	serverUrl, err := url.Parse(fmt.Sprintf("http://%s:%d",config.Node.Network.Address, config.Node.Network.Port))
+	if err != nil {
+		return err
+	}
+
+	if err = saveServerUrl(demoDir, serverUrl); err != nil {
+		return err
+	}
+
 	return err
 }

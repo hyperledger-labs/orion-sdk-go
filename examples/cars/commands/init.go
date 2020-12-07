@@ -19,15 +19,15 @@ import (
 const CarDBName = "carDB"
 
 // Init the server, load users, create databases, set permissions
-func Init(demoDir string, url *url.URL, lg *logger.SugarLogger) error {
-
-	bcDB, err := createDBInstance(demoDir, url)
+func Init(demoDir string, lg *logger.SugarLogger) error {
+	serverUrl, err := loadServerUrl(demoDir)
 	if err != nil {
-		lg.Errorf("error creating database instance, due to %s", err)
-		return err
+		return errors.Wrap(err, "error loading server URL")
 	}
 
-	if err = saveServerUrl(demoDir, url); err != nil {
+	bcDB, err := createDBInstance(demoDir, serverUrl)
+	if err != nil {
+		lg.Errorf("error creating database instance, due to %s", err)
 		return err
 	}
 
@@ -129,7 +129,7 @@ func initDB(session bcdb.DBSession, lg *logger.SugarLogger) error {
 	}()
 	wg.Wait()
 
-	lg.Debug("database carDB has been created")
+	lg.Info("database carDB has been created")
 	return nil
 }
 
@@ -168,13 +168,13 @@ func initUsers(demoDir string, session bcdb.DBSession, logger *logger.SugarLogge
 			logger.Errorf("cannot commit transaction to add users, due to %s", err)
 			return err
 		}
-		logger.Debugf("transaction to provision user record has been submitted, ID: %s, txID = %s", role, txID)
+		logger.Debugf("transaction to provision user record has been submitted, user-ID: %s, txID = %s", role, txID)
 
 		err = waitForUserTxCommit(session, role, txID)
 		if err != nil {
 			return err
 		}
-		logger.Debugf("transaction to provision user record has been committed, ID: %s, txID = %s", role, txID)
+		logger.Infof("transaction to provision user record has been committed, user-ID: %s, txID = %s", role, txID)
 	}
 
 	return nil

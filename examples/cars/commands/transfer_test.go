@@ -36,6 +36,9 @@ func TestTransfer(t *testing.T) {
 	serverUrl, err := url.Parse("http://127.0.0.1:" + serverPort)
 	require.NoError(t, err)
 
+	err = saveServerUrl(demoDir, serverUrl)
+	require.NoError(t, err)
+
 	c := &logger.Config{
 		Level:         "info",
 		OutputPath:    []string{"stdout"},
@@ -45,7 +48,7 @@ func TestTransfer(t *testing.T) {
 	}
 	lg, err := logger.New(c)
 
-	err = Init(demoDir, serverUrl, lg)
+	err = Init(demoDir, lg)
 	require.NoError(t, err)
 
 	carReg := "Test.Car.1"
@@ -94,7 +97,7 @@ func TestTransfer(t *testing.T) {
 	newOwnerKey := strings.TrimSpace(out[index+4:])
 	require.True(t, strings.HasPrefix(newOwnerKey, CarRecordKeyPrefix))
 	indexID := strings.Index(out, "txID:")
-	transferTxID := strings.TrimSuffix(strings.TrimSpace(out[indexID+5:index]),",")
+	transferTxID := strings.TrimSuffix(strings.TrimSpace(out[indexID+5:index]), ",")
 
 	out, err = ListCar(demoDir, "dmv", carReg, false, lg)
 	require.NoError(t, err)
