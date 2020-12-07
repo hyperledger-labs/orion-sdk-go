@@ -37,19 +37,19 @@ func TestTransfer(t *testing.T) {
 	require.NoError(t, err)
 
 	c := &logger.Config{
-		Level:         "debug",
+		Level:         "info",
 		OutputPath:    []string{"stdout"},
 		ErrOutputPath: []string{"stderr"},
 		Encoding:      "console",
-		Name:          "bcdb-client",
+		Name:          "cars-demo",
 	}
-	logger, err := logger.New(c)
+	lg, err := logger.New(c)
 
-	err = Init(demoDir, serverUrl, logger)
+	err = Init(demoDir, serverUrl, lg)
 	require.NoError(t, err)
 
 	carReg := "Test.Car.1"
-	out, err := MintRequest(demoDir, "dealer", carReg, logger)
+	out, err := MintRequest(demoDir, "dealer", carReg, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "MintRequest: committed")
 
@@ -57,7 +57,7 @@ func TestTransfer(t *testing.T) {
 	mintRequestKey := strings.TrimSpace(out[index+4:])
 	require.True(t, strings.HasPrefix(mintRequestKey, MintRequestRecordKeyPrefix))
 
-	out, err = MintApprove(demoDir, "dmv", mintRequestKey, logger)
+	out, err = MintApprove(demoDir, "dmv", mintRequestKey, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "MintApprove: committed")
 
@@ -65,7 +65,7 @@ func TestTransfer(t *testing.T) {
 	carKey := strings.TrimSpace(out[index+4:])
 	require.True(t, strings.HasPrefix(carKey, CarRecordKeyPrefix))
 
-	out, err = TransferTo(demoDir, "dealer", "alice", carReg, logger)
+	out, err = TransferTo(demoDir, "dealer", "alice", carReg, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "TransferTo: committed")
 
@@ -73,7 +73,7 @@ func TestTransfer(t *testing.T) {
 	ttKey := strings.TrimSpace(out[index+4:])
 	require.True(t, strings.HasPrefix(ttKey, TransferToRecordKeyPrefix))
 
-	out, err = TransferReceive(demoDir, "alice", carReg, ttKey, logger)
+	out, err = TransferReceive(demoDir, "alice", carReg, ttKey, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "TransferReceive: committed")
 
@@ -81,27 +81,33 @@ func TestTransfer(t *testing.T) {
 	trKey := strings.TrimSpace(out[index+4:])
 	require.True(t, strings.HasPrefix(trKey, TransferReceiveRecordKeyPrefix))
 
-	out, err = ListCar(demoDir, "dmv", carReg, false, logger)
+	out, err = ListCar(demoDir, "dmv", carReg, false, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "ListCar: executed")
 	require.Contains(t, out, "Owner: dealer")
 
-	out, err = Transfer(demoDir, "dmv", ttKey, trKey, logger)
+	out, err = Transfer(demoDir, "dmv", ttKey, trKey, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "Transfer: committed")
 
 	index = strings.Index(out, "Key:")
 	newOwnerKey := strings.TrimSpace(out[index+4:])
 	require.True(t, strings.HasPrefix(newOwnerKey, CarRecordKeyPrefix))
+	indexID := strings.Index(out, "txID:")
+	transferTxID := strings.TrimSuffix(strings.TrimSpace(out[indexID+5:index]),",")
 
-	out, err = ListCar(demoDir, "dmv", carReg, false, logger)
+	out, err = ListCar(demoDir, "dmv", carReg, false, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "ListCar: executed")
 	require.Contains(t, out, "Owner: alice")
 
-	out, err = ListCar(demoDir, "dmv", carReg, true, logger)
+	out, err = ListCar(demoDir, "dmv", carReg, true, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "ListCar: executed")
 	require.Contains(t, out, "Owner: dealer")
 	require.Contains(t, out, "Owner: alice")
+
+	out, err = VerifyEvidence(demoDir, "alice", transferTxID, lg)
+	require.NoError(t, err)
+	require.Contains(t, out, "VerifyEvidence:")
 }

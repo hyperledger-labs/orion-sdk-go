@@ -314,8 +314,6 @@ github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c/go.mod h1:lB8K/P019DLNhe
 github.com/xdg/stringprep v1.0.0/go.mod h1:Jhud4/sHMO4oL310DaZAKk9ZaJ08SJfe+sJh0HrGL1Y=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
-github.ibm.com/blockchaindb/server v0.0.0-20201201162751-a3e4db9f2320 h1:aA8GnCLcIFKt9HhJk4TFX6VTD8i1WOqK/EokRXfoUJg=
-github.ibm.com/blockchaindb/server v0.0.0-20201201162751-a3e4db9f2320/go.mod h1:SIBoHqQVEFIawDi8lzygOumCeM59NUw5Zu0i7UA8XFo=
 github.ibm.com/blockchaindb/server v0.0.0-20201203070131-0a35c74463bb h1:5r3Ix/Jww3vcJwNxQN3e3zRtA/Qys2fK4FG3ySL4b4M=
 github.ibm.com/blockchaindb/server v0.0.0-20201203070131-0a35c74463bb/go.mod h1:SIBoHqQVEFIawDi8lzygOumCeM59NUw5Zu0i7UA8XFo=
 github.ibm.com/blockchaindb/server v0.0.0-20201206145220-b8c720de22b4 h1:ZLavCkW6mW6Z2KCBo/BBVdcHmY8AaHGa78lETgt2R7U=

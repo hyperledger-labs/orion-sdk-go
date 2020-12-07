@@ -71,6 +71,7 @@ func createDBInstance(demoDir string, url *url.URL) (bcdb.BCDB, error) {
 				Endpoint: url.String(),
 			},
 		},
+		LogLevel: "info",
 	})
 
 	return bcDB, err

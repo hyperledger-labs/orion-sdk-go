@@ -24,7 +24,7 @@ func main() {
 		OutputPath:    []string{"stdout"},
 		ErrOutputPath: []string{"stderr"},
 		Encoding:      "console",
-		Name:          "bcdb-client",
+		Name:          "cars-demo",
 	}
 	lg, err := logger.New(c)
 
@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		kingpin.Fatalf("parsing arguments: %s. Try --help", err)
 	}
-	fmt.Println(output)
+	fmt.Printf("\n%s\n",output)
 	os.Exit(exit)
 }
 
@@ -80,6 +80,10 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 	lsCarUserID := listCar.Flag("user", "user ID").Short('u').Required().String()
 	lsCarCar := listCar.Flag("car", "car registration plate").Short('c').Required().String()
 	lsCarProv := listCar.Flag("provenance", "complete provenance info on a car.").Short('p').Bool()
+
+	verifyTx := app.Command("verify-tx", "Verify Tx evidence (Tx Receipt & Envelope) against a BCDB Proof")
+	verUserID := verifyTx.Flag("user", "user ID").Short('u').Required().String()
+	verTxID := verifyTx.Flag("txid", "user ID").Short('t').Required().String()
 
 	command := kingpin.MustParse(app.Parse(args))
 
@@ -157,6 +161,15 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 
 	case listCar.FullCommand():
 		out, err := commands.ListCar(*demoDir, *lsCarUserID, *lsCarCar, *lsCarProv, lg)
+		if err != nil {
+			fmt.Println(command)
+			return errorOutput(err), 1, nil
+		}
+
+		return fmt.Sprintf("%s\n", out), 0, nil
+
+	case verifyTx.FullCommand():
+		out, err := commands.VerifyEvidence(*demoDir, *verUserID, *verTxID, lg)
 		if err != nil {
 			fmt.Println(command)
 			return errorOutput(err), 1, nil

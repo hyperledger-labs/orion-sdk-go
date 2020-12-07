@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
 	"github.ibm.com/blockchaindb/server/pkg/logger"

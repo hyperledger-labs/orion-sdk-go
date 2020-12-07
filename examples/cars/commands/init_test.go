@@ -95,7 +95,7 @@ func setupTestServer(t *testing.T, demoDir string) (*server.BCDBHTTPServer, stri
 				ReorderedTransactionBatch: 1,
 			},
 
-			LogLevel: "debug",
+			LogLevel: "info",
 		},
 		Admin: config.AdminConf{
 			ID:              "admin",
