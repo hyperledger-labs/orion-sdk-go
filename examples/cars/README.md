@@ -40,6 +40,12 @@
 
 `./cars list-car -u dmv -c RED`
 
+`./cars list-car -u dealer -c RED`
+
+`./cars list-car -u bob -c RED`
+
+`./cars list-car -u dmv -c Blue`
+
 * Transfer ownership
 
 `./cars transfer-to -u dealer -b alice -c RED`
@@ -49,6 +55,8 @@
 `./cars transfer -u dmv -k <transfer-to-key> -r <transfer-receive-key`
 
 * Provenance
+
+`./cars list-car -u alice -c RED`
 
 `./cars list-car -u dmv -c RED --provenance`
 
