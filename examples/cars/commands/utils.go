@@ -47,6 +47,7 @@ func marshalOrPanic(msg proto.Message) []byte {
 func marshalToStringOrPanic(msg proto.Message) string {
 	m := jsonpb.Marshaler{
 		EmitDefaults: true,
+		Indent:       "  ",
 	}
 	envStr, _ := m.MarshalToString(msg)
 	return envStr
@@ -67,9 +68,9 @@ func saveTxEvidence(demoDir, txID string, txEnv proto.Message, txReceipt *types.
 
 	lg.Infof("Saved tx envelope, file: %s", envFile)
 
-	lg.Infof("Saved tx envelope: %s", marshalToStringOrPanic(txEnv))
+	lg.Infof("Saved tx envelope: \n%s", marshalToStringOrPanic(txEnv))
 	lg.Infof("Saved tx receipt, file: %s", rctFile)
-	lg.Infof("Saved tx receipt, file: %s", marshalToStringOrPanic(txReceipt))
+	lg.Infof("Saved tx receipt: \n%s", marshalToStringOrPanic(txReceipt))
 
 	return nil
 }
@@ -98,9 +99,9 @@ func loadTxEvidence(demoDir, txID string, lg *logger.SugarLogger) (*types.DataTx
 	}
 
 	lg.Infof("Loaded tx envelope, file: %s", envFile)
-	lg.Infof("Loaded tx envelope: %s", env)
+	lg.Infof("Loaded tx envelope: \n%s", marshalToStringOrPanic(env))
 	lg.Infof("Loaded tx receipt, file: %s", rctFile)
-	lg.Infof("Loaded tx receipt, file: %s", rct)
+	lg.Infof("Loaded tx receipt: \n%s", marshalToStringOrPanic(rct))
 
 	return env, rct, nil
 }
