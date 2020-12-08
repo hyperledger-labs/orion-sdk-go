@@ -66,4 +66,8 @@ func TestMint(t *testing.T) {
 	index = strings.Index(out, "Key:")
 	carKey := strings.TrimSpace(out[index+4:])
 	require.True(t, strings.HasPrefix(carKey, "car~"))
+
+	out, err = MintApprove(demoDir, "dmv", mintRequestKey, logger)
+	require.EqualError(t, err, "Car already exists: car~Test.Car.1")
+	require.Equal(t, "", out)
 }

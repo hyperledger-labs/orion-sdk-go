@@ -156,7 +156,7 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 			return errorOutput(err), 1, nil
 		}
 
-		return fmt.Sprintf("Issued transfer-receive:\n%s\n", out), 0, nil
+		return fmt.Sprintf("Issued transfer:\n%s\n", out), 0, nil
 
 	case listCar.FullCommand():
 		out, err := commands.ListCar(*demoDir, *lsCarUserID, *lsCarCar, *lsCarProv, lg)

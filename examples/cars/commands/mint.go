@@ -51,7 +51,7 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 
 	err = dataTx.Put(key, recordBytes,
 		&types.AccessControl{
-			ReadUsers:      bcdb.UsersMap("dmv", dealerID),
+			ReadUsers:      bcdb.UsersMap("dmv"),
 			ReadWriteUsers: bcdb.UsersMap(dealerID),
 		},
 	)
@@ -122,10 +122,8 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.Wrapf(err, "error unmarshaling data transaction value, key: %s", mintReqRecordKey)
 	}
 
-	lg.Infof("Inspecting MintRequest: %s", mintReqRec)
-	reqID := mintReqRecordKey[len(MintRequestRecordKeyPrefix):]
-	if reqID != mintReqRec.RequestID() {
-		return "", errors.Errorf("MintRequest content compromised: expected: %s != actual: %s", reqID, mintReqRec.RequestID())
+	if err = validateMintRequest(mintReqRecordKey, mintReqRec); err != nil {
+		return "", errors.WithMessage(err, "MintRequest validation failed")
 	}
 
 	carRecord := &CarRecord{
@@ -133,7 +131,16 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		CarRegistration: mintReqRec.CarRegistration,
 	}
 	carKey := carRecord.Key()
-	carRecordBytes, err := json.Marshal(carRecord)
+
+	carRecordBytes, err := dataTx.Get(carKey)
+	if err != nil {
+		return "", errors.Wrapf(err, "error getting Car: %s", carKey)
+	}
+	if carRecordBytes != nil {
+		return "", errors.Errorf("Car already exists: %s", carKey)
+	}
+
+	carRecordBytes, err = json.Marshal(carRecord)
 	if err != nil {
 		return "", errors.Wrapf(err, "error marshaling car record: %s", carRecord)
 	}
@@ -170,4 +177,13 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 	}
 
 	return fmt.Sprintf("MintApprove: committed, txID: %s, Key: %s", txID, carKey), nil
+}
+
+// Any validation, including provenance
+func validateMintRequest(mintReqRecordKey string, mintReqRec *MintRequestRecord) error {
+	reqID := mintReqRecordKey[len(MintRequestRecordKeyPrefix):]
+	if reqID != mintReqRec.RequestID() {
+		return errors.Errorf("MintRequest content compromised: expected: %s != actual: %s", reqID, mintReqRec.RequestID())
+	}
+	return nil
 }

@@ -234,7 +234,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 	carKey := CarRecordKeyPrefix + ttRec.CarRegistration
 	recordBytes, err = dataTx.Get(carKey)
 	if err != nil {
-		return "", errors.Wrapf(err, "error getting TransferTo : %s", carKey)
+		return "", errors.Wrapf(err, "error getting Car : %s", carKey)
 	}
 	if recordBytes == nil {
 		return "", errors.Errorf("Car not found: %s", carKey)
