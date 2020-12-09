@@ -16,13 +16,13 @@
 ##To run the demo
 * Setup the demo directory env var
 
-`export CAR_DEMO_DIR=/tmp/cars-demo`
+`export CARS_DEMO_DIR=/tmp/cars-demo`
  
 * Generate crypto and config material
 
 `./cars generate`
 
-* Start the server (in `server/cmd/bdb` dir):
+* Start the server in another process on the same host (in `server/cmd/bdb` dir):
 
 `./bdb start --configpath /tmp/cars-demo/config &`
 
@@ -62,6 +62,6 @@
 
 * Verify Tx evidence (envelope & receipt) against Tx proof
 
-`ls $CAR_DEMO_DIR/txs`
+`ls $CARS_DEMO_DIR/txs`
 
 `./cars verify-tx -u alice -t <tx-id>`
