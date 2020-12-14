@@ -77,9 +77,9 @@ func setupTestServerWithParams(t *testing.T, clientCertTempDir string, blockTime
 				Port:    0, // use ephemeral port for testing
 			},
 			QueueLength: config.QueueLengthConf{
-				Block:                     1,
-				Transaction:               1,
-				ReorderedTransactionBatch: 1,
+				Block:                     10,
+				Transaction:               10,
+				ReorderedTransactionBatch: 10,
 			},
 
 			LogLevel: "debug",

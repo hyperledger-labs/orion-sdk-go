@@ -3,6 +3,7 @@ package bcdb
 import (
 	"bytes"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"path"
 	"testing"
@@ -232,33 +233,34 @@ func putKeyAndValidate(t *testing.T, key string, value string, user string, sess
 }
 
 func putMultipleKeysAndValidate(t *testing.T, key []string, value []string, user string, session DBSession) (txEnvelopes []proto.Message) {
+	return putMultipleKeysAndValidateMultipleUsers(t, key, value, []string{user}, session)
+}
+
+func putMultipleKeysAndValidateMultipleUsers(t *testing.T, key []string, value []string, users []string, session DBSession) (txEnvelopes []proto.Message) {
 	// Creating new key
+	var txId string
 	for i := 0; i < len(key); i++ {
 		tx, err := session.DataTx("bdb")
 		require.NoError(t, err)
 
+		readUsers := make(map[string]bool)
+		readWriteUsers := make(map[string]bool)
+		for _, user := range users {
+			readUsers[user] = true
+			readWriteUsers[user] = true
+		}
 		err = tx.Put(key[i], []byte(value[i]), &types.AccessControl{
-			ReadUsers:      map[string]bool{user: true},
-			ReadWriteUsers: map[string]bool{user: true},
+			ReadUsers:      readUsers,
+			ReadWriteUsers: readWriteUsers,
 		})
 		require.NoError(t, err)
 
-		_, err = tx.Commit()
-		require.NoError(t, err)
+		txId, err = tx.Commit()
+		require.NoError(t, err, fmt.Sprintf("Key = %s, value = %s", key[i], value[i]))
 		txEnvelopes = append(txEnvelopes, tx.TxEnvelope())
 	}
 
-	// Start another tx to query and make sure
-	// results was successfully committed
-	tx, err := session.DataTx("bdb")
-	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		val, err := tx.Get(key[len(key)-1])
-
-		return err == nil && val != nil &&
-			bytes.Equal(val, []byte(value[len(key)-1]))
-	}, time.Minute, 200*time.Millisecond)
+	waitForTx(t, txId, session)
 	return txEnvelopes
 }
 
@@ -273,5 +275,17 @@ func validateValue(t *testing.T, key string, value string, session DBSession) {
 
 		return err == nil && val != nil &&
 			bytes.Equal(val, []byte(value))
+	}, time.Minute, 200*time.Millisecond)
+}
+
+func waitForTx(t *testing.T, txID string, session DBSession) {
+	p, err := session.Provenance()
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		r, err := p.GetTransactionReceipt(txID)
+
+		return err == nil && r != nil && r.GetHeader() != nil &&
+			uint64(len(r.GetHeader().GetValidationInfo())) > r.GetTxIndex()
 	}, time.Minute, 200*time.Millisecond)
 }
