@@ -20,6 +20,7 @@ type commonTxContext struct {
 	replicaSet map[string]*url.URL
 	nodesCerts map[string]*x509.Certificate
 	restClient RestClient
+	txEnvelope proto.Message
 	logger     *logger.SugarLogger
 }
 
@@ -38,14 +39,13 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string) (string, err
 	}
 
 	t.logger.Debugf("compose transaction enveloped with txID = %s", txID)
-	envelope, err := tx.composeEnvelope(txID)
+	t.txEnvelope, err = tx.composeEnvelope(txID)
 	if err != nil {
 		t.logger.Errorf("failed to compose transaction envelope, due to", err)
 		return txID, err
 	}
-
 	ctx := context.TODO() // TODO: Replace with timeout
-	response, err := t.restClient.Submit(ctx, postEndpointResolved.String(), envelope)
+	response, err := t.restClient.Submit(ctx, postEndpointResolved.String(), t.txEnvelope)
 	if err != nil {
 		t.logger.Errorf("failed to submit transaction txID = %s, due to", txID, err)
 		return txID, err
@@ -93,3 +93,12 @@ func (t *commonTxContext) handleRequest(rawurl string, query proto.Message, res 
 	}
 	return nil
 }
+
+func (t *commonTxContext) TxEnvelope() (proto.Message, error) {
+	if t.txEnvelope == nil {
+		return nil, ErrTxNotFinalized
+	}
+	return t.txEnvelope, nil
+}
+
+var ErrTxNotFinalized = errors.New("can't access tx envelope, transaction not finalized")

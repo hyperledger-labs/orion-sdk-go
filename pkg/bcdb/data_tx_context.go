@@ -16,8 +16,6 @@ type DataTxContext interface {
 	Get(key string) ([]byte, error)
 	// Delete value for key
 	Delete(key string) error
-	// TxEnvelope returns transaction envelope, can be called only after Commit(), otherwise will return nil
-	TxEnvelope() proto.Message
 }
 
 type dataTxContext struct {
@@ -26,7 +24,6 @@ type dataTxContext struct {
 	dataReads   []*types.DataRead
 	dataWrites  map[string]*types.DataWrite
 	dataDeletes map[string]*types.DataDelete
-	txEnvelope  proto.Message
 }
 
 func (d *dataTxContext) Commit() (string, error) {
@@ -87,10 +84,6 @@ func (d *dataTxContext) Delete(key string) error {
 	return nil
 }
 
-func (d *dataTxContext) TxEnvelope() proto.Message {
-	return d.txEnvelope
-}
-
 func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	var dataWrites []*types.DataWrite
 	var dataDeletes []*types.DataDelete
@@ -116,11 +109,11 @@ func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	d.txEnvelope = &types.DataTxEnvelope{
+
+	return &types.DataTxEnvelope{
 		Payload:   payload,
 		Signature: signature,
-	}
-	return d.txEnvelope, nil
+	}, nil
 }
 
 func (d *dataTxContext) cleanCtx() {

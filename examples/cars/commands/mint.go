@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
@@ -64,8 +65,8 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	txEnv := dataTx.TxEnvelope()
-	if txEnv == nil {
+	txEnv, err := dataTx.TxEnvelope()
+	if err != nil {
 		return "", errors.New("error getting transaction envelope")
 	}
 
@@ -160,8 +161,8 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	txEnv := dataTx.TxEnvelope()
-	if txEnv == nil {
+	txEnv, err := dataTx.TxEnvelope()
+	if err != nil {
 		return "", errors.New("error getting transaction envelope")
 	}
 

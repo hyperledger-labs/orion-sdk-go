@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/sdk/pkg/config"
 	"github.ibm.com/blockchaindb/server/pkg/constants"
@@ -50,6 +51,8 @@ type TxContext interface {
 	// Abort cancel submission and abandon all changes
 	// within given transaction context
 	Abort() error
+	// TxEnvelope returns transaction envelope, can be called only after Commit(), otherwise will return nil
+	TxEnvelope() (proto.Message, error)
 }
 
 type Provenance interface {

@@ -257,7 +257,9 @@ func putMultipleKeysAndValidateMultipleUsers(t *testing.T, key []string, value [
 
 		txId, err = tx.Commit()
 		require.NoError(t, err, fmt.Sprintf("Key = %s, value = %s", key[i], value[i]))
-		txEnvelopes = append(txEnvelopes, tx.TxEnvelope())
+		txEnv, err := tx.TxEnvelope()
+		require.NoError(t, err)
+		txEnvelopes = append(txEnvelopes, txEnv)
 	}
 
 	waitForTx(t, txId, session)
