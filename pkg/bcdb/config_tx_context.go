@@ -1,8 +1,6 @@
 package bcdb
 
 import (
-	"net/url"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/server/pkg/constants"
@@ -244,14 +242,6 @@ func (c *configTxContext) queryClusterConfig() error {
 	c.oldConfig = res.GetPayload().GetConfig()
 	c.readOldConfigVersion = res.GetPayload().GetMetadata().GetVersion()
 
-	return nil
-}
-
-func (c *configTxContext) selectReplica() *url.URL {
-	// Pick first replica to send request to
-	for _, replica := range c.replicaSet {
-		return replica
-	}
 	return nil
 }
 
