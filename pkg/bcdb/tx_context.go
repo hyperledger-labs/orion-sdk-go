@@ -41,13 +41,13 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string) (string, err
 	t.logger.Debugf("compose transaction enveloped with txID = %s", txID)
 	t.txEnvelope, err = tx.composeEnvelope(txID)
 	if err != nil {
-		t.logger.Errorf("failed to compose transaction envelope, due to", err)
+		t.logger.Errorf("failed to compose transaction envelope, due to %s", err)
 		return txID, err
 	}
 	ctx := context.TODO() // TODO: Replace with timeout
 	response, err := t.restClient.Submit(ctx, postEndpointResolved.String(), t.txEnvelope)
 	if err != nil {
-		t.logger.Errorf("failed to submit transaction txID = %s, due to", txID, err)
+		t.logger.Errorf("failed to submit transaction txID = %s, due to %s", txID, err)
 		return txID, err
 	}
 
@@ -88,7 +88,7 @@ func (t *commonTxContext) handleRequest(rawurl string, query proto.Message, res 
 	}
 	err = json.NewDecoder(response.Body).Decode(res)
 	if err != nil {
-		t.logger.Errorf("failed to decode json response, due to", err)
+		t.logger.Errorf("failed to decode json response, due to %s", err)
 		return err
 	}
 	return nil
