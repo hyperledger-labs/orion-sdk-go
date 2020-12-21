@@ -1,5 +1,7 @@
 package config
 
+import "github.ibm.com/blockchaindb/server/pkg/logger"
+
 // Replica
 type Replica struct {
 	// ID replica's ID
@@ -16,8 +18,8 @@ type ConnectionConfig struct {
 	ReplicaSet []*Replica
 	// Keeps path to the server's root CA
 	RootCAs []string
-	// LogLevel
-	LogLevel string
+	// Logger instance, if nil an internal logger is created
+	Logger *logger.SugarLogger
 }
 
 // SessionConfig keeps per database session

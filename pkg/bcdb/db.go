@@ -86,20 +86,20 @@ type Signer interface {
 // Create prepares connection context to work with BCDB instance
 // loads root CA certificates
 func Create(config *config.ConnectionConfig) (BCDB, error) {
-	logLevel := config.LogLevel
-	if len(logLevel) == 0 {
-		logLevel = "info"
-	}
-	c := &logger.Config{
-		Level:         logLevel,
-		OutputPath:    []string{"stdout"},
-		ErrOutputPath: []string{"stderr"},
-		Encoding:      "console",
-		Name:          "bcdb-client",
-	}
-	dbLogger, err := logger.New(c)
-	if err != nil {
-		return nil, err
+	dbLogger := config.Logger
+	if dbLogger == nil {
+		c := &logger.Config{
+			Level:         "info",
+			OutputPath:    []string{"stdout"},
+			ErrOutputPath: []string{"stderr"},
+			Encoding:      "console",
+			Name:          "bcdb-client",
+		}
+		var err error
+		dbLogger, err = logger.New(c)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Load root CA certificates

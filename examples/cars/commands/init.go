@@ -61,6 +61,18 @@ func createUserSession(demoDir string, bcdb bcdb.BCDB, user string) (bcdb.DBSess
 }
 
 func createDBInstance(demoDir string, url *url.URL) (bcdb.BCDB, error) {
+	c := &logger.Config{
+		Level:         "info",
+		OutputPath:    []string{"stdout"},
+		ErrOutputPath: []string{"stderr"},
+		Encoding:      "console",
+		Name:          "bcdb-client",
+	}
+	clientLogger, err := logger.New(c)
+	if err != nil {
+		return nil, err
+	}
+
 	bcDB, err := bcdb.Create(&config.ConnectionConfig{
 		RootCAs: []string{
 			path.Join(demoDir, "crypto", "CA", "CA.pem"),
@@ -71,7 +83,7 @@ func createDBInstance(demoDir string, url *url.URL) (bcdb.BCDB, error) {
 				Endpoint: url.String(),
 			},
 		},
-		LogLevel: "info",
+		Logger: clientLogger,
 	})
 
 	return bcDB, err
