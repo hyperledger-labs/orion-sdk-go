@@ -49,9 +49,10 @@ func TestDataContext_GetNonExistKey(t *testing.T) {
 
 	tx, err := userSession.DataTx("bdb")
 	require.NoError(t, err)
-	res, err := tx.Get("key2")
+	res, meta, err := tx.Get("key2")
 	require.NoError(t, err)
 	require.Nil(t, res)
+	require.Nil(t, meta)
 }
 
 func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
@@ -70,20 +71,23 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	putKeyAndValidate(t, "key1", "value1", "alice", userSession)
 	putKeyAndValidate(t, "key2", "value2", "alice", userSession)
 
-	tx, err := userSession.DataTx("bdb")
-	require.NoError(t, err)
-	res1, err := tx.Get("key1")
-	require.NoError(t, err)
-	require.Equal(t, []byte("value1"), res1)
-
-	res2, err := tx.Get("key2")
-	require.NoError(t, err)
-	require.Equal(t, []byte("value2"), res2)
-
-	err = tx.Put("key1", []byte("value3"), &types.AccessControl{
+	acl := &types.AccessControl{
 		ReadUsers:      map[string]bool{"alice": true},
 		ReadWriteUsers: map[string]bool{"alice": true},
-	})
+	}
+	tx, err := userSession.DataTx("bdb")
+	require.NoError(t, err)
+	res1, meta, err := tx.Get("key1")
+	require.NoError(t, err)
+	require.Equal(t, []byte("value1"), res1)
+	require.True(t, proto.Equal(acl, meta.GetAccessControl()))
+
+	res2, meta, err := tx.Get("key2")
+	require.NoError(t, err)
+	require.Equal(t, []byte("value2"), res2)
+	require.True(t, proto.Equal(acl, meta.GetAccessControl()))
+
+	err = tx.Put("key1", []byte("value3"), acl)
 	require.NoError(t, err)
 
 	err = tx.Delete("key2")
@@ -100,10 +104,7 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	require.False(t, key1DeleteExist)
 	require.True(t, key2DeleteExist)
 
-	err = tx.Put("key2", []byte("value4"), &types.AccessControl{
-		ReadUsers:      map[string]bool{"alice": true},
-		ReadWriteUsers: map[string]bool{"alice": true},
-	})
+	err = tx.Put("key2", []byte("value4"), acl)
 	require.NoError(t, err)
 
 	err = tx.Delete("key1")
@@ -118,7 +119,7 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	require.True(t, key1DeleteExist)
 	require.False(t, key2DeleteExist)
 
-	_, err = tx.Commit()
+	txID, err := tx.Commit()
 	require.NoError(t, err)
 
 	// Start another tx to query and make sure
@@ -126,14 +127,9 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	tx, err = userSession.DataTx("bdb")
 	require.NoError(t, err)
 
-	require.Eventually(t, func() bool {
-		val, err := tx.Get("key2")
+	waitForTx(t, txID, userSession)
 
-		return err == nil && val != nil &&
-			bytes.Equal(val, []byte("value4"))
-	}, time.Minute, 200*time.Millisecond)
-
-	res, err := tx.Get("key1")
+	res, _, err := tx.Get("key1")
 	require.NoError(t, err)
 	require.Nil(t, res)
 }
@@ -159,7 +155,7 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	bobSession := openUserSession(t, bcdb, "bob", clientCertTemDir)
 	tx, err := bobSession.DataTx("bdb")
 	require.NoError(t, err)
-	_, err = tx.Get("key1")
+	_, _, err = tx.Get("key1")
 	require.Error(t, err)
 	require.Contains(t, "error handling request, server returned 403 Forbidden", err.Error())
 	err = tx.Abort()
@@ -167,21 +163,24 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 
 	txUpdateUser, err := aliceSession.DataTx("bdb")
 	require.NoError(t, err)
-	err = txUpdateUser.Put("key1", []byte("value2"), &types.AccessControl{
+	acl := &types.AccessControl{
 		ReadUsers:      map[string]bool{"alice": true, "bob": true},
 		ReadWriteUsers: map[string]bool{"alice": true},
-	})
+	}
+	err = txUpdateUser.Put("key1", []byte("value2"), acl)
 	require.NoError(t, err)
 
-	_, err = txUpdateUser.Commit()
+	txID, err := txUpdateUser.Commit()
 	require.NoError(t, err)
+	waitForTx(t, txID, aliceSession)
 	validateValue(t, "key1", "value2", aliceSession)
 
 	tx, err = bobSession.DataTx("bdb")
 	require.NoError(t, err)
-	bobVal, err := tx.Get("key1")
+	bobVal, meta, err := tx.Get("key1")
 	require.NoError(t, err)
 	require.EqualValues(t, []byte("value2"), bobVal)
+	require.True(t, proto.Equal(meta.GetAccessControl(), acl))
 }
 
 func connectAndOpenAdminSession(t *testing.T, testServer *server.BCDBHTTPServer, tempDir string, clientCertTempDir string) (BCDB, DBSession) {
@@ -271,13 +270,9 @@ func validateValue(t *testing.T, key string, value string, session DBSession) {
 	// results was successfully committed
 	tx, err := session.DataTx("bdb")
 	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		val, err := tx.Get(key)
-
-		return err == nil && val != nil &&
-			bytes.Equal(val, []byte(value))
-	}, time.Minute, 200*time.Millisecond)
+	val, _, err := tx.Get(key)
+	require.NoError(t, err)
+	require.Equal(t, val, []byte(value))
 }
 
 func waitForTx(t *testing.T, txID string, session DBSession) {

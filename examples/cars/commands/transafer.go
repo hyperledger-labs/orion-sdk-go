@@ -34,7 +34,7 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 	}
 
 	carKey := CarRecordKeyPrefix + carRegistration
-	carRecBytes, err := dataTx.Get(carKey)
+	carRecBytes, _, err := dataTx.Get(carKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting car record, key: %s", carKey)
 	}
@@ -116,7 +116,7 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 	}
 
 	ttRec := &TransferToRecord{}
-	recordBytes, err := dataTx.Get(transferToRecordKey)
+	recordBytes, _, err := dataTx.Get(transferToRecordKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting TransferTo : %s", transferToRecordKey)
 	}
@@ -208,7 +208,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 	}
 
 	ttRec := &TransferToRecord{}
-	recordBytes, err := dataTx.Get(transferToRecordKey)
+	recordBytes, _, err := dataTx.Get(transferToRecordKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting TransferTo : %s", transferToRecordKey)
 	}
@@ -220,7 +220,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 	}
 
 	trRec := &TransferReceiveRecord{}
-	recordBytes, err = dataTx.Get(transferRcvRecordKey)
+	recordBytes, _, err = dataTx.Get(transferRcvRecordKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting TransferTo : %s", transferToRecordKey)
 	}
@@ -233,7 +233,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 
 	carRec := &CarRecord{}
 	carKey := CarRecordKeyPrefix + ttRec.CarRegistration
-	recordBytes, err = dataTx.Get(carKey)
+	recordBytes, _, err = dataTx.Get(carKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting Car : %s", carKey)
 	}

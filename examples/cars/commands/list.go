@@ -32,7 +32,7 @@ func ListCar(demoDir, userID, carRegistration string, provenance bool, lg *logge
 	}
 
 	carKey := CarRecordKeyPrefix + carRegistration
-	carRecBytes, err := dataTx.Get(carKey)
+	carRecBytes, _, err := dataTx.Get(carKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting car record, key: %s", carKey)
 	}

@@ -795,7 +795,7 @@ func TestGetTxIDsSubmittedByUser(t *testing.T) {
 func runUpdateTx(t *testing.T, user string, userSession DBSession, readKey string, writeKey string) *types.TxReceipt {
 	userTx, err := userSession.DataTx("bdb")
 	require.NoError(t, err)
-	rVal, err := userTx.Get(readKey)
+	rVal, _, err := userTx.Get(readKey)
 	require.NoError(t, err)
 	wVal := string(rVal) + "Updated"
 	userTx.Put(writeKey, []byte(wVal), &types.AccessControl{

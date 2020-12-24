@@ -13,7 +13,7 @@ type DataTxContext interface {
 	// Put new value to key
 	Put(key string, value []byte, acl *types.AccessControl) error
 	// Get existing key value
-	Get(key string) ([]byte, error)
+	Get(key string) ([]byte, *types.Metadata, error)
 	// Delete value for key
 	Delete(key string) error
 }
@@ -49,7 +49,7 @@ func (d *dataTxContext) Put(key string, value []byte, acl *types.AccessControl) 
 }
 
 // Get existing key value
-func (d *dataTxContext) Get(key string) ([]byte, error) {
+func (d *dataTxContext) Get(key string) ([]byte, *types.Metadata, error) {
 	// TODO Should we check if key already part of d.dataWrites and/or d.dataDeletes? Dirty reads case...
 	path := constants.URLForGetData(d.database, key)
 	res := &types.GetDataResponseEnvelope{}
@@ -60,7 +60,7 @@ func (d *dataTxContext) Get(key string) ([]byte, error) {
 	}, res)
 	if err != nil {
 		d.logger.Errorf("failed to execute ledger data query path %s, due to %s", path, err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	// TODO Should we check existence of key in d.dataReads with different version before appending? To fail early...
@@ -69,7 +69,7 @@ func (d *dataTxContext) Get(key string) ([]byte, error) {
 		Version: res.GetPayload().GetMetadata().GetVersion(),
 	})
 
-	return res.GetPayload().GetValue(), nil
+	return res.GetPayload().GetValue(), res.GetPayload().GetMetadata(), nil
 }
 
 // Delete value for key

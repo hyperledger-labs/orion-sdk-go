@@ -40,7 +40,7 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 		return "", errors.Wrap(err, "error creating data transaction")
 	}
 
-	recordBytes, err := dataTx.Get(key)
+	recordBytes, _, err := dataTx.Get(key)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting MintRequest: %s", key)
 	}
@@ -111,7 +111,7 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.Wrap(err, "error creating data transaction")
 	}
 
-	recordBytes, err := dataTx.Get(mintReqRecordKey)
+	recordBytes, _, err := dataTx.Get(mintReqRecordKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting MintRequest: %s", mintReqRecordKey)
 	}
@@ -133,7 +133,7 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 	}
 	carKey := carRecord.Key()
 
-	carRecordBytes, err := dataTx.Get(carKey)
+	carRecordBytes, _, err := dataTx.Get(carKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting Car: %s", carKey)
 	}
