@@ -19,7 +19,7 @@ type DBsTxContext interface {
 }
 
 type dbsTxContext struct {
-	commonTxContext
+	*commonTxContext
 	createdDBs map[string]bool
 	deletedDBs map[string]bool
 }

@@ -9,66 +9,7 @@ import (
 )
 
 type provenance struct {
-	commonTxContext
-}
-
-func (p *provenance) GetBlockHeader(blockNum uint64) (*types.BlockHeader, error) {
-	path := constants.URLForLedgerBlock(blockNum)
-	res := &types.GetBlockResponseEnvelope{}
-	err := p.handleRequest(path, &types.GetBlockQuery{
-		UserID:      p.userID,
-		BlockNumber: blockNum,
-	}, res)
-	if err != nil {
-		p.logger.Errorf("failed to execute ledger block query %s, due to %s", path, err)
-		return nil, err
-	}
-	return res.GetPayload().GetBlockHeader(), nil
-}
-
-func (p *provenance) GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeader, error) {
-	path := constants.URLForLedgerPath(startBlock, endBlock)
-	res := &types.GetLedgerPathResponseEnvelope{}
-	err := p.handleRequest(path, &types.GetLedgerPathQuery{
-		UserID:           p.userID,
-		StartBlockNumber: startBlock,
-		EndBlockNumber:   endBlock,
-	}, res)
-	if err != nil {
-		p.logger.Errorf("failed to execute ledger path query path %s, due to %s", path, err)
-		return nil, err
-	}
-	return res.GetPayload().GetBlockHeaders(), nil
-}
-
-func (p *provenance) GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, error) {
-	path := constants.URLTxProof(blockNum, txIndex)
-	res := &types.GetTxProofResponseEnvelope{}
-	err := p.handleRequest(path, &types.GetTxProofQuery{
-		UserID:      p.userID,
-		BlockNumber: blockNum,
-		TxIndex:     uint64(txIndex),
-	}, res)
-	if err != nil {
-		p.logger.Errorf("failed to execute transaction proof query %s, due to %s", path, err)
-		return nil, err
-	}
-	return &TxProof{res.GetPayload().GetHashes()}, nil
-}
-
-func (p *provenance) GetTransactionReceipt(txId string) (*types.TxReceipt, error) {
-	path := constants.URLForGetTransactionReceipt(txId)
-	res := &types.GetTxReceiptResponseEnvelope{}
-	err := p.handleRequest(path, &types.GetTxReceiptQuery{
-		UserID: p.userID,
-		TxID:   txId,
-	}, res)
-	if err != nil {
-		p.logger.Errorf("failed to execute transaction receipt query %s, due to %s", path, err)
-		return nil, err
-	}
-
-	return res.GetPayload().GetReceipt(), nil
+	*commonTxContext
 }
 
 func (p *provenance) GetHistoricalData(dbName, key string) ([]*types.ValueWithMetadata, error) {

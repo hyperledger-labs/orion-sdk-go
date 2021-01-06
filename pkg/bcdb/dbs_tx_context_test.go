@@ -138,7 +138,7 @@ func TestDBsContext_ExistsFailureScenarios(t *testing.T) {
 			restClient := tt.restClientFactory()
 			signer := &mocks.Signer{}
 			dbsCtx := &dbsTxContext{
-				commonTxContext: commonTxContext{
+				commonTxContext: &commonTxContext{
 					signer:     signer,
 					userID:     "testUserId",
 					restClient: restClient,

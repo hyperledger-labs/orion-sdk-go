@@ -276,11 +276,11 @@ func validateValue(t *testing.T, key string, value string, session DBSession) {
 }
 
 func waitForTx(t *testing.T, txID string, session DBSession) {
-	p, err := session.Provenance()
+	l, err := session.Ledger()
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		r, err := p.GetTransactionReceipt(txID)
+		r, err := l.GetTransactionReceipt(txID)
 
 		return err == nil && r != nil && r.GetHeader() != nil &&
 			uint64(len(r.GetHeader().GetValidationInfo())) > r.GetTxIndex()

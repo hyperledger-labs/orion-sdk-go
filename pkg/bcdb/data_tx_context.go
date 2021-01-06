@@ -19,7 +19,7 @@ type DataTxContext interface {
 }
 
 type dataTxContext struct {
-	commonTxContext
+	*commonTxContext
 	database    string
 	dataReads   []*types.DataRead
 	dataWrites  map[string]*types.DataWrite

@@ -1,10 +1,11 @@
 package commands
 
 import (
-	"github.com/golang/protobuf/jsonpb"
 	"io/ioutil"
 	"path"
 	"time"
+
+	"github.com/golang/protobuf/jsonpb"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -14,7 +15,7 @@ import (
 )
 
 func waitForTxCommit(session bcdb.DBSession, txID string) (*types.TxReceipt, error) {
-	p, err := session.Provenance()
+	l, err := session.Ledger()
 	if err != nil {
 		return nil, errors.Wrap(err, "error accessing provenance data")
 	}
@@ -24,7 +25,7 @@ func waitForTxCommit(session bcdb.DBSession, txID string) (*types.TxReceipt, err
 			return nil, errors.Errorf("timeout while waiting for transaction %s to commit to BCDB", txID)
 
 		case <-time.After(50 * time.Millisecond):
-			receipt, err := p.GetTransactionReceipt(txID)
+			receipt, err := l.GetTransactionReceipt(txID)
 			if err == nil {
 				validationInfo := receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()]
 				if validationInfo.GetFlag() == types.Flag_VALID {

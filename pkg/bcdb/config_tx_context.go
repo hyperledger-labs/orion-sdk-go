@@ -40,7 +40,7 @@ type ConfigTxContext interface {
 }
 
 type configTxContext struct {
-	commonTxContext
+	*commonTxContext
 	oldConfig            *types.ClusterConfig
 	readOldConfigVersion *types.Version
 	newConfig            *types.ClusterConfig

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
 )
@@ -29,12 +30,12 @@ func VerifyEvidence(demoDir, userID, txID string, lg *logger.SugarLogger) (out s
 		return "", errors.Wrap(err, "error creating database session")
 	}
 
-	provQ, err := session.Provenance()
+	ledger, err := session.Ledger()
 	if err != nil {
 		return "", errors.Wrap(err, "error creating data transaction")
 	}
 
-	txProof, err := provQ.GetTransactionProof(txRcpt.Header.BaseHeader.Number, int(txRcpt.TxIndex))
+	txProof, err := ledger.GetTransactionProof(txRcpt.Header.BaseHeader.Number, int(txRcpt.TxIndex))
 	if err != nil {
 		return "", errors.Wrap(err, "error getting transaction proof")
 	}

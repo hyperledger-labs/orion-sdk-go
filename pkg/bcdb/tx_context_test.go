@@ -33,7 +33,7 @@ func TestTxEnvelope(t *testing.T) {
 		{
 			name: "dataTx",
 			txCtx: &dataTxContext{
-				commonTxContext: commonTxContext{
+				commonTxContext: &commonTxContext{
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
@@ -51,7 +51,7 @@ func TestTxEnvelope(t *testing.T) {
 		{
 			name: "configTx",
 			txCtx: &configTxContext{
-				commonTxContext: commonTxContext{
+				commonTxContext: &commonTxContext{
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
@@ -70,7 +70,7 @@ func TestTxEnvelope(t *testing.T) {
 		{
 			name: "userTx",
 			txCtx: &userTxContext{
-				commonTxContext: commonTxContext{
+				commonTxContext: &commonTxContext{
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
@@ -88,7 +88,7 @@ func TestTxEnvelope(t *testing.T) {
 		{
 			name: "dbsTx",
 			txCtx: &dbsTxContext{
-				commonTxContext: commonTxContext{
+				commonTxContext: &commonTxContext{
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},

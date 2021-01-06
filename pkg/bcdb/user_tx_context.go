@@ -25,7 +25,7 @@ type UsersTxContext interface {
 }
 
 type userTxContext struct {
-	commonTxContext
+	*commonTxContext
 	userReads   []*types.UserRead
 	userWrites  []*types.UserWrite
 	userDeletes []*types.UserDelete

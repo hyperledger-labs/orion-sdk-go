@@ -162,7 +162,7 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 			restClient := tt.restClientFactory()
 			signer := &mocks.Signer{}
 			usrCtx := &userTxContext{
-				commonTxContext: commonTxContext{
+				commonTxContext: &commonTxContext{
 					signer:     signer,
 					userID:     "testUserId",
 					restClient: restClient,
@@ -228,7 +228,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 
 	logger := createTestLogger(t)
 	usrCtx := &userTxContext{
-		commonTxContext: commonTxContext{
+		commonTxContext: &commonTxContext{
 			signer:     signer,
 			userID:     "testUserId",
 			restClient: restClient,

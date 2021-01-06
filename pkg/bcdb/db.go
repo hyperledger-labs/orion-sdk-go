@@ -38,6 +38,7 @@ type DBSession interface {
 	DBsTx() (DBsTxContext, error)
 	ConfigTx() (ConfigTxContext, error)
 	Provenance() (Provenance, error)
+	Ledger() (Ledger, error)
 }
 
 var ErrTxSpent = errors.New("transaction committed or aborted")
@@ -55,7 +56,7 @@ type TxContext interface {
 	TxEnvelope() (proto.Message, error)
 }
 
-type Provenance interface {
+type Ledger interface {
 	// GetBlockHeader returns block header from ledger
 	GetBlockHeader(blockNum uint64) (*types.BlockHeader, error)
 	// GetLedgerPath returns cryptographically verifiable path between any block pairs in ledger skip list
@@ -65,15 +66,27 @@ type Provenance interface {
 	GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, error)
 	// GetTransactionReceipt return block header where tx is stored and tx index inside block
 	GetTransactionReceipt(txId string) (*types.TxReceipt, error)
+}
 
+type Provenance interface {
+	// GetHistoricalData return all historical values for specific dn and key
+	// Value returned with its associated metadata, including block number, tx index, etc
 	GetHistoricalData(dbName, key string) ([]*types.ValueWithMetadata, error)
+	// GetHistoricalDataAt returns value for specific version, if exist
 	GetHistoricalDataAt(dbName, key string, version *types.Version) (*types.ValueWithMetadata, error)
+	// GetPreviousHistoricalData returns value precedes given version, including its metadata, i.e version
 	GetPreviousHistoricalData(dbName, key string, version *types.Version) ([]*types.ValueWithMetadata, error)
+	// GetNextHistoricalData returns value succeeds given version, including its metadata
 	GetNextHistoricalData(dbName, key string, version *types.Version) ([]*types.ValueWithMetadata, error)
+	// GetDataReadByUser returns all user reads
 	GetDataReadByUser(userID string) ([]*types.KVWithMetadata, error)
+	// GetDataWrittenByUser returns all user writes
 	GetDataWrittenByUser(userID string) ([]*types.KVWithMetadata, error)
+	// GetReaders returns all users who read value associated with the key
 	GetReaders(dbName, key string) ([]string, error)
+	// GetWriters returns all users who wrote value associated with the key
 	GetWriters(dbName, key string) ([]string, error)
+	// GetTxIDsSubmittedByUser IDs of all tx submitted by user
 	GetTxIDsSubmittedByUser(userID string) ([]string, error)
 }
 
@@ -248,95 +261,53 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (ma
 
 // UsersTx returns user's transaction context
 func (d *dbSession) UsersTx() (UsersTxContext, error) {
-	httpClient := d.newHTTPClient()
-
-	nodesCerts, err := d.getServerCertificates(httpClient)
+	commonCtx, err := d.newCommonTxContext()
 	if err != nil {
 		return nil, err
 	}
-
 	userTx := &userTxContext{
-		commonTxContext: commonTxContext{
-			userID:     d.userID,
-			signer:     d.signer,
-			userCert:   d.userCert,
-			replicaSet: d.replicaSet,
-			nodesCerts: nodesCerts,
-			restClient: NewRestClient(d.userID, httpClient, d.signer),
-			logger:     d.logger,
-		},
+		commonTxContext: commonCtx,
 	}
 	return userTx, nil
 }
 
 // DBsTx returns database management transaction context
 func (d *dbSession) DBsTx() (DBsTxContext, error) {
-	httpClient := d.newHTTPClient()
-
-	nodesCerts, err := d.getServerCertificates(httpClient)
+	commonCtx, err := d.newCommonTxContext()
 	if err != nil {
 		return nil, err
 	}
-
 	dbsTx := &dbsTxContext{
-		commonTxContext: commonTxContext{
-			userID:     d.userID,
-			signer:     d.signer,
-			userCert:   d.userCert,
-			replicaSet: d.replicaSet,
-			nodesCerts: nodesCerts,
-			restClient: NewRestClient(d.userID, httpClient, d.signer),
-			logger:     d.logger,
-		},
-		createdDBs: map[string]bool{},
-		deletedDBs: map[string]bool{},
+		commonTxContext: commonCtx,
+		createdDBs:      map[string]bool{},
+		deletedDBs:      map[string]bool{},
 	}
 	return dbsTx, nil
 }
 
 // DataTx returns data's transaction context
 func (d *dbSession) DataTx(database string) (DataTxContext, error) {
-	httpClient := d.newHTTPClient()
-
-	nodesCerts, err := d.getServerCertificates(httpClient)
+	commonCtx, err := d.newCommonTxContext()
 	if err != nil {
 		return nil, err
 	}
 	dataTx := &dataTxContext{
-		commonTxContext: commonTxContext{
-			userID:     d.userID,
-			signer:     d.signer,
-			userCert:   d.userCert,
-			replicaSet: d.replicaSet,
-			nodesCerts: nodesCerts,
-			restClient: NewRestClient(d.userID, httpClient, d.signer),
-			logger:     d.logger,
-		},
-		database:    database,
-		dataWrites:  make(map[string]*types.DataWrite),
-		dataDeletes: make(map[string]*types.DataDelete),
+		commonTxContext: commonCtx,
+		database:        database,
+		dataWrites:      make(map[string]*types.DataWrite),
+		dataDeletes:     make(map[string]*types.DataDelete),
 	}
 	return dataTx, nil
 }
 
 // ConfigTx returns config transaction context
 func (d *dbSession) ConfigTx() (ConfigTxContext, error) {
-	httpClient := d.newHTTPClient()
-
-	nodesCerts, err := d.getServerCertificates(httpClient)
+	commonCtx, err := d.newCommonTxContext()
 	if err != nil {
 		return nil, err
 	}
 	configTx := &configTxContext{
-		commonTxContext: commonTxContext{
-			userID:     d.userID,
-			signer:     d.signer,
-			userCert:   d.userCert,
-			replicaSet: d.replicaSet,
-			nodesCerts: nodesCerts,
-			restClient: NewRestClient(d.userID, httpClient, d.signer),
-			logger:     d.logger,
-		},
+		commonTxContext:      commonCtx,
 		oldConfig:            nil,
 		readOldConfigVersion: nil,
 		newConfig:            nil,
@@ -349,26 +320,45 @@ func (d *dbSession) ConfigTx() (ConfigTxContext, error) {
 	return configTx, nil
 }
 
-// DataTx returns data's transaction context
+// Provenance returns handler to access provenance
 func (d *dbSession) Provenance() (Provenance, error) {
+	commonCtx, err := d.newCommonTxContext()
+	if err != nil {
+		return nil, err
+	}
+	return &provenance{
+		commonCtx,
+	}, nil
+}
+
+// Ledger returns handler to access bcdb ledger data
+func (d *dbSession) Ledger() (Ledger, error) {
+	commonCtx, err := d.newCommonTxContext()
+	if err != nil {
+		return nil, err
+	}
+	return &ledger{
+		commonCtx,
+	}, nil
+}
+
+func (d *dbSession) newCommonTxContext() (*commonTxContext, error) {
 	httpClient := d.newHTTPClient()
 
 	nodesCerts, err := d.getServerCertificates(httpClient)
 	if err != nil {
 		return nil, err
 	}
-	provenance := &provenance{
-		commonTxContext: commonTxContext{
-			userID:     d.userID,
-			signer:     d.signer,
-			userCert:   d.userCert,
-			replicaSet: d.replicaSet,
-			nodesCerts: nodesCerts,
-			restClient: NewRestClient(d.userID, httpClient, d.signer),
-			logger:     d.logger,
-		},
+	commonTxContext := &commonTxContext{
+		userID:     d.userID,
+		signer:     d.signer,
+		userCert:   d.userCert,
+		replicaSet: d.replicaSet,
+		nodesCerts: nodesCerts,
+		restClient: NewRestClient(d.userID, httpClient, d.signer),
+		logger:     d.logger,
 	}
-	return provenance, nil
+	return commonTxContext, nil
 }
 
 func (d *dbSession) getServerCertificates(httpClient *http.Client) (map[string]*x509.Certificate, error) {
