@@ -30,6 +30,10 @@ func TestGetBlockHeader(t *testing.T) {
 		require.NotNil(t, header)
 		require.Equal(t, uint64(i), header.GetBaseHeader().GetNumber())
 	}
+
+	header, err := l.GetBlockHeader(100)
+	require.EqualError(t, err, "error handling request, server returned 404 Not Found")
+	require.Nil(t, header)
 }
 
 func TestGetLedgerPath(t *testing.T) {
@@ -43,64 +47,68 @@ func TestGetLedgerPath(t *testing.T) {
 		putKeyAndValidate(t, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
 	}
 
-	l, err := aliceSession.Ledger()
+	p, err := aliceSession.Ledger()
 	require.NoError(t, err)
 
 	existBlocks := make([]*types.BlockHeader, 0)
 	for i := 1; i < 11; i++ {
-		header, err := l.GetBlockHeader(uint64(i))
+		header, err := p.GetBlockHeader(uint64(i))
 		require.NoError(t, err)
 		require.NotNil(t, header)
 		existBlocks = append(existBlocks, header)
 	}
 
 	tests := []struct {
-		name    string
-		start   uint64
-		end     uint64
-		path    []*types.BlockHeader
-		wantErr bool
+		name       string
+		start      uint64
+		end        uint64
+		path       []*types.BlockHeader
+		errMessage string
 	}{
 		{
-			name:    "from 3 to 2",
-			start:   2,
-			end:     3,
-			path:    []*types.BlockHeader{existBlocks[2], existBlocks[1]},
-			wantErr: false,
+			name:  "from 3 to 2",
+			start: 2,
+			end:   3,
+			path:  []*types.BlockHeader{existBlocks[2], existBlocks[1]},
 		},
 		{
-			name:    "from 4 to 2",
-			start:   2,
-			end:     4,
-			path:    []*types.BlockHeader{existBlocks[3], existBlocks[2], existBlocks[1]},
-			wantErr: false,
+			name:  "from 4 to 2",
+			start: 2,
+			end:   4,
+			path:  []*types.BlockHeader{existBlocks[3], existBlocks[2], existBlocks[1]},
 		},
 		{
-			name:    "from 6 to 1",
-			start:   1,
-			end:     6,
-			path:    []*types.BlockHeader{existBlocks[5], existBlocks[4], existBlocks[0]},
-			wantErr: false,
+			name:  "from 6 to 1",
+			start: 1,
+			end:   6,
+			path:  []*types.BlockHeader{existBlocks[5], existBlocks[4], existBlocks[0]},
 		},
 		{
-			name:    "from 1 to 6",
-			start:   6,
-			end:     1,
-			path:    nil,
-			wantErr: true,
+			name:       "from 1 to 6 - error reverse range",
+			start:      6,
+			end:        1,
+			path:       nil,
+			errMessage: "error handling request, server returned 400 Bad Request",
+		},
+		{
+			name:       "from 100 to 1 - error not found",
+			start:      1,
+			end:        100,
+			path:       nil,
+			errMessage: "error handling request, server returned 404 Not Found",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path, err := l.GetLedgerPath(tt.start, tt.end)
-			if !tt.wantErr {
+			path, err := p.GetLedgerPath(tt.start, tt.end)
+			if tt.errMessage == "" {
 				require.NoError(t, err)
 				for i, b := range tt.path {
 					require.True(t, proto.Equal(b, path[i]), fmt.Sprintf("Expected block number %d, actual block number %d", b.GetBaseHeader().GetNumber(), path[i].GetBaseHeader().GetNumber()))
 				}
 			} else {
-				require.Error(t, err)
+				require.EqualError(t, err, tt.errMessage)
 			}
 		})
 
@@ -128,45 +136,43 @@ func TestGetTransactionProof(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		block   uint64
-		txIdx   int
-		wantErr bool
+		name       string
+		block      uint64
+		txIdx      int
+		errMessage string
 	}{
 		{
-			name:    "block 3, tx 5",
-			block:   3,
-			txIdx:   5,
-			wantErr: false,
+			name:  "block 3, tx 5",
+			block: 3,
+			txIdx: 5,
 		},
 		{
-			name:    "block 5, tx 8",
-			block:   5,
-			txIdx:   8,
-			wantErr: false,
+			name:  "block 5, tx 8",
+			block: 5,
+			txIdx: 8,
 		},
 		{
-			name:    "block 15, tx 0, block not exist",
-			block:   15,
-			txIdx:   0,
-			wantErr: true,
+			name:       "block 15, tx 0, block not exist",
+			block:      15,
+			txIdx:      0,
+			errMessage: "error handling request, server returned 404 Not Found",
 		},
 		{
-			name:    "block 10, tx 30, tx not exist in block",
-			block:   10,
-			txIdx:   30,
-			wantErr: true,
+			name:       "block 10, tx 30, tx not exist in block",
+			block:      10,
+			txIdx:      30,
+			errMessage: "error handling request, server returned 404 Not Found",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l, err := aliceSession.Ledger()
+			p, err := aliceSession.Ledger()
 			require.NoError(t, err)
-			proof, err := l.GetTransactionProof(tt.block, tt.txIdx)
-			if !tt.wantErr {
+			proof, err := p.GetTransactionProof(tt.block, tt.txIdx)
+			if tt.errMessage == "" {
 				require.NoError(t, err)
 				txEnv := txEnvelopesPerBlock[tt.block-3][tt.txIdx]
-				blockHeader, err := l.GetBlockHeader(tt.block)
+				blockHeader, err := p.GetBlockHeader(tt.block)
 				require.NoError(t, err)
 				receipt := &types.TxReceipt{
 					Header:  blockHeader,
@@ -177,7 +183,7 @@ func TestGetTransactionProof(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, res)
 			} else {
-				require.Error(t, err)
+				require.EqualError(t, err, tt.errMessage)
 			}
 		})
 	}
@@ -204,11 +210,12 @@ func TestGetTransactionReceipt(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		block   uint64
-		txIdx   uint64
-		txID    string
-		wantErr bool
+		name       string
+		block      uint64
+		txIdx      uint64
+		txID       string
+		wantErr    bool
+		errMessage string
 	}{
 		{
 			name:    "block 3, tx 5",
@@ -232,26 +239,27 @@ func TestGetTransactionReceipt(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "tx not exist",
-			block:   0,
-			txIdx:   0,
-			txID:    "not_exist",
-			wantErr: true,
+			name:       "tx not exist",
+			block:      0,
+			txIdx:      0,
+			txID:       "not_exist",
+			wantErr:    true,
+			errMessage: "error handling request, server returned 404 Not Found",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l, err := aliceSession.Ledger()
+			p, err := aliceSession.Ledger()
 			require.NoError(t, err)
-			receipt, err := l.GetTransactionReceipt(tt.txID)
-			if !tt.wantErr {
+			receipt, err := p.GetTransactionReceipt(tt.txID)
+			if tt.errMessage == "" {
 				require.NoError(t, err)
 				require.NotNil(t, receipt)
 				require.Equal(t, tt.block, receipt.GetHeader().GetBaseHeader().GetNumber())
 				require.Equal(t, tt.txIdx, receipt.GetTxIndex())
 			} else {
-				require.Error(t, err)
+				require.EqualError(t, err, tt.errMessage)
 				require.Nil(t, receipt)
 			}
 		})
