@@ -134,6 +134,49 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	require.Nil(t, res)
 }
 
+func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
+	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	testServer.Start()
+
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
+	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
+	require.NoError(t, err)
+	addUser(t, "alice", adminSession, pemUserCert)
+	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
+
+	putKeyAndValidate(t, "key1", "value1", "alice", userSession)
+
+	tx, err := userSession.DataTx("bdb")
+	require.NoError(t, err)
+	res, meta, err := tx.Get("key1")
+	require.NoError(t, err)
+	require.Equal(t, []byte("value1"), res)
+	storedRead, ok := tx.(*dataTxContext).dataReads["key1"]
+	require.True(t, ok)
+	require.Equal(t, res, storedRead.GetValue())
+	require.Equal(t, meta, storedRead.GetMetadata())
+
+	putKeyAndValidate(t, "key1", "value2", "alice", userSession)
+	res, meta, err = tx.Get("key1")
+	require.NoError(t, err)
+	storedReadUpdated, ok := tx.(*dataTxContext).dataReads["key1"]
+	require.True(t, ok)
+	require.Equal(t, res, storedRead.GetValue())
+	require.Equal(t, meta, storedRead.GetMetadata())
+	require.Equal(t, storedReadUpdated, storedRead)
+	require.NoError(t, err)
+	txID, err := tx.Commit()
+	waitForTx(t, txID, userSession)
+	l, err := userSession.Ledger()
+	require.NoError(t, err)
+	r, err := l.GetTransactionReceipt(txID)
+	require.NoError(t, err)
+	require.Equal(t, r.GetHeader().GetValidationInfo()[int(r.GetTxIndex())].GetFlag(), types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE)
+}
+
 func TestDataContext_GetUserPermissions(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob"})
 	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)

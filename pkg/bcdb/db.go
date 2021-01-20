@@ -294,6 +294,7 @@ func (d *dbSession) DataTx(database string) (DataTxContext, error) {
 	dataTx := &dataTxContext{
 		commonTxContext: commonCtx,
 		database:        database,
+		dataReads:       make(map[string]*types.GetDataResponse),
 		dataWrites:      make(map[string]*types.DataWrite),
 		dataDeletes:     make(map[string]*types.DataDelete),
 	}
