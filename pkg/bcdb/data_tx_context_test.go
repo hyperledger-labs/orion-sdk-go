@@ -17,13 +17,13 @@ import (
 )
 
 func TestDataContext_PutAndGetKey(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
 
-	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
 	addUser(t, "alice", adminSession, pemUserCert)
@@ -33,13 +33,13 @@ func TestDataContext_PutAndGetKey(t *testing.T) {
 }
 
 func TestDataContext_GetNonExistKey(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
 
-	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
 	addUser(t, "alice", adminSession, pemUserCert)
@@ -56,13 +56,13 @@ func TestDataContext_GetNonExistKey(t *testing.T) {
 }
 
 func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
 
-	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
 	addUser(t, "alice", adminSession, pemUserCert)
@@ -135,13 +135,13 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 }
 
 func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
 
-	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
 	addUser(t, "alice", adminSession, pemUserCert)
@@ -178,13 +178,13 @@ func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 }
 
 func TestDataContext_GetUserPermissions(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
 
-	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
 	addUser(t, "alice", adminSession, pemUserCert)
@@ -226,13 +226,13 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	require.True(t, proto.Equal(meta.GetAccessControl(), acl))
 }
 
-func connectAndOpenAdminSession(t *testing.T, testServer *server.BCDBHTTPServer, tempDir string, clientCertTempDir string) (BCDB, DBSession) {
+func connectAndOpenAdminSession(t *testing.T, testServer *server.BCDBHTTPServer, cryptoDir string) (BCDB, DBSession) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
 	// Create new connection
-	bcdb := createDBInstance(t, tempDir, serverPort)
+	bcdb := createDBInstance(t, cryptoDir, serverPort)
 	// New session with admin user context
-	session := openUserSession(t, bcdb, "admin", clientCertTempDir)
+	session := openUserSession(t, bcdb, "admin", cryptoDir)
 
 	return bcdb, session
 }

@@ -23,8 +23,8 @@ import (
 )
 
 func TestUserContext_AddAndRetrieveUser(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -34,7 +34,7 @@ func TestUserContext_AddAndRetrieveUser(t *testing.T) {
 
 	// Create new connection
 	bcdb, err := Create(&sdkConfig.ConnectionConfig{
-		RootCAs: []string{path.Join(tempDir, "serverRootCACert.pem")},
+		RootCAs: []string{path.Join(clientCertTemDir, testutils.RootCAFileName+".pem")},
 		ReplicaSet: []*sdkConfig.Replica{
 			{
 				ID:       "testNode1",
@@ -85,8 +85,8 @@ func TestUserContext_AddAndRetrieveUser(t *testing.T) {
 }
 
 func TestUserContext_MalformedRequest(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -95,7 +95,7 @@ func TestUserContext_MalformedRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	bcdb, err := Create(&sdkConfig.ConnectionConfig{
-		RootCAs: []string{path.Join(tempDir, "serverRootCACert.pem")},
+		RootCAs: []string{path.Join(clientCertTemDir, testutils.RootCAFileName+".pem")},
 		ReplicaSet: []*sdkConfig.Replica{
 			{
 				ID:       "testNode1",

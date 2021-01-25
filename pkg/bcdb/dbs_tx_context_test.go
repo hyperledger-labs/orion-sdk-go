@@ -17,13 +17,13 @@ import (
 )
 
 func TestDBsContext_CheckStatusOfDefaultDB(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
 
-	_, session := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
+	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	tx, err := session.DBsTx()
 	require.NoError(t, err)
 
@@ -35,13 +35,13 @@ func TestDBsContext_CheckStatusOfDefaultDB(t *testing.T) {
 }
 
 func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
 
-	_, session := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
+	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	// Start submission session to create a new database
 	tx, err := session.DBsTx()
 	require.NoError(t, err)
@@ -64,8 +64,8 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 }
 
 func TestDBsContext_MalformedRequest(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -74,7 +74,7 @@ func TestDBsContext_MalformedRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	bcdb, err := Create(&sdkConfig.ConnectionConfig{
-		RootCAs: []string{path.Join(tempDir, "serverRootCACert.pem")},
+		RootCAs: []string{path.Join(clientCertTemDir, testutils.RootCAFileName+".pem")},
 		ReplicaSet: []*sdkConfig.Replica{
 			{
 				ID:       "testNode1",
@@ -162,13 +162,13 @@ func TestDBsContext_ExistsFailureScenarios(t *testing.T) {
 }
 
 func TestDBsContext_MultipleOperations(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
 
-	_, session := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
+	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	// Start submission session to create a new database
 	tx, err := session.DBsTx()
 	require.NoError(t, err)
@@ -213,13 +213,13 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 }
 
 func TestDBsContext_AttemptDeleteSystemDatabase(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCertTemDir)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
 
-	_, session := connectAndOpenAdminSession(t, testServer, tempDir, clientCertTemDir)
+	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	// Start submission session to create a new database
 	tx, err := session.DBsTx()
 	require.NoError(t, err)

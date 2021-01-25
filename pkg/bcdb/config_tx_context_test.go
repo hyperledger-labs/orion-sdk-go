@@ -13,8 +13,8 @@ import (
 )
 
 func TestConfigTxContext_GetClusterConfig(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin"})
-	testServer, rootCAKeyPair, tempDir, err := setupTestServer(t, clientCryptoDir)
+	cryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, err := setupTestServer(t, cryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -27,8 +27,8 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
 
-	bcdb := createDBInstance(t, tempDir, serverPort)
-	session := openUserSession(t, bcdb, "admin", clientCryptoDir)
+	bcdb := createDBInstance(t, cryptoDir, serverPort)
+	session := openUserSession(t, bcdb, "admin", cryptoDir)
 
 	tx, err := session.ConfigTx()
 	require.NoError(t, err)
@@ -41,15 +41,16 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	require.Equal(t, "testNode1", clusterConfig.Nodes[0].ID)
 	require.Equal(t, "127.0.0.1", clusterConfig.Nodes[0].Address)
 	require.Equal(t, 0, int(clusterConfig.Nodes[0].Port))
-	serverCertBytes, _ := testutils.LoadTestClientCrypto(t, tempDir, "server")
+	serverCertBytes, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "server")
 	require.Equal(t, serverCertBytes.Raw, clusterConfig.Nodes[0].Certificate)
 
 	require.Equal(t, 1, len(clusterConfig.Admins))
 	require.Equal(t, "admin", clusterConfig.Admins[0].ID)
-	adminCertBytes, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin")
+	adminCertBytes, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "admin")
 	require.Equal(t, adminCertBytes.Raw, clusterConfig.Admins[0].Certificate)
 
-	require.Equal(t, rootCAKeyPair.Certificate[0], clusterConfig.RootCACertificate)
+	caCert, _ := testutils.LoadTestClientCA(t, cryptoDir, testutils.RootCAFileName)
+	require.Equal(t, caCert.Raw, clusterConfig.RootCACertificate)
 
 	clusterConfig.Nodes = nil
 	clusterConfig.Admins = nil
@@ -62,8 +63,8 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 }
 
 func TestConfigTxContext_AddAdmin(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCryptoDir)
+	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "server"})
+	testServer, err := setupTestServer(t, clientCryptoDir)
 
 	defer func() {
 		if testServer != nil {
@@ -86,7 +87,7 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 	admin2Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin2")
 	admin2 := &types.Admin{ID: "admin2", Certificate: admin2Cert.Raw}
 
-	bcdb := createDBInstance(t, tempDir, serverPort)
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session1 := openUserSession(t, bcdb, "admin", clientCryptoDir)
 
 	// Add admin2
@@ -140,8 +141,8 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_DeleteAdmin(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "admin3"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCryptoDir)
+	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "admin3", "server"})
+	testServer, err := setupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -166,7 +167,7 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	admin2 := &types.Admin{ID: "admin2", Certificate: admin2Cert.Raw}
 	admin3 := &types.Admin{ID: "admin3", Certificate: admin3Cert.Raw}
 
-	bcdb := createDBInstance(t, tempDir, serverPort)
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session1 := openUserSession(t, bcdb, "admin", clientCryptoDir)
 
 	// Add admin2 & admin3
@@ -249,8 +250,8 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_UpdateAdmin(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "adminUpdated"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCryptoDir)
+	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "adminUpdated", "server"})
+	testServer, err := setupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -268,7 +269,7 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 
 	admin2 := &types.Admin{ID: "admin2", Certificate: admin2Cert.Raw}
 
-	bcdb := createDBInstance(t, tempDir, serverPort)
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session1 := openUserSession(t, bcdb, "admin", clientCryptoDir)
 
 	// Add admin2
@@ -353,8 +354,8 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_AddClusterNode(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCryptoDir)
+	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, err := setupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -367,7 +368,7 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
 
-	bcdb := createDBInstance(t, tempDir, serverPort)
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session1 := openUserSession(t, bcdb, "admin", clientCryptoDir)
 	tx, err := session1.ConfigTx()
 	require.NoError(t, err)
@@ -410,8 +411,8 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 }
 
 func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCryptoDir)
+	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, err := setupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -424,7 +425,7 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
 
-	bcdb := createDBInstance(t, tempDir, serverPort)
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session1 := openUserSession(t, bcdb, "admin", clientCryptoDir)
 	tx1, err := session1.ConfigTx()
 	require.NoError(t, err)
@@ -470,8 +471,8 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 }
 
 func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCryptoDir)
+	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, err := setupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -484,7 +485,7 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
 
-	bcdb := createDBInstance(t, tempDir, serverPort)
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session1 := openUserSession(t, bcdb, "admin", clientCryptoDir)
 	tx1, err := session1.ConfigTx()
 	require.NoError(t, err)
@@ -525,8 +526,8 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 }
 
 func TestConfigTxContext_Abort(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCryptoDir)
+	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, err := setupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -539,7 +540,7 @@ func TestConfigTxContext_Abort(t *testing.T) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
 
-	bcdb := createDBInstance(t, tempDir, serverPort)
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session := openUserSession(t, bcdb, "admin", clientCryptoDir)
 
 	tx, err := session.ConfigTx()
@@ -571,8 +572,8 @@ func TestConfigTxContext_Abort(t *testing.T) {
 }
 
 func TestConfigTxContext_Commit(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin"})
-	testServer, _, tempDir, err := setupTestServer(t, clientCryptoDir)
+	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, err := setupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -585,7 +586,7 @@ func TestConfigTxContext_Commit(t *testing.T) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
 
-	bcdb := createDBInstance(t, tempDir, serverPort)
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session := openUserSession(t, bcdb, "admin", clientCryptoDir)
 
 	tx, err := session.ConfigTx()

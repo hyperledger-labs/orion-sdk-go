@@ -1,8 +1,8 @@
 package bcdb
 
 import (
-	"crypto/tls"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	config2 "github.ibm.com/blockchaindb/sdk/pkg/config"
 	"io/ioutil"
 	"os"
@@ -17,56 +17,28 @@ import (
 	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
 )
 
-func setupTestServer(t *testing.T, clientCertTempDir string) (*server.BCDBHTTPServer, tls.Certificate, string, error) {
-	return setupTestServerWithParams(t, clientCertTempDir, 500 * time.Millisecond, 1)
+func setupTestServer(t *testing.T, cryptoTempDir string) (*server.BCDBHTTPServer, error) {
+	s, e := setupTestServerWithParams(t, cryptoTempDir, 500*time.Millisecond, 1)
+	return s, e
 }
 
-func setupTestServerWithParams(t *testing.T, clientCertTempDir string, blockTime time.Duration, txPerBlock uint32) (*server.BCDBHTTPServer, tls.Certificate, string, error) {
+func setupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime time.Duration, txPerBlock uint32) (*server.BCDBHTTPServer, error) {
 	tempDir, err := ioutil.TempDir("/tmp", "userTxContextTest")
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		os.RemoveAll(tempDir)
 	})
 
-	rootCAPemCert, caPrivKey, err := testutils.GenerateRootCA("BCDB RootCA", "127.0.0.1")
+	caCertPEM, err := ioutil.ReadFile(path.Join(cryptoTempDir, testutils.RootCAFileName+".pem"))
 	require.NoError(t, err)
-	require.NotNil(t, rootCAPemCert)
-	require.NotNil(t, caPrivKey)
-
-	keyPair, err := tls.X509KeyPair(rootCAPemCert, caPrivKey)
-	require.NoError(t, err)
-	require.NotNil(t, keyPair)
-
-	serverRootCACertFile, err := os.Create(path.Join(tempDir, "serverRootCACert.pem"))
-	require.NoError(t, err)
-	_, err = serverRootCACertFile.Write(rootCAPemCert)
-	require.NoError(t, err)
-	err = serverRootCACertFile.Close()
-	require.NoError(t, err)
-
-	pemCert, privKey, err := testutils.IssueCertificate("BCDB Instance", "127.0.0.1", keyPair)
-	require.NoError(t, err)
-
-	pemCertFile, err := os.Create(path.Join(tempDir, "server.pem"))
-	require.NoError(t, err)
-	_, err = pemCertFile.Write(pemCert)
-	require.NoError(t, err)
-	err = pemCertFile.Close()
-	require.NoError(t, err)
-
-	pemPrivKeyFile, err := os.Create(path.Join(tempDir, "server.key"))
-	require.NoError(t, err)
-	_, err = pemPrivKeyFile.Write(privKey)
-	require.NoError(t, err)
-	err = pemPrivKeyFile.Close()
-	require.NoError(t, err)
+	assert.NotNil(t, caCertPEM)
 
 	server, err := server.New(&config.Configurations{
 		Node: config.NodeConf{
 			Identity: config.IdentityConf{
 				ID:              "testNode1",
-				CertificatePath: path.Join(tempDir, "server.pem"),
-				KeyPath:         path.Join(tempDir, "server.key"),
+				CertificatePath: path.Join(cryptoTempDir, "server.pem"),
+				KeyPath:         path.Join(cryptoTempDir, "server.key"),
 			},
 			Database: config.DatabaseConf{
 				Name:            "leveldb",
@@ -86,10 +58,10 @@ func setupTestServerWithParams(t *testing.T, clientCertTempDir string, blockTime
 		},
 		Admin: config.AdminConf{
 			ID:              "admin",
-			CertificatePath: path.Join(clientCertTempDir, "admin.pem"),
+			CertificatePath: path.Join(cryptoTempDir, "admin.pem"),
 		},
 		RootCA: config.RootCAConf{
-			CertificatePath: path.Join(tempDir, "serverRootCACert.pem"),
+			CertificatePath: path.Join(cryptoTempDir, testutils.RootCAFileName+".pem"),
 		},
 		Consensus: config.ConsensusConf{
 			Algorithm:                   "solo",
@@ -98,7 +70,7 @@ func setupTestServerWithParams(t *testing.T, clientCertTempDir string, blockTime
 			MaxTransactionCountPerBlock: txPerBlock,
 		},
 	})
-	return server, keyPair, tempDir, err
+	return server, err
 }
 
 func createTestLogger(t *testing.T) *logger.SugarLogger {
@@ -129,10 +101,10 @@ func openUserSession(t *testing.T, bcdb BCDB, user string, tempDir string) DBSes
 	return session
 }
 
-func createDBInstance(t *testing.T, tempDir string, serverPort string) BCDB {
+func createDBInstance(t *testing.T, cryptoDir string, serverPort string) BCDB {
 	// Create new connection
 	bcdb, err := Create(&config2.ConnectionConfig{
-		RootCAs: []string{path.Join(tempDir, "serverRootCACert.pem")},
+		RootCAs: []string{path.Join(cryptoDir, testutils.RootCAFileName+".pem")},
 		ReplicaSet: []*config2.Replica{
 			{
 				ID:       "testNode1",
@@ -145,15 +117,14 @@ func createDBInstance(t *testing.T, tempDir string, serverPort string) BCDB {
 	return bcdb
 }
 
-func startServerConnectOpenAdminCreateUserAndUserSession(t *testing.T, testServer *server.BCDBHTTPServer, serverTempDir string, certTempDir string, user string) (BCDB, DBSession, DBSession){
+func startServerConnectOpenAdminCreateUserAndUserSession(t *testing.T, testServer *server.BCDBHTTPServer, certTempDir string, user string) (BCDB, DBSession, DBSession) {
 	testServer.Start()
 
-	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, serverTempDir, certTempDir)
-	pemUserCert, err := ioutil.ReadFile(path.Join(certTempDir, user + ".pem"))
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, certTempDir)
+	pemUserCert, err := ioutil.ReadFile(path.Join(certTempDir, user+".pem"))
 	require.NoError(t, err)
 	addUser(t, user, adminSession, pemUserCert)
 	userSession := openUserSession(t, bcdb, user, certTempDir)
 
 	return bcdb, adminSession, userSession
 }
-

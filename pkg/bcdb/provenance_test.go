@@ -15,11 +15,11 @@ import (
 )
 
 func TestGetHistoricalData(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 1)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 1)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, tempDir, clientCertTemDir, "alice")
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	// 15 blocks, 1 tx each
 	for i := 0; i < 5; i++ {
@@ -89,11 +89,11 @@ func TestGetHistoricalData(t *testing.T) {
 }
 
 func TestGetHistoricalDataAt(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 5)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 5)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, tempDir, clientCertTemDir, "alice")
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	// 5 blocks, 5 tx each
 	for i := 0; i < 5; i++ {
@@ -199,11 +199,11 @@ func TestGetHistoricalDataAt(t *testing.T) {
 }
 
 func TestGetPreviousOrNextHistoricalData(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice"})
-	testServer, _, tempDir, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 5)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 5)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, tempDir, clientCertTemDir, "alice")
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	// 25 blocks, 5 tx each
 	for i := 0; i < 5; i++ {
@@ -317,11 +317,11 @@ func TestGetPreviousOrNextHistoricalData(t *testing.T) {
 }
 
 func TestReadWriteAccessBytUserAndKey(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "eve"})
-	testServer, _, tempDir, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 1)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "eve", "server"})
+	testServer, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 1)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	bcdb, adminSession, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, tempDir, clientCertTemDir, "alice")
+	bcdb, adminSession, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "bob.pem"))
 	require.NoError(t, err)
@@ -459,11 +459,11 @@ func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 
 func TestGetTxIDsSubmittedByUser(t *testing.T) {
 
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "eve"})
-	testServer, _, tempDir, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 10)
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "eve", "server"})
+	testServer, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 10)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	bcdb, adminSession, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, tempDir, clientCertTemDir, "alice")
+	bcdb, adminSession, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "bob.pem"))
 	require.NoError(t, err)
