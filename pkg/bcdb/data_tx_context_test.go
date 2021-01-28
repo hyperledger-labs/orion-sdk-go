@@ -200,7 +200,7 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	require.NoError(t, err)
 	_, _, err = tx.Get("key1")
 	require.Error(t, err)
-	require.Contains(t, "error handling request, server returned 403 Forbidden", err.Error())
+	require.EqualError(t, err, "error handling request, server returned: status: 403 Forbidden, message: error while processing 'GET /data/bdb/key1' because the user [bob] has no permission to read key [key1] from database [bdb]")
 	err = tx.Abort()
 	require.NoError(t, err)
 

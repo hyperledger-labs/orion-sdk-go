@@ -4,20 +4,20 @@
 
 * Car `dealer` can mint a new car
 
-* Owners `alice`, `bob` (and `dealer`) can own a car & transfer ownership 
+* Owners `alice`, `bob` (and `dealer`) can own a car & transfer ownership
 
-
-##To build:
+## To build:
 
 `cd examples/cars`
 
 `go build`
 
-##To run the demo
+## To run the demo
+
 * Setup the demo directory env var
 
 `export CARS_DEMO_DIR=/tmp/cars-demo`
- 
+
 * Generate crypto and config material
 
 `./cars generate`

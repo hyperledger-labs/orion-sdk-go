@@ -50,7 +50,7 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	require.Equal(t, adminCertBytes.Raw, clusterConfig.Admins[0].Certificate)
 
 	caCert, _ := testutils.LoadTestClientCA(t, cryptoDir, testutils.RootCAFileName)
-	require.True(t, len(clusterConfig.CertAuthConfig.Roots)>0)
+	require.True(t, len(clusterConfig.CertAuthConfig.Roots) > 0)
 	require.Equal(t, caCert.Raw, clusterConfig.CertAuthConfig.Roots[0])
 
 	clusterConfig.Nodes = nil

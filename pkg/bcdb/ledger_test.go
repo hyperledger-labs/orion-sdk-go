@@ -32,7 +32,7 @@ func TestGetBlockHeader(t *testing.T) {
 	}
 
 	header, err := l.GetBlockHeader(100)
-	require.EqualError(t, err, "error handling request, server returned 404 Not Found")
+	require.EqualError(t, err, "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/block/100' because block not found: 100")
 	require.Nil(t, header)
 }
 
@@ -88,14 +88,14 @@ func TestGetLedgerPath(t *testing.T) {
 			start:      6,
 			end:        1,
 			path:       nil,
-			errMessage: "error handling request, server returned 400 Bad Request",
+			errMessage: "error handling request, server returned: status: 400 Bad Request, message: query error: startId=6 > endId=1",
 		},
 		{
 			name:       "from 100 to 1 - error not found",
 			start:      1,
 			end:        100,
 			path:       nil,
-			errMessage: "error handling request, server returned 404 Not Found",
+			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/path?start=1&end=100' because can't find path in blocks skip list between 100 1: block not found: 100",
 		},
 	}
 
@@ -155,13 +155,13 @@ func TestGetTransactionProof(t *testing.T) {
 			name:       "block 15, tx 0, block not exist",
 			block:      15,
 			txIdx:      0,
-			errMessage: "error handling request, server returned 404 Not Found",
+			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/proof/15?idx=0' because requested block number [15] cannot be greater than the last committed block number",
 		},
 		{
 			name:       "block 10, tx 30, tx not exist in block",
 			block:      10,
 			txIdx:      30,
-			errMessage: "error handling request, server returned 404 Not Found",
+			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/proof/10?idx=30' because node with index 30 is not part of merkle tree (0, 9)",
 		},
 	}
 	for _, tt := range tests {
@@ -183,7 +183,8 @@ func TestGetTransactionProof(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, res)
 			} else {
-				require.EqualError(t, err, tt.errMessage)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errMessage)
 			}
 		})
 	}
@@ -244,7 +245,7 @@ func TestGetTransactionReceipt(t *testing.T) {
 			txIdx:      0,
 			txID:       "not_exist",
 			wantErr:    true,
-			errMessage: "error handling request, server returned 404 Not Found",
+			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/tx/receipt/not_exist' because TxID not found: not_exist",
 		},
 	}
 

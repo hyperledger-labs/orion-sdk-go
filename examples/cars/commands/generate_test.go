@@ -17,5 +17,5 @@ func TestGenerate(t *testing.T) {
 
 	serverUrl, err := loadServerUrl(demoDir)
 	require.NoError(t, err)
-	require.Equal(t,"http://127.0.0.1:8080", serverUrl.String())
+	require.Equal(t, "http://127.0.0.1:8080", serverUrl.String())
 }

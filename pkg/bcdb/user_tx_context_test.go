@@ -150,7 +150,7 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 					}, nil)
 				return restClient
 			},
-			expectedError: "server returned malformed response",
+			expectedError: "error handling request, server returned: status: malformed response, message: ",
 		},
 	}
 

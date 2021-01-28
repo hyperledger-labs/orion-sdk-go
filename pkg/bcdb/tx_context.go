@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
+	"github.ibm.com/blockchaindb/server/pkg/types"
 )
 
 type commonTxContext struct {
@@ -52,8 +53,18 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string) (string, err
 	}
 
 	if response.StatusCode != http.StatusOK {
-		t.logger.Errorf("error status from server, %s", response.Status)
-		return txID, errors.New(fmt.Sprintf("error status from server, %s", response.Status))
+		var errMsg string
+		if response.Body != nil {
+			errRes := &types.HttpResponseErr{}
+			if err := json.NewDecoder(response.Body).Decode(errRes); err != nil {
+				t.logger.Errorf("failed to parse the server's error message, due to %s", err)
+				errMsg = "(failed to parse the server's error message)"
+			} else {
+				errMsg = errRes.Error()
+			}
+		}
+
+		return txID, errors.New(fmt.Sprintf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg))
 	}
 
 	tx.cleanCtx()
@@ -84,7 +95,18 @@ func (t *commonTxContext) handleRequest(rawurl string, query proto.Message, res 
 		return err
 	}
 	if response.StatusCode != http.StatusOK {
-		return errors.New(fmt.Sprintf("error handling request, server returned %s", response.Status))
+		var errMsg string
+		if response.Body != nil {
+			errRes := &types.HttpResponseErr{}
+			if err := json.NewDecoder(response.Body).Decode(errRes); err != nil {
+				t.logger.Errorf("failed to parse the server's error message, due to %s", err)
+				errMsg = "(failed to parse the server's error message)"
+			} else {
+				errMsg = errRes.Error()
+			}
+		}
+
+		return errors.New(fmt.Sprintf("error handling request, server returned: status: %s, message: %s", response.Status, errMsg))
 	}
 	err = json.NewDecoder(response.Body).Decode(res)
 	if err != nil {
