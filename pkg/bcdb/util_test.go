@@ -60,9 +60,7 @@ func setupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime tim
 			ID:              "admin",
 			CertificatePath: path.Join(cryptoTempDir, "admin.pem"),
 		},
-		RootCA: config.RootCAConf{
-			CertificatePath: path.Join(cryptoTempDir, testutils.RootCAFileName+".pem"),
-		},
+		CAConfig: config.CAConfiguration{RootCACertsPath: []string{path.Join(cryptoTempDir, testutils.RootCAFileName+".pem")}},
 		Consensus: config.ConsensusConf{
 			Algorithm:                   "solo",
 			BlockTimeout:                blockTime,

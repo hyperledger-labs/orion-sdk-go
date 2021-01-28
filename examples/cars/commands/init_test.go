@@ -104,8 +104,8 @@ func setupTestServer(t *testing.T, demoDir string) (*server.BCDBHTTPServer, stri
 			ID:              "admin",
 			CertificatePath: path.Join(cryptoDir, "admin", "admin.pem"),
 		},
-		RootCA: config.RootCAConf{
-			CertificatePath: path.Join(cryptoDir, "CA", "CA.pem"),
+		CAConfig: config.CAConfiguration{
+			RootCACertsPath: []string{path.Join(cryptoDir, "CA", "CA.pem")},
 		},
 		Consensus: config.ConsensusConf{
 			Algorithm:                   "solo",

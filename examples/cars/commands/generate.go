@@ -129,8 +129,8 @@ func writeConfigFile(demoDir string) error {
 			ID:              "admin",
 			CertificatePath: path.Join(demoDir, "crypto", "admin", "admin.pem"),
 		},
-		RootCA: config.RootCAConf{
-			CertificatePath: path.Join(demoDir, "crypto", "CA", "CA.pem"),
+		CAConfig: config.CAConfiguration{
+			RootCACertsPath: []string{path.Join(demoDir, "crypto", "CA", "CA.pem")},
 		},
 		Consensus: config.ConsensusConf{
 			MaxTransactionCountPerBlock: 1,
@@ -150,7 +150,7 @@ func writeConfigFile(demoDir string) error {
 		return err
 	}
 
-	serverUrl, err := url.Parse(fmt.Sprintf("http://%s:%d",config.Node.Network.Address, config.Node.Network.Port))
+	serverUrl, err := url.Parse(fmt.Sprintf("http://%s:%d", config.Node.Network.Address, config.Node.Network.Port))
 	if err != nil {
 		return err
 	}

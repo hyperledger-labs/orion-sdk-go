@@ -50,16 +50,17 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	require.Equal(t, adminCertBytes.Raw, clusterConfig.Admins[0].Certificate)
 
 	caCert, _ := testutils.LoadTestClientCA(t, cryptoDir, testutils.RootCAFileName)
-	require.Equal(t, caCert.Raw, clusterConfig.RootCACertificate)
+	require.True(t, len(clusterConfig.CertAuthConfig.Roots)>0)
+	require.Equal(t, caCert.Raw, clusterConfig.CertAuthConfig.Roots[0])
 
 	clusterConfig.Nodes = nil
 	clusterConfig.Admins = nil
-	clusterConfig.RootCACertificate = nil
+	clusterConfig.CertAuthConfig = nil
 	clusterConfigAgain, err := tx.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfigAgain.Nodes, "it is a deep copy")
 	require.NotNil(t, clusterConfigAgain.Admins, "it is a deep copy")
-	require.NotNil(t, clusterConfigAgain.RootCACertificate, "it is a deep copy")
+	require.NotNil(t, clusterConfigAgain.CertAuthConfig, "it is a deep copy")
 }
 
 func TestConfigTxContext_AddAdmin(t *testing.T) {
