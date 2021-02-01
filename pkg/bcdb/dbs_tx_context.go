@@ -33,16 +33,28 @@ func (d *dbsTxContext) Abort() error {
 }
 
 func (d *dbsTxContext) CreateDB(dbName string) error {
+	if d.txSpent {
+		return ErrTxSpent
+	}
+
 	d.createdDBs[dbName] = true
 	return nil
 }
 
 func (d *dbsTxContext) DeleteDB(dbName string) error {
+	if d.txSpent {
+		return ErrTxSpent
+	}
+
 	d.deletedDBs[dbName] = true
 	return nil
 }
 
 func (d *dbsTxContext) Exists(dbName string) (bool, error) {
+	if d.txSpent {
+		return false, ErrTxSpent
+	}
+
 	path := constants.URLForGetDBStatus(dbName)
 	res := &types.GetDBStatusResponseEnvelope{}
 	err := d.handleRequest(path, &types.GetDBStatusQuery{

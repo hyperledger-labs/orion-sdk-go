@@ -131,7 +131,8 @@ func initDB(session bcdb.DBSession, lg *logger.SugarLogger) error {
 	wg.Add(1)
 	go func() {
 		for {
-			exist, err := tx.Exists(CarDBName)
+			queryTx, err := session.DBsTx()
+			exist, err := queryTx.Exists(CarDBName)
 			if exist && err == nil {
 				break
 			}

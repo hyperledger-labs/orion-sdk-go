@@ -67,8 +67,9 @@ func TestUserContext_AddAndRetrieveUser(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 
-	_, err = tx.Commit()
+	txId, err := tx.Commit()
 	require.NoError(t, err)
+	require.True(t, len(txId) > 0)
 
 	// Start another session to query and make sure
 	// results was successfully committed
@@ -82,6 +83,63 @@ func TestUserContext_AddAndRetrieveUser(t *testing.T) {
 			alice.ID == "alice" &&
 			bytes.Equal(certBlock.Bytes, alice.Certificate)
 	}, time.Minute, 200*time.Millisecond)
+}
+
+func TestUserContext_CommitAbortFinality(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	testServer.Start()
+
+	serverPort, err := testServer.Port()
+	require.NoError(t, err)
+
+	// Create new connection
+	bcdb, err := Create(&sdkConfig.ConnectionConfig{
+		RootCAs: []string{path.Join(clientCertTemDir, testutils.RootCAFileName+".pem")},
+		ReplicaSet: []*sdkConfig.Replica{
+			{
+				ID:       "testNode1",
+				Endpoint: fmt.Sprintf("http://localhost:%s", serverPort),
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// New session with admin user context
+	session, err := bcdb.Session(&sdkConfig.SessionConfig{
+		UserConfig: &sdkConfig.UserConfig{
+			UserID:         "admin",
+			CertPath:       path.Join(clientCertTemDir, "admin.pem"),
+			PrivateKeyPath: path.Join(clientCertTemDir, "admin.key"),
+		},
+	})
+	require.NoError(t, err)
+
+	for i := 0; i < 2; i++ {
+		// Start submission session to introduce new user
+		tx, err := session.UsersTx()
+		require.NoError(t, err)
+
+		pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
+		require.NoError(t, err)
+		certBlock, _ := pem.Decode(pemUserCert)
+		err = tx.PutUser(&types.User{ID: "alice", Certificate: certBlock.Bytes}, nil)
+		require.NoError(t, err)
+
+		assertFinalityOnCommitAbort(t, i == 0, tx)
+
+		val, err := tx.GetUser("bob")
+		require.EqualError(t, err, ErrTxSpent.Error())
+		require.Nil(t, val)
+
+		err = tx.PutUser(&types.User{ID: "bob", Certificate: certBlock.Bytes}, nil)
+		require.EqualError(t, err, ErrTxSpent.Error())
+
+		err = tx.RemoveUser("bob")
+		require.EqualError(t, err, ErrTxSpent.Error())
+	}
 }
 
 func TestUserContext_MalformedRequest(t *testing.T) {

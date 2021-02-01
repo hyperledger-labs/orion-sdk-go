@@ -526,7 +526,7 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 	}, 30*time.Second, 100*time.Millisecond)
 }
 
-func TestConfigTxContext_Abort(t *testing.T) {
+func TestConfigTx_CommitAbortFinality(t *testing.T) {
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
 	testServer, err := setupTestServer(t, clientCryptoDir)
 	defer func() {
@@ -542,107 +542,36 @@ func TestConfigTxContext_Abort(t *testing.T) {
 	require.NoError(t, err)
 
 	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
-	session := openUserSession(t, bcdb, "admin", clientCryptoDir)
-
-	tx, err := session.ConfigTx()
-	require.NoError(t, err)
-
-	_, err = tx.GetClusterConfig()
-	require.NoError(t, err)
-
-	err = tx.Abort()
-	require.NoError(t, err)
-
-	// after Abort() API calls return error
-	_, err = tx.GetClusterConfig()
-	require.EqualError(t, err, ErrTxSpent.Error())
-
-	err = tx.AddClusterNode(&types.NodeConfig{})
-	require.EqualError(t, err, ErrTxSpent.Error())
-	err = tx.DeleteClusterNode("id")
-	require.EqualError(t, err, ErrTxSpent.Error())
-	err = tx.UpdateClusterNode(&types.NodeConfig{})
-	require.EqualError(t, err, ErrTxSpent.Error())
-
-	err = tx.AddAdmin(&types.Admin{})
-	require.EqualError(t, err, ErrTxSpent.Error())
-	err = tx.DeleteAdmin("id")
-	require.EqualError(t, err, ErrTxSpent.Error())
-	err = tx.UpdateAdmin(&types.Admin{})
-	require.EqualError(t, err, ErrTxSpent.Error())
-}
-
-func TestConfigTxContext_Commit(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
-	testServer, err := setupTestServer(t, clientCryptoDir)
-	defer func() {
-		if testServer != nil {
-			_ = testServer.Stop()
-		}
-	}()
-	require.NoError(t, err)
-	err = testServer.Start()
-	require.NoError(t, err)
-
-	serverPort, err := testServer.Port()
-	require.NoError(t, err)
-
-	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
-	session := openUserSession(t, bcdb, "admin", clientCryptoDir)
-
-	tx, err := session.ConfigTx()
-	require.NoError(t, err)
-
-	config, err := tx.GetClusterConfig()
-	require.NoError(t, err)
-	node1 := config.Nodes[0]
-	node1.Port++
-	err = tx.UpdateClusterNode(config.Nodes[0])
-	require.NoError(t, err)
-	_, err = tx.Commit()
-	require.NoError(t, err)
-
-	// after Commit() API calls return error
-	_, err = tx.GetClusterConfig()
-	require.EqualError(t, err, ErrTxSpent.Error())
-
-	err = tx.AddClusterNode(&types.NodeConfig{})
-	require.EqualError(t, err, ErrTxSpent.Error())
-	err = tx.DeleteClusterNode("id")
-	require.EqualError(t, err, ErrTxSpent.Error())
-	err = tx.UpdateClusterNode(&types.NodeConfig{})
-	require.EqualError(t, err, ErrTxSpent.Error())
-
-	err = tx.AddAdmin(&types.Admin{})
-	require.EqualError(t, err, ErrTxSpent.Error())
-	err = tx.DeleteAdmin("id")
-	require.EqualError(t, err, ErrTxSpent.Error())
-	err = tx.UpdateAdmin(&types.Admin{})
-	require.EqualError(t, err, ErrTxSpent.Error())
-
-	// TODO The server crashes if we close it when a tx is in the pipeline. See
-	// https://github.ibm.com/blockchaindb/server/issues/282
-
-	require.Eventually(t, func() bool {
-		// verify tx was successfully committed. "Get" works once per Tx.
+	for i := 0; i < 2; i++ {
+		session := openUserSession(t, bcdb, "admin", clientCryptoDir)
 		tx, err := session.ConfigTx()
 		require.NoError(t, err)
-		clusterConfig, err := tx.GetClusterConfig()
-		if err != nil || clusterConfig == nil {
-			return false
-		}
-		if len(clusterConfig.Nodes) != 1 {
-			return false
-		}
 
-		found, index := NodeExists("testNode1", clusterConfig.Nodes)
-		if !found {
-			return false
-		}
-		if clusterConfig.Nodes[index].Port != node1.Port {
-			return false
-		}
+		config, err := tx.GetClusterConfig()
+		require.NoError(t, err)
+		node1 := config.Nodes[0]
+		node1.Port++
+		err = tx.UpdateClusterNode(config.Nodes[0])
+		require.NoError(t, err)
 
-		return true
-	}, 30*time.Second, 100*time.Millisecond)
+		assertFinalityOnCommitAbort(t, i == 0, tx)
+
+		config, err = tx.GetClusterConfig()
+		require.EqualError(t, err, ErrTxSpent.Error())
+		require.Nil(t, config)
+
+		err = tx.AddClusterNode(&types.NodeConfig{})
+		require.EqualError(t, err, ErrTxSpent.Error())
+		err = tx.DeleteClusterNode("id")
+		require.EqualError(t, err, ErrTxSpent.Error())
+		err = tx.UpdateClusterNode(&types.NodeConfig{})
+		require.EqualError(t, err, ErrTxSpent.Error())
+
+		err = tx.AddAdmin(&types.Admin{})
+		require.EqualError(t, err, ErrTxSpent.Error())
+		err = tx.DeleteAdmin("id")
+		require.EqualError(t, err, ErrTxSpent.Error())
+		err = tx.UpdateAdmin(&types.Admin{})
+		require.EqualError(t, err, ErrTxSpent.Error())
+	}
 }

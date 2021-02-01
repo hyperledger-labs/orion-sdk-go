@@ -134,6 +134,66 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	require.Nil(t, res)
 }
 
+func TestDataContext_CommitAbortFinality(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	testServer.Start()
+
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
+	require.NoError(t, err)
+	addUser(t, "alice", adminSession, pemUserCert)
+	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
+
+	acl := &types.AccessControl{
+		ReadUsers:      map[string]bool{"alice": true},
+		ReadWriteUsers: map[string]bool{"alice": true},
+	}
+
+	for i := 0; i < 2; i++ {
+		tx, err := userSession.DataTx("bdb")
+		err = tx.Put("key1", []byte("value1"), acl)
+		require.NoError(t, err)
+
+		assertFinalityOnCommitAbort(t, i == 0, tx)
+
+		val, meta, err := tx.Get("key")
+		require.EqualError(t, err, ErrTxSpent.Error())
+		require.Nil(t, val)
+		require.Nil(t, meta)
+
+		err = tx.Put("key", []byte("value"), acl)
+		require.EqualError(t, err, ErrTxSpent.Error())
+
+		err = tx.Delete("key")
+		require.EqualError(t, err, ErrTxSpent.Error())
+	}
+}
+
+func assertFinalityOnCommitAbort(t *testing.T, commitOrAbort bool, tx TxContext) {
+	var txID string
+	var err error
+
+	if commitOrAbort {
+		txID, err = tx.Commit()
+		require.NoError(t, err)
+		require.True(t, len(txID) > 0)
+	} else {
+		err = tx.Abort()
+		require.NoError(t, err)
+	}
+
+	// verify finality
+	txID, err = tx.Commit()
+	require.EqualError(t, err, ErrTxSpent.Error())
+	require.True(t, len(txID) == 0)
+
+	err = tx.Abort()
+	require.EqualError(t, err, ErrTxSpent.Error())
+}
+
 func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
 	testServer, err := setupTestServer(t, clientCertTemDir)

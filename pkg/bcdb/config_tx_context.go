@@ -47,23 +47,15 @@ type configTxContext struct {
 }
 
 func (c *configTxContext) Commit() (string, error) {
-	if c.oldConfig == nil {
-		return "", ErrTxSpent
-	}
-
 	return c.commit(c, constants.PostConfigTx)
 }
 
 func (c *configTxContext) Abort() error {
-	if c.oldConfig == nil {
-		return ErrTxSpent
-	}
-
 	return c.abort(c)
 }
 
 func (c *configTxContext) AddAdmin(admin *types.Admin) (err error) {
-	if c.oldConfig == nil {
+	if c.txSpent {
 		return ErrTxSpent
 	}
 
@@ -85,7 +77,7 @@ func (c *configTxContext) AddAdmin(admin *types.Admin) (err error) {
 }
 
 func (c *configTxContext) DeleteAdmin(adminID string) (err error) {
-	if c.oldConfig == nil {
+	if c.txSpent {
 		return ErrTxSpent
 	}
 
@@ -115,7 +107,7 @@ func (c *configTxContext) DeleteAdmin(adminID string) (err error) {
 }
 
 func (c *configTxContext) UpdateAdmin(admin *types.Admin) (err error) {
-	if c.oldConfig == nil {
+	if c.txSpent {
 		return ErrTxSpent
 	}
 
@@ -139,7 +131,7 @@ func (c *configTxContext) UpdateAdmin(admin *types.Admin) (err error) {
 }
 
 func (c *configTxContext) AddClusterNode(node *types.NodeConfig) (err error) {
-	if c.oldConfig == nil {
+	if c.txSpent {
 		return ErrTxSpent
 	}
 
@@ -163,7 +155,7 @@ func (c *configTxContext) AddClusterNode(node *types.NodeConfig) (err error) {
 }
 
 func (c *configTxContext) DeleteClusterNode(nodeID string) (err error) {
-	if c.oldConfig == nil {
+	if c.txSpent {
 		return ErrTxSpent
 	}
 
@@ -193,7 +185,7 @@ func (c *configTxContext) DeleteClusterNode(nodeID string) (err error) {
 }
 
 func (c *configTxContext) UpdateClusterNode(node *types.NodeConfig) (err error) {
-	if c.oldConfig == nil {
+	if c.txSpent {
 		return ErrTxSpent
 	}
 
@@ -217,7 +209,7 @@ func (c *configTxContext) UpdateClusterNode(node *types.NodeConfig) (err error) 
 }
 
 func (c *configTxContext) GetClusterConfig() (*types.ClusterConfig, error) {
-	if c.oldConfig == nil {
+	if c.txSpent {
 		return nil, ErrTxSpent
 	}
 	// deep clone

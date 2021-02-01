@@ -22,15 +22,21 @@ type commonTxContext struct {
 	nodesCerts map[string]*x509.Certificate
 	restClient RestClient
 	txEnvelope proto.Message
+	txSpent    bool
 	logger     *logger.SugarLogger
 }
 
 type txContext interface {
 	composeEnvelope(txID string) (proto.Message, error)
+	// structs which embed the commonTXContext must implement this to clean the parts of the state that are not common.
 	cleanCtx()
 }
 
 func (t *commonTxContext) commit(tx txContext, postEndpoint string) (string, error) {
+	if t.txSpent {
+		return "", ErrTxSpent
+	}
+
 	replica := t.selectReplica()
 	postEndpointResolved := replica.ResolveReference(&url.URL{Path: postEndpoint})
 
@@ -67,11 +73,17 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string) (string, err
 		return txID, errors.New(fmt.Sprintf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg))
 	}
 
+	t.txSpent = true
 	tx.cleanCtx()
 	return txID, nil
 }
 
 func (t *commonTxContext) abort(tx txContext) error {
+	if t.txSpent {
+		return ErrTxSpent
+	}
+
+	t.txSpent = true
 	tx.cleanCtx()
 	return nil
 }

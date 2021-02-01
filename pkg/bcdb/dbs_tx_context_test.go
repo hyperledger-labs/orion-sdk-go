@@ -49,8 +49,9 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 	err = tx.CreateDB("testDB")
 	require.NoError(t, err)
 
-	_, err = tx.Commit()
+	txId, err := tx.Commit()
 	require.NoError(t, err)
+	require.True(t, len(txId) > 0)
 
 	// Check database status, whenever created or not
 	tx, err = session.DBsTx()
@@ -61,6 +62,37 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 
 		return err == nil && exist
 	}, time.Minute, 200*time.Millisecond)
+}
+
+func TestDBsContext_CommitAbortFinality(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	testServer.Start()
+
+	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+
+	for i := 0; i < 2; i++ {
+		// Start submission session to create a new database
+		tx, err := session.DBsTx()
+		require.NoError(t, err)
+
+		err = tx.CreateDB(fmt.Sprintf("testDB-%d", i))
+		require.NoError(t, err)
+
+		assertFinalityOnCommitAbort(t, i == 0, tx)
+
+		err = tx.CreateDB("some-db")
+		require.EqualError(t, err, ErrTxSpent.Error())
+
+		err = tx.DeleteDB("some-db")
+		require.EqualError(t, err, ErrTxSpent.Error())
+
+		exists, err := tx.Exists("some-db")
+		require.EqualError(t, err, ErrTxSpent.Error())
+		require.False(t, exists)
+	}
 }
 
 func TestDBsContext_MalformedRequest(t *testing.T) {
@@ -189,6 +221,7 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 		return err == nil && exist
 	}, time.Minute, 200*time.Millisecond)
 
+	// create & delete
 	tx, err = session.DBsTx()
 	require.NoError(t, err)
 
@@ -199,17 +232,27 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 	_, err = tx.Commit()
 	require.NoError(t, err)
 
-	require.Eventually(t, func() bool {
-		exist, err := tx.Exists("testDB")
+	// start a new query
+	tx, err = session.DBsTx()
+	require.NoError(t, err)
+	require.Eventually(t,
+		func() bool {
+			exist, err := tx.Exists("testDB")
+			return err == nil && !exist
+		},
+		time.Minute, 200*time.Millisecond,
+	)
 
-		return err == nil && !exist
-	}, time.Minute, 200*time.Millisecond)
+	require.Eventually(t,
+		func() bool {
+			exist, err := tx.Exists("db1")
+			return err == nil && exist
+		},
+		time.Minute, 200*time.Millisecond,
+	)
 
-	require.Eventually(t, func() bool {
-		exist, err := tx.Exists("db1")
-
-		return err == nil && exist
-	}, time.Minute, 200*time.Millisecond)
+	err = tx.Abort()
+	require.NoError(t, err)
 }
 
 func TestDBsContext_AttemptDeleteSystemDatabase(t *testing.T) {

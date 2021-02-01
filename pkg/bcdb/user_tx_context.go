@@ -40,6 +40,10 @@ func (u *userTxContext) Abort() error {
 }
 
 func (u *userTxContext) PutUser(user *types.User, acl *types.AccessControl) error {
+	if u.txSpent {
+		return ErrTxSpent
+	}
+
 	// TODO: decide whenever we going to support read your own writes
 	u.userWrites = append(u.userWrites, &types.UserWrite{
 		User: user,
@@ -49,6 +53,10 @@ func (u *userTxContext) PutUser(user *types.User, acl *types.AccessControl) erro
 }
 
 func (u *userTxContext) GetUser(userID string) (*types.User, error) {
+	if u.txSpent {
+		return nil, ErrTxSpent
+	}
+
 	path := constants.URLForGetUser(userID)
 	res := &types.GetUserResponseEnvelope{}
 	err := u.handleRequest(path, &types.GetUserQuery{
@@ -68,6 +76,10 @@ func (u *userTxContext) GetUser(userID string) (*types.User, error) {
 }
 
 func (u *userTxContext) RemoveUser(userID string) error {
+	if u.txSpent {
+		return ErrTxSpent
+	}
+
 	u.userDeletes = append(u.userDeletes, &types.UserDelete{
 		UserID: userID,
 	})

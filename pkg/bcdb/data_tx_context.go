@@ -36,6 +36,10 @@ func (d *dataTxContext) Abort() error {
 
 // Put new value to key
 func (d *dataTxContext) Put(key string, value []byte, acl *types.AccessControl) error {
+	if d.txSpent {
+		return ErrTxSpent
+	}
+
 	_, deleteExist := d.dataDeletes[key]
 	if deleteExist {
 		delete(d.dataDeletes, key)
@@ -50,6 +54,10 @@ func (d *dataTxContext) Put(key string, value []byte, acl *types.AccessControl) 
 
 // Get existing key value
 func (d *dataTxContext) Get(key string) ([]byte, *types.Metadata, error) {
+	if d.txSpent {
+		return nil, nil, ErrTxSpent
+	}
+
 	// TODO For this version, we support only single version read, each sequential read to same key will return same value
 	// TODO We ignore dirty reads for now - no check if key is already part of  d.dataWrites and/or d.dataDeletes, should be handled later
 	// Is key already read?
@@ -74,6 +82,10 @@ func (d *dataTxContext) Get(key string) ([]byte, *types.Metadata, error) {
 
 // Delete value for key
 func (d *dataTxContext) Delete(key string) error {
+	if d.txSpent {
+		return ErrTxSpent
+	}
+
 	_, writeExist := d.dataWrites[key]
 	if writeExist {
 		delete(d.dataWrites, key)
