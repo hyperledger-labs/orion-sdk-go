@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"net"
 	"net/http"
+	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/server/pkg/constants"
 	"github.ibm.com/blockchaindb/server/pkg/cryptoservice"
 )
@@ -21,17 +24,25 @@ type RestClient interface {
 	// Query sends REST request with query semantics
 	Query(ctx context.Context, endpoint string, msg proto.Message) (*http.Response, error)
 
-	// Submit send REST request with transaction submission semantics
-	Submit(ctx context.Context, endpoint string, msg proto.Message) (*http.Response, error)
+	// Submit send REST request with transaction submission semantics and optional timeout.
+	// If timeout set to 0, server will return immediately, without waiting for transaction processing
+	// pipeline to complete and response will not contain transaction receipt, otherwise, server will wait
+	// up to timeout for transaction processing to complete and will return tx receipt as result.
+	// In case of timeout, http.StatusAccepted returned.
+	Submit(ctx context.Context, endpoint string, msg proto.Message, serverTimeout time.Duration) (*http.Response, error)
+}
+
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
 type restClient struct {
 	userID     string
-	httpClient *http.Client
+	httpClient HttpClient
 	signer     Signer
 }
 
-func NewRestClient(userID string, httpClient *http.Client, signer Signer) RestClient {
+func NewRestClient(userID string, httpClient HttpClient, signer Signer) RestClient {
 	return &restClient{
 		userID:     userID,
 		httpClient: httpClient,
@@ -58,7 +69,7 @@ func (r *restClient) Query(ctx context.Context, endpoint string, msg proto.Messa
 }
 
 // Submit send REST request with transaction submission semantics
-func (r *restClient) Submit(ctx context.Context, endpoint string, msg proto.Message) (*http.Response, error) {
+func (r *restClient) Submit(ctx context.Context, endpoint string, msg proto.Message, serverTimeout time.Duration) (*http.Response, error) {
 	userTxEnvelope, err := json.Marshal(msg)
 	if err != nil {
 		return nil, err
@@ -74,5 +85,18 @@ func (r *restClient) Submit(ctx context.Context, endpoint string, msg proto.Mess
 	}
 
 	req.Header.Set("Accept", "application/json")
-	return r.httpClient.Do(req)
+	if serverTimeout > 0 {
+		req.Header.Set(constants.TimeoutHeader, serverTimeout.String())
+	}
+
+	resp, err := r.httpClient.Do(req)
+
+	if err != nil {
+		if _, ok := err.(net.Error); ok {
+			if err.(net.Error).Timeout() {
+				err = errors.WithMessage(err, "timeout error")
+			}
+		}
+	}
+	return resp, err
 }

@@ -68,7 +68,7 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	txID, err := dataTx.Commit()
+	txID, txReceipt, err := dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
@@ -78,10 +78,6 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 		return "", errors.New("error getting transaction envelope")
 	}
 
-	txReceipt, err := waitForTxCommit(session, txID)
-	if err != nil {
-		return "", err
-	}
 	lg.Infof("TransferTo committed successfully: %s", txID)
 
 	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
@@ -161,7 +157,7 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	txID, err := dataTx.Commit()
+	txID, txReceipt, err := dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
@@ -171,10 +167,6 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 		return "", errors.New("error getting transaction envelope")
 	}
 
-	txReceipt, err := waitForTxCommit(session, txID)
-	if err != nil {
-		return "", err
-	}
 	lg.Infof("TransferReceive committed successfully: %s", txID)
 
 	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
@@ -261,7 +253,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	txID, err := dataTx.Commit()
+	txID, txReceipt, err := dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
@@ -271,10 +263,6 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 		return "", errors.New("error getting transaction envelope")
 	}
 
-	txReceipt, err := waitForTxCommit(session, txID)
-	if err != nil {
-		return "", err
-	}
 	lg.Infof("Transfer committed successfully: %s", txID)
 
 	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)

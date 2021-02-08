@@ -24,8 +24,8 @@ type dbsTxContext struct {
 	deletedDBs map[string]bool
 }
 
-func (d *dbsTxContext) Commit() (string, error) {
-	return d.commit(d, constants.PostDBTx)
+func (d *dbsTxContext) Commit(sync bool) (string, *types.TxReceipt, error) {
+	return d.commit(d, constants.PostDBTx, sync)
 }
 
 func (d *dbsTxContext) Abort() error {

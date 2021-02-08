@@ -1,7 +1,6 @@
 package bcdb
 
 import (
-	"bytes"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -29,7 +28,16 @@ func TestDataContext_PutAndGetKey(t *testing.T) {
 	addUser(t, "alice", adminSession, pemUserCert)
 	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
-	putKeyAndValidate(t, "key1", "value1", "alice", userSession)
+	putKeySync(t, "key1", "value1", "alice", userSession)
+
+	// Validate
+	tx, err := userSession.DataTx("bdb")
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+	val, meta, err := tx.Get("key1")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("value1"), val)
+	require.NotNil(t, meta)
 }
 
 func TestDataContext_GetNonExistKey(t *testing.T) {
@@ -45,7 +53,7 @@ func TestDataContext_GetNonExistKey(t *testing.T) {
 	addUser(t, "alice", adminSession, pemUserCert)
 	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
-	putKeyAndValidate(t, "key1", "value1", "alice", userSession)
+	putKeySync(t, "key1", "value1", "alice", userSession)
 
 	tx, err := userSession.DataTx("bdb")
 	require.NoError(t, err)
@@ -68,8 +76,8 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	addUser(t, "alice", adminSession, pemUserCert)
 	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
-	putKeyAndValidate(t, "key1", "value1", "alice", userSession)
-	putKeyAndValidate(t, "key2", "value2", "alice", userSession)
+	putKeySync(t, "key1", "value1", "alice", userSession)
+	putKeySync(t, "key2", "value2", "alice", userSession)
 
 	acl := &types.AccessControl{
 		ReadUsers:      map[string]bool{"alice": true},
@@ -119,7 +127,7 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	require.True(t, key1DeleteExist)
 	require.False(t, key2DeleteExist)
 
-	txID, err := tx.Commit()
+	txID, _, err := tx.Commit(false)
 	require.NoError(t, err)
 
 	// Start another tx to query and make sure
@@ -152,12 +160,12 @@ func TestDataContext_CommitAbortFinality(t *testing.T) {
 		ReadWriteUsers: map[string]bool{"alice": true},
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		tx, err := userSession.DataTx("bdb")
 		err = tx.Put("key1", []byte("value1"), acl)
 		require.NoError(t, err)
 
-		assertFinalityOnCommitAbort(t, i == 0, tx)
+		assertTxFinality(t, TxFinality(i), tx, userSession)
 
 		val, meta, err := tx.Get("key")
 		require.EqualError(t, err, ErrTxSpent.Error())
@@ -169,29 +177,15 @@ func TestDataContext_CommitAbortFinality(t *testing.T) {
 
 		err = tx.Delete("key")
 		require.EqualError(t, err, ErrTxSpent.Error())
+
+		if TxFinality(i) != TxFinalityAbort {
+			tx, err := userSession.DataTx("bdb")
+			val, meta, err := tx.Get("key1")
+			require.NoError(t, err)
+			require.Equal(t, []byte("value1"), val)
+			require.NotNil(t, meta)
+		}
 	}
-}
-
-func assertFinalityOnCommitAbort(t *testing.T, commitOrAbort bool, tx TxContext) {
-	var txID string
-	var err error
-
-	if commitOrAbort {
-		txID, err = tx.Commit()
-		require.NoError(t, err)
-		require.True(t, len(txID) > 0)
-	} else {
-		err = tx.Abort()
-		require.NoError(t, err)
-	}
-
-	// verify finality
-	txID, err = tx.Commit()
-	require.EqualError(t, err, ErrTxSpent.Error())
-	require.True(t, len(txID) == 0)
-
-	err = tx.Abort()
-	require.EqualError(t, err, ErrTxSpent.Error())
 }
 
 func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
@@ -207,7 +201,7 @@ func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 	addUser(t, "alice", adminSession, pemUserCert)
 	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
-	putKeyAndValidate(t, "key1", "value1", "alice", userSession)
+	putKeySync(t, "key1", "value1", "alice", userSession)
 
 	tx, err := userSession.DataTx("bdb")
 	require.NoError(t, err)
@@ -219,7 +213,7 @@ func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 	require.Equal(t, res, storedRead.GetValue())
 	require.Equal(t, meta, storedRead.GetMetadata())
 
-	putKeyAndValidate(t, "key1", "value2", "alice", userSession)
+	putKeySync(t, "key1", "value2", "alice", userSession)
 	res, meta, err = tx.Get("key1")
 	require.NoError(t, err)
 	storedReadUpdated, ok := tx.(*dataTxContext).dataReads["key1"]
@@ -228,13 +222,10 @@ func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 	require.Equal(t, meta, storedRead.GetMetadata())
 	require.Equal(t, storedReadUpdated, storedRead)
 	require.NoError(t, err)
-	txID, err := tx.Commit()
-	waitForTx(t, txID, userSession)
-	l, err := userSession.Ledger()
+	_, receipt, err := tx.Commit(true)
 	require.NoError(t, err)
-	r, err := l.GetTransactionReceipt(txID)
-	require.NoError(t, err)
-	require.Equal(t, r.GetHeader().GetValidationInfo()[int(r.GetTxIndex())].GetFlag(), types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE)
+	require.NotNil(t, receipt)
+	require.Equal(t, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag(), types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE)
 }
 
 func TestDataContext_GetUserPermissions(t *testing.T) {
@@ -250,7 +241,7 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	addUser(t, "alice", adminSession, pemUserCert)
 	aliceSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
-	putKeyAndValidate(t, "key1", "value1", "alice", aliceSession)
+	putKeySync(t, "key1", "value1", "alice", aliceSession)
 
 	pemUserCert, err = ioutil.ReadFile(path.Join(clientCertTemDir, "bob.pem"))
 	require.NoError(t, err)
@@ -273,7 +264,7 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	err = txUpdateUser.Put("key1", []byte("value2"), acl)
 	require.NoError(t, err)
 
-	txID, err := txUpdateUser.Commit()
+	txID, _, err := txUpdateUser.Commit(false)
 	require.NoError(t, err)
 	waitForTx(t, txID, aliceSession)
 	validateValue(t, "key1", "value2", aliceSession)
@@ -310,31 +301,40 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 		},
 	}, nil)
 	require.NoError(t, err)
-	_, err = tx.Commit()
+	_, receipt, err := tx.Commit(true)
 	require.NoError(t, err)
+	require.NotNil(t, receipt)
 
-	// Start another session to query and make sure
-	// results was successfully committed
 	tx, err = session.UsersTx()
 	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		alice, err := tx.GetUser(userName)
-
-		return err == nil && alice != nil &&
-			alice.ID == userName &&
-			bytes.Equal(certBlock.Bytes, alice.Certificate)
-	}, time.Minute, 200*time.Millisecond)
-	err = tx.Abort()
+	user, err := tx.GetUser(userName)
 	require.NoError(t, err)
+	require.Equal(t, userName, user.GetID())
 }
 
-func putKeyAndValidate(t *testing.T, key string, value string, user string, session DBSession) {
-	putMultipleKeysAndValidate(t, []string{key}, []string{value}, user, session)
-	return
+func putKeySync(t *testing.T, key string, value string, user string, session DBSession) {
+	tx, err := session.DataTx("bdb")
+	require.NoError(t, err)
+
+	readUsers := make(map[string]bool)
+	readWriteUsers := make(map[string]bool)
+
+	readUsers[user] = true
+	readWriteUsers[user] = true
+
+	err = tx.Put(key, []byte(value), &types.AccessControl{
+		ReadUsers:      readUsers,
+		ReadWriteUsers: readWriteUsers,
+	})
+	require.NoError(t, err)
+
+	txID, receipt, err := tx.Commit(true)
+	require.NoError(t, err, fmt.Sprintf("Key = %s, value = %s", key, value))
+	require.NotNil(t, txID)
+	require.NotNil(t, receipt)
 }
 
-func putMultipleKeysAndValidate(t *testing.T, key []string, value []string, user string, session DBSession) (txEnvelopes []proto.Message) {
+func putMultipleKeysAndValues(t *testing.T, key []string, value []string, user string, session DBSession) (txEnvelopes []proto.Message) {
 	return putMultipleKeysAndValidateMultipleUsers(t, key, value, []string{user}, session)
 }
 
@@ -357,7 +357,7 @@ func putMultipleKeysAndValidateMultipleUsers(t *testing.T, key []string, value [
 		})
 		require.NoError(t, err)
 
-		txId, err = tx.Commit()
+		txId, _, err = tx.Commit(false)
 		require.NoError(t, err, fmt.Sprintf("Key = %s, value = %s", key[i], value[i]))
 		txEnv, err := tx.TxEnvelope()
 		require.NoError(t, err)

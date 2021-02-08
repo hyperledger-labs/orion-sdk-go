@@ -46,8 +46,8 @@ type configTxContext struct {
 	newConfig            *types.ClusterConfig
 }
 
-func (c *configTxContext) Commit() (string, error) {
-	return c.commit(c, constants.PostConfigTx)
+func (c *configTxContext) Commit(sync bool) (string, *types.TxReceipt, error) {
+	return c.commit(c, constants.PostConfigTx, sync)
 }
 
 func (c *configTxContext) Abort() error {

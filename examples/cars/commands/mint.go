@@ -60,7 +60,7 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	txID, err := dataTx.Commit()
+	txID, txReceipt, err := dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
@@ -70,10 +70,6 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 		return "", errors.New("error getting transaction envelope")
 	}
 
-	txReceipt, err := waitForTxCommit(session, txID)
-	if err != nil {
-		return "", err
-	}
 	lg.Infof("MintRequest committed successfully: %s", txID)
 
 	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
@@ -156,7 +152,7 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	txID, err := dataTx.Commit()
+	txID, txReceipt, err := dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
@@ -166,10 +162,6 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.New("error getting transaction envelope")
 	}
 
-	txReceipt, err := waitForTxCommit(session, txID)
-	if err != nil {
-		return "", err
-	}
 	lg.Infof("MintApprove committed successfully: %s", txID)
 
 	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)

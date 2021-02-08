@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
 	"testing"
-	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb/mocks"
@@ -29,60 +28,11 @@ func TestUserContext_AddAndRetrieveUser(t *testing.T) {
 	require.NoError(t, err)
 	testServer.Start()
 
-	serverPort, err := testServer.Port()
-	require.NoError(t, err)
-
-	// Create new connection
-	bcdb, err := Create(&sdkConfig.ConnectionConfig{
-		RootCAs: []string{path.Join(clientCertTemDir, testutils.RootCAFileName+".pem")},
-		ReplicaSet: []*sdkConfig.Replica{
-			{
-				ID:       "testNode1",
-				Endpoint: fmt.Sprintf("http://localhost:%s", serverPort),
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	// New session with admin user context
-	session, err := bcdb.Session(&sdkConfig.SessionConfig{
-		UserConfig: &sdkConfig.UserConfig{
-			UserID:         "admin",
-			CertPath:       path.Join(clientCertTemDir, "admin.pem"),
-			PrivateKeyPath: path.Join(clientCertTemDir, "admin.key"),
-		},
-	})
-	require.NoError(t, err)
-
-	// Start submission session to introduce new user
-	tx, err := session.UsersTx()
-	require.NoError(t, err)
-
+	_, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
-	certBlock, _ := pem.Decode(pemUserCert)
-	err = tx.PutUser(&types.User{
-		ID:          "alice",
-		Certificate: certBlock.Bytes,
-	}, nil)
-	require.NoError(t, err)
 
-	txId, err := tx.Commit()
-	require.NoError(t, err)
-	require.True(t, len(txId) > 0)
-
-	// Start another session to query and make sure
-	// results was successfully committed
-	tx, err = session.UsersTx()
-	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		alice, err := tx.GetUser("alice")
-
-		return err == nil && alice != nil &&
-			alice.ID == "alice" &&
-			bytes.Equal(certBlock.Bytes, alice.Certificate)
-	}, time.Minute, 200*time.Millisecond)
+	addUser(t, "alice", adminSession, pemUserCert)
 }
 
 func TestUserContext_CommitAbortFinality(t *testing.T) {
@@ -92,32 +42,10 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 	require.NoError(t, err)
 	testServer.Start()
 
-	serverPort, err := testServer.Port()
+	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	require.NoError(t, err)
 
-	// Create new connection
-	bcdb, err := Create(&sdkConfig.ConnectionConfig{
-		RootCAs: []string{path.Join(clientCertTemDir, testutils.RootCAFileName+".pem")},
-		ReplicaSet: []*sdkConfig.Replica{
-			{
-				ID:       "testNode1",
-				Endpoint: fmt.Sprintf("http://localhost:%s", serverPort),
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	// New session with admin user context
-	session, err := bcdb.Session(&sdkConfig.SessionConfig{
-		UserConfig: &sdkConfig.UserConfig{
-			UserID:         "admin",
-			CertPath:       path.Join(clientCertTemDir, "admin.pem"),
-			PrivateKeyPath: path.Join(clientCertTemDir, "admin.key"),
-		},
-	})
-	require.NoError(t, err)
-
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		// Start submission session to introduce new user
 		tx, err := session.UsersTx()
 		require.NoError(t, err)
@@ -128,7 +56,7 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 		err = tx.PutUser(&types.User{ID: "alice", Certificate: certBlock.Bytes}, nil)
 		require.NoError(t, err)
 
-		assertFinalityOnCommitAbort(t, i == 0, tx)
+		assertTxFinality(t, TxFinality(i), tx, session)
 
 		val, err := tx.GetUser("bob")
 		require.EqualError(t, err, ErrTxSpent.Error())
@@ -139,6 +67,14 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 
 		err = tx.RemoveUser("bob")
 		require.EqualError(t, err, ErrTxSpent.Error())
+
+		if TxFinality(i) != TxFinalityAbort {
+			tx, err = session.UsersTx()
+			val, err = tx.GetUser("alice")
+			require.NoError(t, err)
+			require.NotNil(t, val)
+			require.True(t, proto.Equal(&types.User{ID: "alice", Certificate: certBlock.Bytes}, val))
+		}
 	}
 }
 
@@ -149,19 +85,7 @@ func TestUserContext_MalformedRequest(t *testing.T) {
 	require.NoError(t, err)
 	testServer.Start()
 
-	serverPort, err := testServer.Port()
-	require.NoError(t, err)
-
-	bcdb, err := Create(&sdkConfig.ConnectionConfig{
-		RootCAs: []string{path.Join(clientCertTemDir, testutils.RootCAFileName+".pem")},
-		ReplicaSet: []*sdkConfig.Replica{
-			{
-				ID:       "testNode1",
-				Endpoint: fmt.Sprintf("http://localhost:%s", serverPort),
-			},
-		},
-	})
-	require.NoError(t, err)
+	bcdb, _ := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 
 	// New session with admin user context
 	session, err := bcdb.Session(&sdkConfig.SessionConfig{
@@ -299,7 +223,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 		},
 	}
 
-	restClient.On("Submit", mock.Anything, mock.Anything, mock.Anything).
+	restClient.On("Submit", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			uri := args.Get(1).(string)
 			require.Equal(t, constants.PostUserTx, uri)
@@ -330,10 +254,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 				UserID: "bob",
 			}, tx.Payload.UserDeletes[0])
 		}).
-		Return(&http.Response{
-			StatusCode: http.StatusOK,
-			Status:     http.StatusText(http.StatusOK),
-		}, nil)
+		Return(okResponse(), nil)
 
 	user, err := usrCtx.GetUser("alice")
 	require.NoError(t, err)
@@ -348,6 +269,6 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 
-	_, err = usrCtx.Commit()
+	_, _, err = usrCtx.Commit(true)
 	require.NoError(t, err)
 }

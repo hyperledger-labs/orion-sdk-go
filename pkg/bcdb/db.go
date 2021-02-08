@@ -46,9 +46,11 @@ var ErrTxSpent = errors.New("transaction committed or aborted")
 // TxContet an abstract API to capture general purpose
 // functionality for all types of transactions context
 type TxContext interface {
-	// Commit submits transaction to the server, returns
-	// txID of submitted transaction
-	Commit() (string, error)
+	// Commit submits transaction to the server, can be sync or async.
+	// Sync option returns tx id and tx receipt and
+	// in case of error, timeout error is one of possible errors to return.
+	// Async returns tx id, always nil as tx receipt or error
+	Commit(sync bool) (string, *types.TxReceipt, error)
 	// Abort cancel submission and abandon all changes
 	// within given transaction context
 	Abort() error
@@ -186,6 +188,7 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 		userCert:   certBytes,
 		replicaSet: b.replicaSet,
 		rootCAs:    b.rootCAs,
+		txTimeout:  cfg.TxTimeout,
 		logger:     b.logger,
 	}, nil
 }
@@ -196,6 +199,7 @@ type dbSession struct {
 	userCert   []byte
 	replicaSet map[string]*url.URL
 	rootCAs    *x509.CertPool
+	txTimeout  time.Duration
 	logger     *logger.SugarLogger
 }
 
@@ -357,6 +361,7 @@ func (d *dbSession) newCommonTxContext() (*commonTxContext, error) {
 		replicaSet: d.replicaSet,
 		nodesCerts: nodesCerts,
 		restClient: NewRestClient(d.userID, httpClient, d.signer),
+		timeout:    d.txTimeout,
 		logger:     d.logger,
 	}
 	return commonTxContext, nil
@@ -421,4 +426,12 @@ func UsersMap(users ...string) map[string]bool {
 		m[u] = true
 	}
 	return m
+}
+
+type ServerTimeout struct {
+	TxID string
+}
+
+func (e *ServerTimeout) Error() string {
+	return fmt.Sprintf("timeout occurred on server side while submitting transaction, converted to asynchronous completion")
 }

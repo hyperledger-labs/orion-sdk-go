@@ -29,7 +29,7 @@ func TestGetHistoricalData(t *testing.T) {
 			keys = append(keys, fmt.Sprintf("key%d", j))
 			values = append(values, fmt.Sprintf("value%d_%d", i, j))
 		}
-		putMultipleKeysAndValidate(t, keys, values, "alice", aliceSession)
+		putMultipleKeysAndValues(t, keys, values, "alice", aliceSession)
 	}
 
 	tests := []struct {
@@ -103,7 +103,7 @@ func TestGetHistoricalDataAt(t *testing.T) {
 			keys = append(keys, fmt.Sprintf("key%d", j))
 			values = append(values, fmt.Sprintf("value%d_%d", i, j))
 		}
-		putMultipleKeysAndValidate(t, keys, values, "alice", aliceSession)
+		putMultipleKeysAndValues(t, keys, values, "alice", aliceSession)
 	}
 
 	tests := []struct {
@@ -213,7 +213,7 @@ func TestGetPreviousOrNextHistoricalData(t *testing.T) {
 			keys = append(keys, fmt.Sprintf("key%d", j))
 			values = append(values, fmt.Sprintf("value%d_%d", i, j))
 		}
-		putMultipleKeysAndValidate(t, keys, values, "alice", aliceSession)
+		putMultipleKeysAndValues(t, keys, values, "alice", aliceSession)
 	}
 
 	tests := []struct {
@@ -556,13 +556,8 @@ func runUpdateTx(t *testing.T, user string, userSession DBSession, readKey strin
 		ReadWriteUsers: map[string]bool{user: true},
 	})
 
-	txID, err := userTx.Commit()
+	_, receipt, err := userTx.Commit(true)
 	require.NoError(t, err)
-	waitForTx(t, txID, userSession)
-
-	l, err := userSession.Ledger()
-	require.NoError(t, err)
-	r, err := l.GetTransactionReceipt(txID)
-	require.NoError(t, err)
-	return r
+	require.NotNil(t, receipt)
+	return receipt
 }

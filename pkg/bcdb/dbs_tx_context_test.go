@@ -49,19 +49,17 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 	err = tx.CreateDB("testDB")
 	require.NoError(t, err)
 
-	txId, err := tx.Commit()
+	txId, receipt, err := tx.Commit(true)
 	require.NoError(t, err)
 	require.True(t, len(txId) > 0)
+	require.NotNil(t, receipt)
 
 	// Check database status, whenever created or not
 	tx, err = session.DBsTx()
 	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		exist, err := tx.Exists("testDB")
-
-		return err == nil && exist
-	}, time.Minute, 200*time.Millisecond)
+	exist, err := tx.Exists("testDB")
+	require.NoError(t, err)
+	require.True(t, exist)
 }
 
 func TestDBsContext_CommitAbortFinality(t *testing.T) {
@@ -73,7 +71,7 @@ func TestDBsContext_CommitAbortFinality(t *testing.T) {
 
 	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		// Start submission session to create a new database
 		tx, err := session.DBsTx()
 		require.NoError(t, err)
@@ -81,7 +79,7 @@ func TestDBsContext_CommitAbortFinality(t *testing.T) {
 		err = tx.CreateDB(fmt.Sprintf("testDB-%d", i))
 		require.NoError(t, err)
 
-		assertFinalityOnCommitAbort(t, i == 0, tx)
+		assertTxFinality(t, TxFinality(i), tx, session)
 
 		err = tx.CreateDB("some-db")
 		require.EqualError(t, err, ErrTxSpent.Error())
@@ -92,6 +90,14 @@ func TestDBsContext_CommitAbortFinality(t *testing.T) {
 		exists, err := tx.Exists("some-db")
 		require.EqualError(t, err, ErrTxSpent.Error())
 		require.False(t, exists)
+
+		if TxFinality(i) != TxFinalityAbort {
+			tx, err = session.DBsTx()
+			require.NoError(t, err)
+			exists, err := tx.Exists(fmt.Sprintf("testDB-%d", i))
+			require.NoError(t, err)
+			require.True(t, exists)
+		}
 	}
 }
 
@@ -208,18 +214,16 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 	err = tx.CreateDB("testDB")
 	require.NoError(t, err)
 
-	_, err = tx.Commit()
+	_, receipt, err := tx.Commit(true)
 	require.NoError(t, err)
+	require.NotNil(t, receipt)
 
 	// Check database status, whenever created or not
 	tx, err = session.DBsTx()
 	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		exist, err := tx.Exists("testDB")
-
-		return err == nil && exist
-	}, time.Minute, 200*time.Millisecond)
+	exist, err := tx.Exists("testDB")
+	require.NoError(t, err)
+	require.True(t, exist)
 
 	// create & delete
 	tx, err = session.DBsTx()
@@ -229,27 +233,19 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 	require.NoError(t, err)
 	err = tx.DeleteDB("testDB")
 	require.NoError(t, err)
-	_, err = tx.Commit()
+	_, receipt, err = tx.Commit(true)
 	require.NoError(t, err)
+	require.NotNil(t, receipt)
 
-	// start a new query
 	tx, err = session.DBsTx()
 	require.NoError(t, err)
-	require.Eventually(t,
-		func() bool {
-			exist, err := tx.Exists("testDB")
-			return err == nil && !exist
-		},
-		time.Minute, 200*time.Millisecond,
-	)
+	exist, err = tx.Exists("testDB")
+	require.NoError(t, err)
+	require.False(t, exist)
 
-	require.Eventually(t,
-		func() bool {
-			exist, err := tx.Exists("db1")
-			return err == nil && exist
-		},
-		time.Minute, 200*time.Millisecond,
-	)
+	exist, err = tx.Exists("db1")
+	require.NoError(t, err)
+	require.True(t, exist)
 
 	err = tx.Abort()
 	require.NoError(t, err)
@@ -270,16 +266,14 @@ func TestDBsContext_AttemptDeleteSystemDatabase(t *testing.T) {
 	err = tx.DeleteDB("bdb")
 	require.NoError(t, err)
 
-	_, err = tx.Commit()
+	_, _, err = tx.Commit(true)
 	require.NoError(t, err)
 
 	// Check database status, whenever created or not
 	tx, err = session.DBsTx()
 	require.NoError(t, err)
 
-	require.Eventually(t, func() bool {
-		exist, err := tx.Exists("bdb")
-
-		return err == nil && exist
-	}, time.Minute, 200*time.Millisecond)
+	exist, err := tx.Exists("bdb")
+	require.NoError(t, err)
+	require.True(t, exist)
 }

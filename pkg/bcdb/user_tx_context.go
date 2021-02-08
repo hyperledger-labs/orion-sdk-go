@@ -31,8 +31,8 @@ type userTxContext struct {
 	userDeletes []*types.UserDelete
 }
 
-func (u *userTxContext) Commit() (string, error) {
-	return u.commit(u, constants.PostUserTx)
+func (u *userTxContext) Commit(sync bool) (string, *types.TxReceipt, error) {
+	return u.commit(u, constants.PostUserTx, sync)
 }
 
 func (u *userTxContext) Abort() error {

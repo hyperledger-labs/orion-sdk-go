@@ -2,19 +2,21 @@ package bcdb
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	config2 "github.ibm.com/blockchaindb/sdk/pkg/config"
 	"io/ioutil"
 	"os"
 	"path"
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdkconfig "github.ibm.com/blockchaindb/sdk/pkg/config"
 	"github.ibm.com/blockchaindb/server/config"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
 	"github.ibm.com/blockchaindb/server/pkg/server"
 	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
+	"github.ibm.com/blockchaindb/server/pkg/types"
 )
 
 func setupTestServer(t *testing.T, cryptoTempDir string) (*server.BCDBHTTPServer, error) {
@@ -87,12 +89,13 @@ func createTestLogger(t *testing.T) *logger.SugarLogger {
 
 func openUserSession(t *testing.T, bcdb BCDB, user string, tempDir string) DBSession {
 	// New session with alice user context
-	session, err := bcdb.Session(&config2.SessionConfig{
-		UserConfig: &config2.UserConfig{
+	session, err := bcdb.Session(&sdkconfig.SessionConfig{
+		UserConfig: &sdkconfig.UserConfig{
 			UserID:         user,
 			CertPath:       path.Join(tempDir, user+".pem"),
 			PrivateKeyPath: path.Join(tempDir, user+".key"),
 		},
+		TxTimeout: time.Second * 2,
 	})
 	require.NoError(t, err)
 
@@ -101,9 +104,9 @@ func openUserSession(t *testing.T, bcdb BCDB, user string, tempDir string) DBSes
 
 func createDBInstance(t *testing.T, cryptoDir string, serverPort string) BCDB {
 	// Create new connection
-	bcdb, err := Create(&config2.ConnectionConfig{
+	bcdb, err := Create(&sdkconfig.ConnectionConfig{
 		RootCAs: []string{path.Join(cryptoDir, testutils.RootCAFileName+".pem")},
-		ReplicaSet: []*config2.Replica{
+		ReplicaSet: []*sdkconfig.Replica{
 			{
 				ID:       "testNode1",
 				Endpoint: fmt.Sprintf("http://localhost:%s", serverPort),
@@ -125,4 +128,134 @@ func startServerConnectOpenAdminCreateUserAndUserSession(t *testing.T, testServe
 	userSession := openUserSession(t, bcdb, user, certTempDir)
 
 	return bcdb, adminSession, userSession
+}
+
+type TxFinality int
+
+const (
+	TxFinalityCommitSync TxFinality = iota
+	TxFinalityCommitAsync
+	TxFinalityAbort
+)
+
+func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSession DBSession) {
+	var txID string
+	var err error
+
+	switch txFinality {
+	case TxFinalityCommitSync:
+		txID, receipt, err := tx.Commit(true)
+		require.NoError(t, err)
+		require.True(t, len(txID) > 0)
+		require.NotNil(t, receipt)
+	case TxFinalityCommitAsync:
+		txID, receipt, err := tx.Commit(false)
+		require.NoError(t, err)
+		require.True(t, len(txID) > 0)
+		require.Nil(t, receipt)
+		switch tx.(type) {
+		case ConfigTxContext:
+			// TODO remove once support for non data tx provenance added
+			e, _ := tx.TxEnvelope()
+			env := e.(*types.ConfigTxEnvelope)
+			newConfig := env.GetPayload().GetNewConfig()
+			require.Eventually(t, func() bool {
+				// verify tx was successfully committed. "Get" works once per Tx.
+				cfgTx, err := userSession.ConfigTx()
+				if err != nil {
+					return false
+				}
+				clusterConfig, err := cfgTx.GetClusterConfig()
+				if err != nil || clusterConfig == nil {
+					return false
+				}
+				return proto.Equal(newConfig, clusterConfig)
+			}, 5*time.Second, 100*time.Millisecond)
+		case DataTxContext:
+			waitForTx(t, txID, userSession)
+		case DBsTxContext:
+			// TODO remove once support for non data tx provenance added
+			e, _ := tx.TxEnvelope()
+			env := e.(*types.DBAdministrationTxEnvelope)
+			createdDBs := env.GetPayload().GetCreateDBs()
+			deletedDBs := env.GetPayload().GetDeleteDBs()
+			require.Eventually(t, func() bool {
+				// verify tx was successfully committed. "Get" works once per Tx.
+				res := true
+				dbTx, err := userSession.DBsTx()
+				if err != nil {
+					return false
+				}
+				if len(createdDBs) > 0 {
+					for _, db := range createdDBs {
+						exists, err := dbTx.Exists(db)
+						if err != nil {
+							return false
+						}
+						res = res && exists
+					}
+				}
+				if len(deletedDBs) > 0 {
+					for _, db := range createdDBs {
+						exists, err := dbTx.Exists(db)
+						if err != nil {
+							return false
+						}
+						res = res && !exists
+					}
+				}
+				return res
+			}, 30*time.Second, 100*time.Millisecond)
+
+		case UsersTxContext:
+			// TODO remove once support for non data tx provenance added
+			e, _ := tx.TxEnvelope()
+			env := e.(*types.UserAdministrationTxEnvelope)
+			deleteUsers := env.GetPayload().GetUserDeletes()
+			updateUsers := env.GetPayload().GetUserWrites()
+			require.Eventually(t, func() bool {
+				// verify tx was successfully committed. "Get" works once per Tx.
+				res := true
+				userTx, err := userSession.UsersTx()
+				if err != nil {
+					return false
+				}
+				if len(deleteUsers) > 0 {
+					for _, userDelete := range deleteUsers {
+						userDelete.GetUserID()
+						dUser, err := userTx.GetUser(userDelete.GetUserID())
+						if err != nil {
+							return false
+						}
+						res = res && (dUser == nil)
+					}
+				}
+				if len(updateUsers) > 0 {
+					for _, userUpdate := range updateUsers {
+						uUser, err := userTx.GetUser(userUpdate.User.ID)
+						if err != nil {
+							return false
+						}
+						res = res && proto.Equal(uUser, userUpdate.User)
+					}
+				}
+				return res
+			}, 30*time.Second, 100*time.Millisecond)
+		}
+	case TxFinalityAbort:
+		err = tx.Abort()
+		require.NoError(t, err)
+	}
+
+	// verify finality
+
+	txID, _, err = tx.Commit(true)
+	require.EqualError(t, err, ErrTxSpent.Error())
+	require.True(t, len(txID) == 0)
+	txID, _, err = tx.Commit(false)
+	require.EqualError(t, err, ErrTxSpent.Error())
+	require.True(t, len(txID) == 0)
+
+	err = tx.Abort()
+	require.EqualError(t, err, ErrTxSpent.Error())
 }

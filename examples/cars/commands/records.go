@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/base64"
 	"fmt"
+
 	"github.ibm.com/blockchaindb/server/pkg/crypto"
 )
 

@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/server/pkg/logger"

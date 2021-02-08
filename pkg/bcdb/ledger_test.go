@@ -19,7 +19,7 @@ func TestGetBlockHeader(t *testing.T) {
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	for i := 1; i < 10; i++ {
-		putKeyAndValidate(t, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		putKeySync(t, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
 	}
 
 	l, err := aliceSession.Ledger()
@@ -44,7 +44,7 @@ func TestGetLedgerPath(t *testing.T) {
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	for i := 1; i < 10; i++ {
-		putKeyAndValidate(t, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		putKeySync(t, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
 	}
 
 	p, err := aliceSession.Ledger()
@@ -132,7 +132,7 @@ func TestGetTransactionProof(t *testing.T) {
 			keys = append(keys, fmt.Sprintf("key%d_%d", i, j))
 			values = append(values, fmt.Sprintf("value%d_%d", i, j))
 		}
-		txEnvelopesPerBlock = append(txEnvelopesPerBlock, putMultipleKeysAndValidate(t, keys, values, "alice", aliceSession))
+		txEnvelopesPerBlock = append(txEnvelopesPerBlock, putMultipleKeysAndValues(t, keys, values, "alice", aliceSession))
 	}
 
 	tests := []struct {
@@ -207,7 +207,7 @@ func TestGetTransactionReceipt(t *testing.T) {
 			keys = append(keys, fmt.Sprintf("key%d_%d", i, j))
 			values = append(values, fmt.Sprintf("value%d_%d", i, j))
 		}
-		txEnvelopesPerBlock = append(txEnvelopesPerBlock, putMultipleKeysAndValidate(t, keys, values, "alice", aliceSession))
+		txEnvelopesPerBlock = append(txEnvelopesPerBlock, putMultipleKeysAndValues(t, keys, values, "alice", aliceSession))
 	}
 
 	tests := []struct {

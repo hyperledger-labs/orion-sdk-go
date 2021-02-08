@@ -1,6 +1,10 @@
 package config
 
-import "github.ibm.com/blockchaindb/server/pkg/logger"
+import (
+	"time"
+
+	"github.ibm.com/blockchaindb/server/pkg/logger"
+)
 
 // Replica
 type Replica struct {
@@ -26,6 +30,10 @@ type ConnectionConfig struct {
 // configuration information
 type SessionConfig struct {
 	UserConfig *UserConfig
+	// The transaction timeout given to the server in case of tx sync commit - `tx.Commit(true)`.
+	// SDK will wait for `TxTimeout` + some communication margin
+	// or for timeout error from server, whatever come first.
+	TxTimeout time.Duration
 }
 
 // UserConfig user related information

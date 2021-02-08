@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -46,17 +47,41 @@ func TestRestClient_Query(t *testing.T) {
 func TestRestClient_Submit(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		require.Equal(t, http.MethodPost, request.Method)
+		time.Sleep(time.Millisecond * 100)
 		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(http.StatusOK)
+
 	}))
 
 	signer := &mocks.Signer{}
 	client := NewRestClient("testUserID", server.Client(), signer)
 
-	response, err := client.Submit(context.TODO(), server.URL, &types.DataTx{
+	response, err := client.Submit(context.Background(), server.URL, &types.DataTx{
 		UserID: "alice",
 		DBName: "bdb",
-	})
+	}, 0)
+
+	require.NoError(t, err)
+	require.NotNil(t, response)
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	ctx, cancelFnc := context.WithTimeout(context.Background(), 0)
+	defer cancelFnc()
+	response, err = client.Submit(ctx, server.URL, &types.DataTx{
+		UserID: "alice",
+		DBName: "bdb",
+	}, 0)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "timeout error")
+	require.Nil(t, response)
+
+	ctx, cancelFnc2 := context.WithTimeout(context.Background(), time.Second)
+	defer cancelFnc2()
+	response, err = client.Submit(ctx, server.URL, &types.DataTx{
+		UserID: "alice",
+		DBName: "bdb",
+	}, 0)
 
 	require.NoError(t, err)
 	require.NotNil(t, response)

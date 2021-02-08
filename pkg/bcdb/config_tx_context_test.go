@@ -1,10 +1,8 @@
 package bcdb
 
 import (
-	"bytes"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	sdkConfig "github.ibm.com/blockchaindb/sdk/pkg/config"
@@ -105,40 +103,30 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 	err = tx.AddAdmin(admin2)
 	require.EqualError(t, err, "admin already exists in pending config: admin2")
 
-	txID, err := tx.Commit()
+	txID, receipt, err := tx.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
+	require.NotNil(t, receipt)
 
-	require.Eventually(t, func() bool {
-		// verify tx was successfully committed. "Get" works once per Tx.
-		tx2, err := session1.ConfigTx()
-		require.NoError(t, err)
-		clusterConfig, err := tx2.GetClusterConfig()
-		if err != nil || clusterConfig == nil {
-			return false
-		}
-		if len(clusterConfig.Admins) != 2 {
-			return false
-		}
+	tx2, err := session1.ConfigTx()
+	require.NoError(t, err)
+	clusterConfig, err := tx2.GetClusterConfig()
+	require.NoError(t, err)
+	require.NotNil(t, clusterConfig)
+	require.Len(t, clusterConfig.Admins, 2)
 
-		found, index := AdminExists("admin2", clusterConfig.Admins)
-		if !found {
-			return false
-		}
-		if !bytes.Equal(clusterConfig.Admins[index].Certificate, admin2Cert.Raw) {
-			return false
-		}
+	found, index := AdminExists("admin2", clusterConfig.Admins)
+	require.True(t, found)
 
-		return true
-	}, 30*time.Second, 100*time.Millisecond)
+	require.EqualValues(t, clusterConfig.Admins[index].Certificate, admin2Cert.Raw)
 
 	//do something with the new admin
 	session2 := openUserSession(t, bcdb, "admin2", clientCryptoDir)
 	tx3, err := session2.ConfigTx()
 	require.NoError(t, err)
-	clusterConfig, err := tx3.GetClusterConfig()
+	clusterConfig2, err := tx3.GetClusterConfig()
 	require.NoError(t, err)
-	require.NotNil(t, clusterConfig)
+	require.NotNil(t, clusterConfig2)
 }
 
 func TestConfigTxContext_DeleteAdmin(t *testing.T) {
@@ -180,24 +168,17 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	err = tx1.AddAdmin(admin3)
 	require.NoError(t, err)
 
-	txID, err := tx1.Commit()
+	txID, receipt, err := tx1.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
+	require.NotNil(t, receipt)
 
-	require.Eventually(t, func() bool {
-		// verify tx was successfully committed
-		tx, err := session1.ConfigTx()
-		require.NoError(t, err)
-		clusterConfig, err := tx.GetClusterConfig()
-		if err != nil || clusterConfig == nil {
-			return false
-		}
-		if len(clusterConfig.Admins) != 3 {
-			return false
-		}
-
-		return true
-	}, 30*time.Second, 100*time.Millisecond)
+	tx, err := session1.ConfigTx()
+	require.NoError(t, err)
+	clusterConfig, err := tx.GetClusterConfig()
+	require.NoError(t, err)
+	require.NotNil(t, clusterConfig)
+	require.Len(t, clusterConfig.Admins, 3)
 
 	// Remove an admin
 	session2 := openUserSession(t, bcdb, "admin2", clientCryptoDir)
@@ -210,44 +191,30 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	err = tx2.DeleteAdmin("non-admin")
 	require.EqualError(t, err, "admin does not exist in current config: non-admin")
 
-	txID, err = tx2.Commit()
+	txID, receipt, err = tx2.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
+	require.NotNil(t, receipt)
 
-	require.Eventually(t, func() bool {
-		// verify tx was successfully committed
-		tx, err := session2.ConfigTx()
-		require.NoError(t, err)
-		clusterConfig, err := tx.GetClusterConfig()
-		if err != nil || clusterConfig == nil {
-			return false
-		}
-		if len(clusterConfig.Admins) != 2 {
-			return false
-		}
-		found, index := AdminExists("admin2", clusterConfig.Admins)
-		if !found {
-			return false
-		}
-		if !bytes.Equal(clusterConfig.Admins[index].Certificate, admin2Cert.Raw) {
-			return false
-		}
+	// verify tx was successfully committed
+	tx3, err := session2.ConfigTx()
+	require.NoError(t, err)
+	clusterConfig, err = tx3.GetClusterConfig()
+	require.NoError(t, err)
+	require.NotNil(t, clusterConfig)
+	require.Len(t, clusterConfig.Admins, 2)
+	found, index := AdminExists("admin2", clusterConfig.Admins)
+	require.True(t, found)
+	require.EqualValues(t, clusterConfig.Admins[index].Certificate, admin2Cert.Raw)
 
-		found, index = AdminExists("admin3", clusterConfig.Admins)
-		if !found {
-			return false
-		}
-		if !bytes.Equal(clusterConfig.Admins[index].Certificate, admin3Cert.Raw) {
-			return false
-		}
-
-		return true
-	}, 30*time.Second, 100*time.Millisecond)
+	found, index = AdminExists("admin3", clusterConfig.Admins)
+	require.True(t, found)
+	require.EqualValues(t, clusterConfig.Admins[index].Certificate, admin3Cert.Raw)
 
 	// session1 by removed admin cannot execute additional transactions
-	tx3, err := session1.ConfigTx()
+	tx4, err := session1.ConfigTx()
 	require.EqualError(t, err, "failed to obtain server's certificate")
-	require.Nil(t, tx3)
+	require.Nil(t, tx4)
 }
 
 func TestConfigTxContext_UpdateAdmin(t *testing.T) {
@@ -280,24 +247,10 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	err = tx1.AddAdmin(admin2)
 	require.NoError(t, err)
 
-	txID, err := tx1.Commit()
+	txID, receipt, err := tx1.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
-
-	require.Eventually(t, func() bool {
-		// verify tx was successfully committed
-		tx, err := session1.ConfigTx()
-		require.NoError(t, err)
-		clusterConfig, err := tx.GetClusterConfig()
-		if err != nil || clusterConfig == nil {
-			return false
-		}
-		if len(clusterConfig.Admins) != 2 {
-			return false
-		}
-
-		return true
-	}, 30*time.Second, 100*time.Millisecond)
+	require.NotNil(t, receipt)
 
 	// Update an admin
 	session2 := openUserSession(t, bcdb, "admin2", clientCryptoDir)
@@ -308,32 +261,21 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	err = tx2.UpdateAdmin(&types.Admin{ID: "non-admin", Certificate: []byte("bad-cert")})
 	require.EqualError(t, err, "admin does not exist in current config: non-admin")
 
-	txID, err = tx2.Commit()
+	txID, receipt, err = tx2.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
+	require.NotNil(t, receipt)
 
-	require.Eventually(t, func() bool {
-		// verify tx was successfully committed
-		tx, err := session2.ConfigTx()
-		require.NoError(t, err)
-		clusterConfig, err := tx.GetClusterConfig()
-		if err != nil || clusterConfig == nil {
-			return false
-		}
-		if len(clusterConfig.Admins) != 2 {
-			return false
-		}
+	tx, err := session2.ConfigTx()
+	require.NoError(t, err)
+	clusterConfig, err := tx.GetClusterConfig()
+	require.NoError(t, err)
+	require.NotNil(t, clusterConfig)
+	require.Len(t, clusterConfig.Admins, 2)
 
-		found, index := AdminExists("admin", clusterConfig.Admins)
-		if !found {
-			return false
-		}
-		if !bytes.Equal(clusterConfig.Admins[index].Certificate, adminUpdatedCert.Raw) {
-			return false
-		}
-
-		return true
-	}, 30*time.Second, 100*time.Millisecond)
+	found, index := AdminExists("admin", clusterConfig.Admins)
+	require.True(t, found)
+	require.EqualValues(t, clusterConfig.Admins[index].Certificate, adminUpdatedCert.Raw)
 
 	// session1 by updated admin cannot execute additional transactions, need to recreate session
 	tx3, err := session1.ConfigTx()
@@ -382,33 +324,21 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 	err = tx.AddClusterNode(node2)
 	require.NoError(t, err)
 
-	txID, err := tx.Commit()
+	txID, receipt, err := tx.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
+	require.NotNil(t, receipt)
 
-	require.Eventually(t, func() bool {
-		// verify tx was successfully committed. "Get" works once per Tx.
-		tx2, err := session1.ConfigTx()
-		require.NoError(t, err)
-		clusterConfig, err := tx2.GetClusterConfig()
-		if err != nil || clusterConfig == nil {
-			return false
-		}
-		if len(clusterConfig.Nodes) != 2 {
-			return false
-		}
+	tx2, err := session1.ConfigTx()
+	require.NoError(t, err)
+	clusterConfig, err := tx2.GetClusterConfig()
+	require.NoError(t, err)
+	require.NotNil(t, clusterConfig)
+	require.Len(t, clusterConfig.Nodes, 2)
 
-		found, index := NodeExists("testNode2", clusterConfig.Nodes)
-		if !found {
-			return false
-		}
-		if clusterConfig.Nodes[index].Port != node2.Port {
-			return false
-		}
-
-		return true
-	}, 30*time.Second, 100*time.Millisecond)
-
+	found, index := NodeExists("testNode2", clusterConfig.Nodes)
+	require.True(t, found)
+	require.Equal(t, clusterConfig.Nodes[index].Port, node2.Port)
 }
 
 func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
@@ -443,32 +373,22 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 	err = tx1.DeleteClusterNode(id1)
 	require.NoError(t, err)
 
-	txID, err := tx1.Commit()
+	txID, receipt, err := tx1.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
+	require.NotNil(t, receipt)
 
-	require.Eventually(t, func() bool {
-		// verify tx was successfully committed. "Get" works once per Tx.
-		tx, err := session1.ConfigTx()
-		require.NoError(t, err)
-		clusterConfig, err := tx.GetClusterConfig()
-		if err != nil || clusterConfig == nil {
-			return false
-		}
-		if len(clusterConfig.Nodes) != 1 {
-			return false
-		}
+	// verify tx was successfully committed. "Get" works once per Tx.
+	tx, err := session1.ConfigTx()
+	require.NoError(t, err)
+	clusterConfig, err := tx.GetClusterConfig()
+	require.NoError(t, err)
+	require.NotNil(t, clusterConfig)
+	require.Len(t, clusterConfig.Nodes, 1)
 
-		found, index := NodeExists("testNode2", clusterConfig.Nodes)
-		if !found {
-			return false
-		}
-		if clusterConfig.Nodes[index].Port != node2.Port {
-			return false
-		}
-
-		return true
-	}, 30*time.Second, 100*time.Millisecond)
+	found, index := NodeExists("testNode2", clusterConfig.Nodes)
+	require.True(t, found)
+	require.Equal(t, clusterConfig.Nodes[index].Port, node2.Port)
 }
 
 func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
@@ -498,32 +418,22 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 	err = tx1.UpdateClusterNode(node1)
 	require.NoError(t, err)
 
-	txID, err := tx1.Commit()
+	txID, receipt, err := tx1.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
+	require.NotNil(t, receipt)
 
-	require.Eventually(t, func() bool {
-		// verify tx was successfully committed. "Get" works once per Tx.
-		tx, err := session1.ConfigTx()
-		require.NoError(t, err)
-		clusterConfig, err := tx.GetClusterConfig()
-		if err != nil || clusterConfig == nil {
-			return false
-		}
-		if len(clusterConfig.Nodes) != 1 {
-			return false
-		}
+	// verify tx was successfully committed. "Get" works once per Tx.
+	tx, err := session1.ConfigTx()
+	require.NoError(t, err)
+	clusterConfig, err := tx.GetClusterConfig()
+	require.NoError(t, err)
+	require.NotNil(t, clusterConfig)
+	require.Len(t, clusterConfig.Nodes, 1)
 
-		found, index := NodeExists("testNode1", clusterConfig.Nodes)
-		if !found {
-			return false
-		}
-		if clusterConfig.Nodes[index].Port != node1.Port {
-			return false
-		}
-
-		return true
-	}, 30*time.Second, 100*time.Millisecond)
+	found, index := NodeExists("testNode1", clusterConfig.Nodes)
+	require.True(t, found)
+	require.Equal(t, clusterConfig.Nodes[index].Port, node1.Port)
 }
 
 func TestConfigTx_CommitAbortFinality(t *testing.T) {
@@ -542,7 +452,7 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 	require.NoError(t, err)
 
 	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		session := openUserSession(t, bcdb, "admin", clientCryptoDir)
 		tx, err := session.ConfigTx()
 		require.NoError(t, err)
@@ -551,10 +461,12 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 		require.NoError(t, err)
 		node1 := config.Nodes[0]
 		node1.Port++
+		nodeId := node1.ID
+		nodePort := node1.Port
 		err = tx.UpdateClusterNode(config.Nodes[0])
 		require.NoError(t, err)
 
-		assertFinalityOnCommitAbort(t, i == 0, tx)
+		assertTxFinality(t, TxFinality(i), tx, session)
 
 		config, err = tx.GetClusterConfig()
 		require.EqualError(t, err, ErrTxSpent.Error())
@@ -573,5 +485,16 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 		require.EqualError(t, err, ErrTxSpent.Error())
 		err = tx.UpdateAdmin(&types.Admin{})
 		require.EqualError(t, err, ErrTxSpent.Error())
+
+		if TxFinality(i) != TxFinalityAbort {
+			tx, err = session.ConfigTx()
+			require.NoError(t, err)
+
+			config, err := tx.GetClusterConfig()
+			require.NoError(t, err)
+			node1 := config.Nodes[0]
+			require.Equal(t, nodeId, node1.ID)
+			require.Equal(t, nodePort, node1.Port)
+		}
 	}
 }

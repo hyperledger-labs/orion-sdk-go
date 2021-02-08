@@ -26,8 +26,8 @@ type dataTxContext struct {
 	dataDeletes map[string]*types.DataDelete
 }
 
-func (d *dataTxContext) Commit() (string, error) {
-	return d.commit(d, constants.PostDataTx)
+func (d *dataTxContext) Commit(sync bool) (string, *types.TxReceipt, error) {
+	return d.commit(d, constants.PostDataTx, sync)
 }
 
 func (d *dataTxContext) Abort() error {

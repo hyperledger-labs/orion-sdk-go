@@ -3,39 +3,12 @@ package commands
 import (
 	"io/ioutil"
 	"path"
-	"time"
 
 	"github.com/golang/protobuf/jsonpb"
-
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
 	"github.ibm.com/blockchaindb/server/pkg/types"
 )
-
-func waitForTxCommit(session bcdb.DBSession, txID string) (*types.TxReceipt, error) {
-	l, err := session.Ledger()
-	if err != nil {
-		return nil, errors.Wrap(err, "error accessing provenance data")
-	}
-	for {
-		select {
-		case <-time.After(5 * time.Second):
-			return nil, errors.Errorf("timeout while waiting for transaction %s to commit to BCDB", txID)
-
-		case <-time.After(50 * time.Millisecond):
-			receipt, err := l.GetTransactionReceipt(txID)
-			if err == nil {
-				validationInfo := receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()]
-				if validationInfo.GetFlag() == types.Flag_VALID {
-					return receipt, nil
-				}
-				return nil, errors.Errorf("transaction [%s] is invalid, reason %s ", txID, validationInfo.GetReasonIfInvalid())
-			}
-		}
-	}
-}
 
 func marshalOrPanic(msg proto.Message) []byte {
 	b, err := proto.Marshal(msg)

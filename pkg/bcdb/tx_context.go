@@ -8,10 +8,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
 	"github.ibm.com/blockchaindb/server/pkg/types"
+)
+
+const (
+	contextTimeoutMargin = time.Second
 )
 
 type commonTxContext struct {
@@ -22,6 +27,7 @@ type commonTxContext struct {
 	nodesCerts map[string]*x509.Certificate
 	restClient RestClient
 	txEnvelope proto.Message
+	timeout    time.Duration
 	txSpent    bool
 	logger     *logger.SugarLogger
 }
@@ -32,34 +38,49 @@ type txContext interface {
 	cleanCtx()
 }
 
-func (t *commonTxContext) commit(tx txContext, postEndpoint string) (string, error) {
+func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (string, *types.TxReceipt, error) {
 	if t.txSpent {
-		return "", ErrTxSpent
+		return "", nil, ErrTxSpent
 	}
 
 	replica := t.selectReplica()
 	postEndpointResolved := replica.ResolveReference(&url.URL{Path: postEndpoint})
 
+	txResponse := &types.TxResponseEnvelope{}
+
 	txID, err := ComputeTxID(t.userCert)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	t.logger.Debugf("compose transaction enveloped with txID = %s", txID)
 	t.txEnvelope, err = tx.composeEnvelope(txID)
 	if err != nil {
 		t.logger.Errorf("failed to compose transaction envelope, due to %s", err)
-		return txID, err
+		return txID, nil, err
 	}
-	ctx := context.TODO() // TODO: Replace with timeout
-	response, err := t.restClient.Submit(ctx, postEndpointResolved.String(), t.txEnvelope)
+	ctx := context.Background()
+	serverTimeout := time.Duration(0)
+	if sync {
+		serverTimeout = t.timeout
+		contextTimeout := t.timeout + contextTimeoutMargin
+		var cancelFnc context.CancelFunc
+		ctx, cancelFnc = context.WithTimeout(context.Background(), contextTimeout)
+		defer cancelFnc()
+	}
+	defer tx.cleanCtx()
+
+	response, err := t.restClient.Submit(ctx, postEndpointResolved.String(), t.txEnvelope, serverTimeout)
 	if err != nil {
 		t.logger.Errorf("failed to submit transaction txID = %s, due to %s", txID, err)
-		return txID, err
+		return txID, nil, err
 	}
 
 	if response.StatusCode != http.StatusOK {
 		var errMsg string
+		if response.StatusCode == http.StatusAccepted {
+			return txID, nil, &ServerTimeout{TxID: txID}
+		}
 		if response.Body != nil {
 			errRes := &types.HttpResponseErr{}
 			if err := json.NewDecoder(response.Body).Decode(errRes); err != nil {
@@ -70,12 +91,18 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string) (string, err
 			}
 		}
 
-		return txID, errors.New(fmt.Sprintf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg))
+		return txID, nil, errors.New(fmt.Sprintf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg))
+	}
+
+	err = json.NewDecoder(response.Body).Decode(txResponse)
+	if err != nil {
+		t.logger.Errorf("failed to decode json response, due to %s", err)
+		return txID, nil, err
 	}
 
 	t.txSpent = true
 	tx.cleanCtx()
-	return txID, nil
+	return txID, txResponse.GetPayload().GetReceipt(), nil
 }
 
 func (t *commonTxContext) abort(tx txContext) error {
@@ -117,7 +144,6 @@ func (t *commonTxContext) handleRequest(rawurl string, query proto.Message, res 
 				errMsg = errRes.Error()
 			}
 		}
-
 		return errors.New(fmt.Sprintf("error handling request, server returned: status: %s, message: %s", response.Status, errMsg))
 	}
 	err = json.NewDecoder(response.Body).Decode(res)

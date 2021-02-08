@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -56,6 +55,7 @@ func createUserSession(demoDir string, bcdb bcdb.BCDB, user string) (bcdb.DBSess
 			CertPath:       path.Join(demoDir, "crypto", user, user+".pem"),
 			PrivateKeyPath: path.Join(demoDir, "crypto", user, user+".key"),
 		},
+		TxTimeout: time.Second * 5,
 	})
 	return session, err
 }
@@ -120,27 +120,12 @@ func initDB(session bcdb.DBSession, lg *logger.SugarLogger) error {
 	if err != nil {
 		return err
 	}
-	txID, err := tx.Commit()
+	txID, txReceipt, err := tx.Commit(true)
 	if err != nil {
 		lg.Errorf("cannot commit transaction to create cars db, due to %s", err)
 		return err
 	}
-	lg.Debugf("transaction to create carDB has been submitted, txID = %s", txID)
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		for {
-			queryTx, err := session.DBsTx()
-			exist, err := queryTx.Exists(CarDBName)
-			if exist && err == nil {
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-		wg.Done()
-	}()
-	wg.Wait()
+	lg.Debugf("transaction to create carDB has been submitted, txID = %s, txReceipt = %s", txID, txReceipt.String())
 
 	lg.Info("database carDB has been created")
 	return nil
@@ -176,44 +161,11 @@ func initUsers(demoDir string, session bcdb.DBSession, logger *logger.SugarLogge
 			return err
 		}
 
-		txID, err := usersTx.Commit()
-		if err != nil {
-			logger.Errorf("cannot commit transaction to add users, due to %s", err)
-			return err
-		}
-		logger.Debugf("transaction to provision user record has been submitted, user-ID: %s, txID = %s", role, txID)
-
-		err = waitForUserTxCommit(session, role, txID)
+		txID, receipt, err := usersTx.Commit(true)
 		if err != nil {
 			return err
 		}
-		logger.Infof("transaction to provision user record has been committed, user-ID: %s, txID = %s", role, txID)
-	}
-
-	return nil
-}
-
-func waitForUserTxCommit(session bcdb.DBSession, key, txID string) error {
-wait_for_commit:
-	for {
-		select {
-		case <-time.After(1 * time.Second):
-			return errors.Errorf("timeout while waiting for transaction %s to commit to BCDB", txID)
-
-		case <-time.After(50 * time.Millisecond):
-			userTx, err := session.UsersTx()
-			if err != nil {
-				return errors.Wrap(err, "error creating data transaction")
-			}
-
-			recordBytes, err := userTx.GetUser(key)
-			if err != nil {
-				return errors.Wrapf(err, "error while waiting for transaction %s to commit to BCDB", txID)
-			}
-			if recordBytes != nil {
-				break wait_for_commit
-			}
-		}
+		logger.Infof("transaction to provision user record has been committed, user-ID: %s, txID = %s, block = %i, txIdx = %i", role, txID, receipt.GetHeader().GetBaseHeader().GetNumber(), receipt.GetTxIndex())
 	}
 
 	return nil
