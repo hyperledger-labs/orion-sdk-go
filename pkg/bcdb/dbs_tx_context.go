@@ -56,7 +56,7 @@ func (d *dbsTxContext) Exists(dbName string) (bool, error) {
 	}
 
 	path := constants.URLForGetDBStatus(dbName)
-	res := &types.GetDBStatusResponseEnvelope{}
+	res := &types.GetDBStatusResponse{}
 	err := d.handleRequest(path, &types.GetDBStatusQuery{
 		UserID: d.userID,
 		DBName: dbName,
@@ -65,7 +65,7 @@ func (d *dbsTxContext) Exists(dbName string) (bool, error) {
 		d.logger.Errorf("failed to execute database status query, path = %s, due to %s", path, err)
 		return false, err
 	}
-	return res.GetPayload().GetExist(), nil
+	return res.GetExist(), nil
 }
 
 func (d *dbsTxContext) cleanCtx() {

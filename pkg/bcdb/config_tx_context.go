@@ -221,18 +221,18 @@ func (c *configTxContext) queryClusterConfig() error {
 		return nil
 	}
 
-	res := &types.GetConfigResponseEnvelope{}
+	configResponse := &types.GetConfigResponse{}
 	path := constants.URLForGetConfig()
 	err := c.handleRequest(path, &types.GetConfigQuery{
 		UserID: c.userID,
-	}, res)
+	}, configResponse)
 	if err != nil {
 		c.logger.Errorf("failed to execute cluster config query path %s, due to %s", path, err)
 		return err
 	}
 
-	c.oldConfig = res.GetPayload().GetConfig()
-	c.readOldConfigVersion = res.GetPayload().GetMetadata().GetVersion()
+	c.oldConfig = configResponse.GetConfig()
+	c.readOldConfigVersion = configResponse.GetMetadata().GetVersion()
 
 	return nil
 }

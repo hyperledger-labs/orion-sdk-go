@@ -46,8 +46,6 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 	replica := t.selectReplica()
 	postEndpointResolved := replica.ResolveReference(&url.URL{Path: postEndpoint})
 
-	txResponse := &types.TxResponseEnvelope{}
-
 	txID, err := ComputeTxID(t.userCert)
 	if err != nil {
 		return "", nil, err
@@ -94,15 +92,34 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 		return txID, nil, errors.New(fmt.Sprintf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(txResponse)
+	txResponseEnvelope := &types.ResponseEnvelope{}
+	err = json.NewDecoder(response.Body).Decode(txResponseEnvelope)
 	if err != nil {
 		t.logger.Errorf("failed to decode json response, due to %s", err)
 		return txID, nil, err
 	}
 
+	payload := &types.Payload{}
+	err = json.Unmarshal(txResponseEnvelope.GetPayload(), payload)
+	if err != nil {
+		t.logger.Errorf("failed to unmarshal transaction response payload, due to %s", err)
+		return txID, nil, err
+	}
+
+	txResponse := &types.TxResponse{}
+	err = json.Unmarshal(payload.GetResponse(), txResponse)
+	if err != nil {
+		t.logger.Errorf("failed to unmarshal response, due to %s", err)
+		return txID, nil, err
+	}
+
+	// TODO need to validate payload's signature
+	// r.Signature - the signature over payload
+	// payload.GetHeader().NodeID - the id of the node signed response
+
 	t.txSpent = true
 	tx.cleanCtx()
-	return txID, txResponse.GetPayload().GetReceipt(), nil
+	return txID, txResponse.GetReceipt(), nil
 }
 
 func (t *commonTxContext) abort(tx txContext) error {
@@ -123,7 +140,7 @@ func (t *commonTxContext) selectReplica() *url.URL {
 	return nil
 }
 
-func (t *commonTxContext) handleRequest(rawurl string, query proto.Message, res proto.Message) error {
+func (t *commonTxContext) handleRequest(rawurl string, query, res proto.Message) error {
 	parsedURL, err := url.Parse(rawurl)
 	if err != nil {
 		return err
@@ -146,11 +163,30 @@ func (t *commonTxContext) handleRequest(rawurl string, query proto.Message, res 
 		}
 		return errors.New(fmt.Sprintf("error handling request, server returned: status: %s, message: %s", response.Status, errMsg))
 	}
-	err = json.NewDecoder(response.Body).Decode(res)
+	r := &types.ResponseEnvelope{}
+	err = json.NewDecoder(response.Body).Decode(r)
 	if err != nil {
 		t.logger.Errorf("failed to decode json response, due to %s", err)
 		return err
 	}
+
+	payload := &types.Payload{}
+	err = json.Unmarshal(r.GetPayload(), payload)
+	if err != nil {
+		t.logger.Errorf("failed to unmarshal reponse payload, due to %s", err)
+		return err
+	}
+
+	// TODO need to validate payload's signature
+	// r.Signature - the signature over payload
+	// payload.GetHeader().NodeID - the id of the node signed response
+
+	err = json.Unmarshal(payload.GetResponse(), res)
+	if err != nil {
+		t.logger.Errorf("failed to unmarshal response, due to %s", err)
+		return err
+	}
+
 	return nil
 }
 

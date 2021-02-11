@@ -14,7 +14,7 @@ type provenance struct {
 
 func (p *provenance) GetHistoricalData(dbName, key string) ([]*types.ValueWithMetadata, error) {
 	path := constants.URLForGetHistoricalData(dbName, key)
-	res := &types.GetHistoricalDataResponseEnvelope{}
+	res := &types.GetHistoricalDataResponse{}
 	err := p.handleRequest(path, &types.GetHistoricalDataQuery{
 		UserID: p.userID,
 		DBName: dbName,
@@ -24,12 +24,12 @@ func (p *provenance) GetHistoricalData(dbName, key string) ([]*types.ValueWithMe
 		p.logger.Errorf("failed to execute historical data query %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetPayload().GetValues(), nil
+	return res.GetValues(), nil
 }
 
 func (p *provenance) GetHistoricalDataAt(dbName, key string, version *types.Version) (*types.ValueWithMetadata, error) {
 	path := constants.URLForGetHistoricalDataAt(dbName, key, version)
-	res := &types.GetHistoricalDataResponseEnvelope{}
+	res := &types.GetHistoricalDataResponse{}
 	err := p.handleRequest(path, &types.GetHistoricalDataQuery{
 		UserID:  p.userID,
 		DBName:  dbName,
@@ -41,7 +41,7 @@ func (p *provenance) GetHistoricalDataAt(dbName, key string, version *types.Vers
 		return nil, err
 	}
 
-	values := res.GetPayload().GetValues()
+	values := res.GetValues()
 	if len(values) == 0 {
 		return nil, nil
 	}
@@ -53,7 +53,7 @@ func (p *provenance) GetHistoricalDataAt(dbName, key string, version *types.Vers
 
 func (p *provenance) GetPreviousHistoricalData(dbName, key string, version *types.Version) ([]*types.ValueWithMetadata, error) {
 	path := constants.URLForGetPreviousHistoricalData(dbName, key, version)
-	res := &types.GetHistoricalDataResponseEnvelope{}
+	res := &types.GetHistoricalDataResponse{}
 	err := p.handleRequest(path, &types.GetHistoricalDataQuery{
 		UserID:    p.userID,
 		DBName:    dbName,
@@ -65,12 +65,12 @@ func (p *provenance) GetPreviousHistoricalData(dbName, key string, version *type
 		p.logger.Errorf("failed to execute previous historical data query %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetPayload().GetValues(), nil
+	return res.GetValues(), nil
 }
 
 func (p *provenance) GetNextHistoricalData(dbName, key string, version *types.Version) ([]*types.ValueWithMetadata, error) {
 	path := constants.URLForGetNextHistoricalData(dbName, key, version)
-	res := &types.GetHistoricalDataResponseEnvelope{}
+	res := &types.GetHistoricalDataResponse{}
 	err := p.handleRequest(path, &types.GetHistoricalDataQuery{
 		UserID:    p.userID,
 		DBName:    dbName,
@@ -82,12 +82,12 @@ func (p *provenance) GetNextHistoricalData(dbName, key string, version *types.Ve
 		p.logger.Errorf("failed to execute next historical data query %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetPayload().GetValues(), nil
+	return res.GetValues(), nil
 }
 
 func (p *provenance) GetDataReadByUser(userID string) ([]*types.KVWithMetadata, error) {
 	path := constants.URLForGetDataReadBy(userID)
-	res := &types.GetDataReadByResponseEnvelope{}
+	res := &types.GetDataProvenanceResponse{}
 	err := p.handleRequest(path, &types.GetDataReadByQuery{
 		UserID:       p.userID,
 		TargetUserID: userID,
@@ -96,12 +96,12 @@ func (p *provenance) GetDataReadByUser(userID string) ([]*types.KVWithMetadata, 
 		p.logger.Errorf("failed to execute data read by user query %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetPayload().GetKVs(), nil
+	return res.GetKVs(), nil
 }
 
 func (p *provenance) GetDataWrittenByUser(userID string) ([]*types.KVWithMetadata, error) {
 	path := constants.URLForGetDataWrittenBy(userID)
-	res := &types.GetDataWrittenByResponseEnvelope{}
+	res := &types.GetDataProvenanceResponse{}
 	err := p.handleRequest(path, &types.GetDataWrittenByQuery{
 		UserID:       p.userID,
 		TargetUserID: userID,
@@ -110,12 +110,12 @@ func (p *provenance) GetDataWrittenByUser(userID string) ([]*types.KVWithMetadat
 		p.logger.Errorf("failed to execute data written by user query %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetPayload().GetKVs(), nil
+	return res.GetKVs(), nil
 }
 
 func (p *provenance) GetReaders(dbName, key string) ([]string, error) {
 	path := constants.URLForGetDataReaders(dbName, key)
-	res := &types.GetDataReadersResponseEnvelope{}
+	res := &types.GetDataReadersResponse{}
 	err := p.handleRequest(path, &types.GetDataReadersQuery{
 		UserID: p.userID,
 		DBName: dbName,
@@ -126,11 +126,11 @@ func (p *provenance) GetReaders(dbName, key string) ([]string, error) {
 		return nil, err
 	}
 
-	if res.GetPayload().GetReadBy() == nil {
+	if res.GetReadBy() == nil {
 		return nil, nil
 	}
 	readers := make([]string, 0)
-	for k := range res.GetPayload().GetReadBy() {
+	for k := range res.GetReadBy() {
 		readers = append(readers, k)
 	}
 	return readers, nil
@@ -138,7 +138,7 @@ func (p *provenance) GetReaders(dbName, key string) ([]string, error) {
 
 func (p *provenance) GetWriters(dbName, key string) ([]string, error) {
 	path := constants.URLForGetDataWriters(dbName, key)
-	res := &types.GetDataWritersResponseEnvelope{}
+	res := &types.GetDataWritersResponse{}
 	err := p.handleRequest(path, &types.GetDataWritersQuery{
 		UserID: p.userID,
 		DBName: dbName,
@@ -149,11 +149,11 @@ func (p *provenance) GetWriters(dbName, key string) ([]string, error) {
 		return nil, err
 	}
 
-	if res.GetPayload().GetWrittenBy() == nil {
+	if res.GetWrittenBy() == nil {
 		return nil, nil
 	}
 	writers := make([]string, 0)
-	for k := range res.GetPayload().GetWrittenBy() {
+	for k := range res.GetWrittenBy() {
 		writers = append(writers, k)
 	}
 	return writers, nil
@@ -161,7 +161,7 @@ func (p *provenance) GetWriters(dbName, key string) ([]string, error) {
 
 func (p *provenance) GetTxIDsSubmittedByUser(userID string) ([]string, error) {
 	path := constants.URLForGetTxIDsSubmittedBy(userID)
-	res := &types.GetTxIDsSubmittedByResponseEnvelope{}
+	res := &types.GetTxIDsSubmittedByResponse{}
 	err := p.handleRequest(path, &types.GetTxIDsSubmittedByQuery{
 		UserID:       p.userID,
 		TargetUserID: userID,
@@ -170,5 +170,5 @@ func (p *provenance) GetTxIDsSubmittedByUser(userID string) ([]string, error) {
 		p.logger.Errorf("failed to execute tx id by user query %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetPayload().GetTxIDs(), nil
+	return res.GetTxIDs(), nil
 }

@@ -11,7 +11,7 @@ type ledger struct {
 
 func (l *ledger) GetBlockHeader(blockNum uint64) (*types.BlockHeader, error) {
 	path := constants.URLForLedgerBlock(blockNum)
-	res := &types.GetBlockResponseEnvelope{}
+	res := &types.GetBlockResponse{}
 	err := l.handleRequest(path, &types.GetBlockQuery{
 		UserID:      l.userID,
 		BlockNumber: blockNum,
@@ -20,12 +20,12 @@ func (l *ledger) GetBlockHeader(blockNum uint64) (*types.BlockHeader, error) {
 		l.logger.Errorf("failed to execute ledger block query %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetPayload().GetBlockHeader(), nil
+	return res.GetBlockHeader(), nil
 }
 
 func (l *ledger) GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeader, error) {
 	path := constants.URLForLedgerPath(startBlock, endBlock)
-	res := &types.GetLedgerPathResponseEnvelope{}
+	res := &types.GetLedgerPathResponse{}
 	err := l.handleRequest(path, &types.GetLedgerPathQuery{
 		UserID:           l.userID,
 		StartBlockNumber: startBlock,
@@ -35,12 +35,12 @@ func (l *ledger) GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeade
 		l.logger.Errorf("failed to execute ledger path query path %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetPayload().GetBlockHeaders(), nil
+	return res.GetBlockHeaders(), nil
 }
 
 func (l *ledger) GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, error) {
 	path := constants.URLTxProof(blockNum, txIndex)
-	res := &types.GetTxProofResponseEnvelope{}
+	res := &types.GetTxProofResponse{}
 	err := l.handleRequest(path, &types.GetTxProofQuery{
 		UserID:      l.userID,
 		BlockNumber: blockNum,
@@ -50,12 +50,12 @@ func (l *ledger) GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, er
 		l.logger.Errorf("failed to execute transaction proof query %s, due to %s", path, err)
 		return nil, err
 	}
-	return &TxProof{res.GetPayload().GetHashes()}, nil
+	return &TxProof{intermediateHashes: res.GetHashes()}, nil
 }
 
 func (l *ledger) GetTransactionReceipt(txId string) (*types.TxReceipt, error) {
 	path := constants.URLForGetTransactionReceipt(txId)
-	res := &types.GetTxReceiptResponseEnvelope{}
+	res := &types.TxResponse{}
 	err := l.handleRequest(path, &types.GetTxReceiptQuery{
 		UserID: l.userID,
 		TxID:   txId,
@@ -65,5 +65,5 @@ func (l *ledger) GetTransactionReceipt(txId string) (*types.TxReceipt, error) {
 		return nil, err
 	}
 
-	return res.GetPayload().GetReceipt(), nil
+	return res.GetReceipt(), nil
 }

@@ -65,7 +65,7 @@ func (d *dataTxContext) Get(key string) ([]byte, *types.Metadata, error) {
 		return storedValue.GetValue(), storedValue.GetMetadata(), nil
 	}
 	path := constants.URLForGetData(d.database, key)
-	res := &types.GetDataResponseEnvelope{}
+	res := &types.GetDataResponse{}
 	err := d.handleRequest(path, &types.GetDataQuery{
 		UserID: d.userID,
 		DBName: d.database,
@@ -76,8 +76,8 @@ func (d *dataTxContext) Get(key string) ([]byte, *types.Metadata, error) {
 		return nil, nil, err
 	}
 
-	d.dataReads[key] = res.GetPayload()
-	return res.GetPayload().GetValue(), res.GetPayload().GetMetadata(), nil
+	d.dataReads[key] = res
+	return res.GetValue(), res.GetMetadata(), nil
 }
 
 // Delete value for key

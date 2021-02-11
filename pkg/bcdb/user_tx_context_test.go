@@ -170,22 +170,26 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 	signer.On("Sign", mock.Anything).Return([]byte{0}, nil)
 	restClient := &mocks.RestClient{}
 
-	queryResult := &types.GetUserResponseEnvelope{
-		Payload: &types.GetUserResponse{
+	expectedUser := &types.User{
+		ID:          "alice",
+		Certificate: []byte{1, 2, 3},
+	}
+
+	queryResult := &types.ResponseEnvelope{
+		Payload: MarshalOrPanic(&types.Payload{
 			Header: &types.ResponseHeader{
 				NodeID: "node1",
 			},
-			User: &types.User{
-				ID:          "alice",
-				Certificate: []byte{1, 2, 3},
-			},
-			Metadata: &types.Metadata{
-				Version: &types.Version{
-					TxNum:    1,
-					BlockNum: 1,
+			Response: MarshalOrPanic(&types.GetUserResponse{
+				User: expectedUser,
+				Metadata: &types.Metadata{
+					Version: &types.Version{
+						TxNum:    1,
+						BlockNum: 1,
+					},
 				},
-			},
-		},
+			}),
+		}),
 		Signature: []byte{0},
 	}
 	queryResultBytes, err := json.Marshal(queryResult)
@@ -258,7 +262,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 
 	user, err := usrCtx.GetUser("alice")
 	require.NoError(t, err)
-	require.Equal(t, queryResult.Payload.User, user)
+	require.Equal(t, expectedUser, user)
 
 	err = usrCtx.RemoveUser("bob")
 	require.NoError(t, err)

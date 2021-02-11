@@ -121,7 +121,7 @@ func TestTxCommit(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "Submit error",
+			errMsg:  "submit error",
 		},
 		{
 			name: "configTx correct async",
@@ -357,20 +357,22 @@ func TestTxCommit(t *testing.T) {
 }
 
 func okResponse() *http.Response {
-	okResp := &types.TxResponseEnvelope{
-		Payload: &types.TxResponse{
+	okResp := &types.ResponseEnvelope{
+		Payload: MarshalOrPanic(&types.Payload{
 			Header: &types.ResponseHeader{
 				NodeID: "node1",
 			},
-			Receipt: &types.TxReceipt{
-				Header: &types.BlockHeader{
-					BaseHeader: &types.BlockHeaderBase{
-						Number: 1,
+			Response: MarshalOrPanic(&types.TxResponse{
+				Receipt: &types.TxReceipt{
+					Header: &types.BlockHeader{
+						BaseHeader: &types.BlockHeaderBase{
+							Number: 1,
+						},
 					},
+					TxIndex: 1,
 				},
-				TxIndex: 1,
-			},
-		},
+			}),
+		}),
 	}
 	okPbJson, _ := json.Marshal(okResp)
 	okRespReader := ioutil.NopCloser(bytes.NewReader([]byte(okPbJson)))
@@ -382,12 +384,13 @@ func okResponse() *http.Response {
 }
 
 func okResponseAsync() *http.Response {
-	okResp := &types.TxResponseEnvelope{
-		Payload: &types.TxResponse{
+	okResp := &types.ResponseEnvelope{
+		Payload: MarshalOrPanic(&types.Payload{
 			Header: &types.ResponseHeader{
 				NodeID: "node1",
 			},
-		},
+			Response: MarshalOrPanic(&types.TxResponse{}),
+		}),
 	}
 	okPbJson, _ := json.Marshal(okResp)
 	okRespReader := ioutil.NopCloser(bytes.NewReader([]byte(okPbJson)))
@@ -458,8 +461,8 @@ func syncSubmit(req *http.Request, resp *http.Response) (*http.Response, error) 
 	return resp, nil
 }
 
-func submitErr(req *http.Request, resp *http.Response) (*http.Response, error) {
-	return nil, errors.New("Submit error")
+func submitErr(_ *http.Request, resp *http.Response) (*http.Response, error) {
+	return nil, errors.New("submit error")
 }
 
 func getTimeout(h *http.Header) (time.Duration, error) {

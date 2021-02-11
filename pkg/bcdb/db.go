@@ -122,7 +122,7 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 	for _, rootCAPath := range config.RootCAs {
 		rootCABytes, err := ioutil.ReadFile(rootCAPath)
 		if err != nil {
-			dbLogger.Errorf("failed to read root CA certificate, due to", err)
+			dbLogger.Errorf("failed to read root CA certificate, due to %s", err)
 			return nil, errors.Wrap(err, "failed to read root CA certificate")
 		}
 		// TODO there are might be multiple PEM encoded blocks need to make
@@ -134,7 +134,7 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 		}
 		rootCACert, err := x509.ParseCertificate(pemBlock.Bytes)
 		if err != nil {
-			dbLogger.Errorf("failed to parse X509 root CA certificate, due to", err)
+			dbLogger.Errorf("failed to parse X509 root CA certificate, due to %s", err)
 			return nil, errors.Wrap(err, "failed to parse X509 root CA certificate")
 		}
 		certsPool.AddCert(rootCACert)
@@ -170,14 +170,14 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 		KeyFilePath: cfg.UserConfig.PrivateKeyPath,
 	})
 	if err != nil {
-		b.logger.Errorf("cannot create signer with user's private key, from %s, due to",
+		b.logger.Errorf("cannot create signer with user's private key, from %s, due to %s",
 			cfg.UserConfig.PrivateKeyPath, err)
 		return nil, errors.Wrap(err, "cannot create signer with user's private key")
 	}
 
 	certBytes, err := ioutil.ReadFile(cfg.UserConfig.CertPath)
 	if err != nil {
-		b.logger.Errorf("cannot read user's certificate with user's private key, from %s, due to",
+		b.logger.Errorf("cannot read user's certificate with user's private key, from %s, due to %s",
 			cfg.UserConfig.CertPath, err)
 		return nil, errors.Wrap(err, "cannot read user's certificate with user's private key")
 	}
@@ -238,13 +238,31 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (ma
 		return nil, errors.New(fmt.Sprintf("error response from the server, %s", response.Status))
 	}
 
-	res := &types.GetConfigResponseEnvelope{}
-	err = json.NewDecoder(response.Body).Decode(res)
+	resEnv := &types.ResponseEnvelope{}
+	err = json.NewDecoder(response.Body).Decode(resEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, node := range res.GetPayload().GetConfig().GetNodes() {
+	payload := &types.Payload{}
+	err = json.Unmarshal(resEnv.GetPayload(), payload)
+	if err != nil {
+		d.logger.Errorf("failed to unmarshal response payload, due to %s", err)
+		return nil, err
+	}
+
+	// TODO need to validate payload's signature
+	// resEnv.Signature - the signature over payload
+	// payload.GetHeader().NodeID - the id of the node signed response
+
+	configResponse := &types.GetConfigResponse{}
+	err = json.Unmarshal(payload.GetResponse(), configResponse)
+	if err != nil {
+		d.logger.Errorf("failed to unmarshal config response, due to %s", err)
+		return nil, err
+	}
+
+	for _, node := range configResponse.GetConfig().GetNodes() {
 		cert, err := x509.ParseCertificate(node.Certificate)
 		if err != nil {
 			return nil, err

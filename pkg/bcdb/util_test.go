@@ -1,6 +1,7 @@
 package bcdb
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -258,4 +259,13 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 
 	err = tx.Abort()
 	require.EqualError(t, err, ErrTxSpent.Error())
+}
+
+func MarshalOrPanic(response interface{}) []byte {
+	bytes, err := json.Marshal(response)
+	if err != nil {
+		panic(err)
+	}
+
+	return bytes
 }

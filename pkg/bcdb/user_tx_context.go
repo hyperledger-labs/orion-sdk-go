@@ -58,7 +58,7 @@ func (u *userTxContext) GetUser(userID string) (*types.User, error) {
 	}
 
 	path := constants.URLForGetUser(userID)
-	res := &types.GetUserResponseEnvelope{}
+	res := &types.GetUserResponse{}
 	err := u.handleRequest(path, &types.GetUserQuery{
 		UserID:       u.userID,
 		TargetUserID: userID,
@@ -69,10 +69,10 @@ func (u *userTxContext) GetUser(userID string) (*types.User, error) {
 	}
 	u.userReads = append(u.userReads, &types.UserRead{
 		UserID:  userID,
-		Version: res.GetPayload().GetMetadata().GetVersion(),
+		Version: res.GetMetadata().GetVersion(),
 	})
 
-	return res.GetPayload().GetUser(), nil
+	return res.GetUser(), nil
 }
 
 func (u *userTxContext) RemoveUser(userID string) error {
