@@ -79,7 +79,6 @@ func (r *restClient) Submit(ctx context.Context, endpoint string, msg proto.Mess
 		http.MethodPost,
 		endpoint,
 		bytes.NewReader(userTxEnvelope))
-
 	if err != nil {
 		return nil, err
 	}
@@ -91,11 +90,9 @@ func (r *restClient) Submit(ctx context.Context, endpoint string, msg proto.Mess
 
 	resp, err := r.httpClient.Do(req)
 
-	if err != nil {
-		if _, ok := err.(net.Error); ok {
-			if err.(net.Error).Timeout() {
-				err = errors.WithMessage(err, "timeout error")
-			}
+	if _, ok := err.(net.Error); ok {
+		if err.(net.Error).Timeout() {
+			err = errors.WithMessage(err, "timeout error")
 		}
 	}
 	return resp, err

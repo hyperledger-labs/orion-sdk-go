@@ -111,7 +111,6 @@ func TestGetLedgerPath(t *testing.T) {
 				require.EqualError(t, err, tt.errMessage)
 			}
 		})
-
 	}
 }
 

@@ -227,7 +227,6 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (ma
 	req.Header.Set(constants.UserHeader, d.userID)
 	req.Header.Set(constants.SignatureHeader, base64.StdEncoding.EncodeToString(signature))
 	response, err := httpClient.Do(req)
-
 	if err != nil {
 		d.logger.Errorf("failed to send transaction to server %s, due to %s", getConfig.String(), err)
 		return nil, err
@@ -451,5 +450,5 @@ type ServerTimeout struct {
 }
 
 func (e *ServerTimeout) Error() string {
-	return fmt.Sprintf("timeout occurred on server side while submitting transaction, converted to asynchronous completion")
+	return "timeout occurred on server side while submitting transaction, converted to asynchronous completion"
 }

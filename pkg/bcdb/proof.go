@@ -15,7 +15,6 @@ type TxProof struct {
 }
 
 func (p *TxProof) Verify(receipt *types.TxReceipt, tx proto.Message) (bool, error) {
-
 	txEnv, ok := tx.(*types.DataTxEnvelope)
 	if !ok {
 		return false, errors.Errorf("tx [%s] is not data transaction, only data transaction supported so far", tx.String())

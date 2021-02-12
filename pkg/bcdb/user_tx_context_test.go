@@ -70,6 +70,7 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 
 		if TxFinality(i) != TxFinalityAbort {
 			tx, err = session.UsersTx()
+			require.NoError(t, err)
 			val, err = tx.GetUser("alice")
 			require.NoError(t, err)
 			require.NotNil(t, val)
@@ -220,7 +221,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 			restClient: restClient,
 			logger:     logger,
 			replicaSet: map[string]*url.URL{
-				"node1": &url.URL{
+				"node1": {
 					Path: "http://localhost:8888",
 				},
 			},

@@ -120,7 +120,7 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 
 	require.EqualValues(t, clusterConfig.Admins[index].Certificate, admin2Cert.Raw)
 
-	//do something with the new admin
+	// do something with the new admin
 	session2 := openUserSession(t, bcdb, "admin2", clientCryptoDir)
 	tx3, err := session2.ConfigTx()
 	require.NoError(t, err)

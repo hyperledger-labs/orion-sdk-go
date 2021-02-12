@@ -20,7 +20,6 @@ import (
 )
 
 func TestTxCommit(t *testing.T) {
-
 	emptySigner := &mocks.Signer{}
 	emptySigner.On("Sign", mock.Anything).Return([]byte{1}, nil)
 
@@ -349,8 +348,6 @@ func TestTxCommit(t *testing.T) {
 			require.NotNil(t, env)
 			if tt.syncCommit {
 				require.NotNil(t, receipt)
-			} else {
-
 			}
 		})
 	}

@@ -4,13 +4,12 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
 	"github.ibm.com/blockchaindb/server/pkg/types"
 )
@@ -89,7 +88,7 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 			}
 		}
 
-		return txID, nil, errors.New(fmt.Sprintf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg))
+		return txID, nil, errors.Errorf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg)
 	}
 
 	txResponseEnvelope := &types.ResponseEnvelope{}
@@ -161,7 +160,7 @@ func (t *commonTxContext) handleRequest(rawurl string, query, res proto.Message)
 				errMsg = errRes.Error()
 			}
 		}
-		return errors.New(fmt.Sprintf("error handling request, server returned: status: %s, message: %s", response.Status, errMsg))
+		return errors.Errorf("error handling request, server returned: status: %s, message: %s", response.Status, errMsg)
 	}
 	r := &types.ResponseEnvelope{}
 	err = json.NewDecoder(response.Body).Decode(r)

@@ -162,6 +162,7 @@ func TestDataContext_CommitAbortFinality(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		tx, err := userSession.DataTx("bdb")
+		require.NoError(t, err)
 		err = tx.Put("key1", []byte("value1"), acl)
 		require.NoError(t, err)
 
@@ -180,6 +181,7 @@ func TestDataContext_CommitAbortFinality(t *testing.T) {
 
 		if TxFinality(i) != TxFinalityAbort {
 			tx, err := userSession.DataTx("bdb")
+			require.NoError(t, err)
 			val, meta, err := tx.Get("key1")
 			require.NoError(t, err)
 			require.Equal(t, []byte("value1"), val)

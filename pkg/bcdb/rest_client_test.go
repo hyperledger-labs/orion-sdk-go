@@ -50,7 +50,6 @@ func TestRestClient_Submit(t *testing.T) {
 		time.Sleep(time.Millisecond * 100)
 		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(http.StatusOK)
-
 	}))
 
 	signer := &mocks.Signer{}

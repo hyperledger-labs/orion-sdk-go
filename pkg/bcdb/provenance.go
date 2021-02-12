@@ -2,7 +2,6 @@ package bcdb
 
 import (
 	"errors"
-	"fmt"
 
 	"github.ibm.com/blockchaindb/server/pkg/constants"
 	"github.ibm.com/blockchaindb/server/pkg/types"
@@ -46,7 +45,7 @@ func (p *provenance) GetHistoricalDataAt(dbName, key string, version *types.Vers
 		return nil, nil
 	}
 	if len(values) > 1 {
-		return nil, errors.New(fmt.Sprintf("error getting historical data fro specific version, more that one record returned"))
+		return nil, errors.New("error getting historical data fro specific version, more that one record returned")
 	}
 	return values[0], nil
 }

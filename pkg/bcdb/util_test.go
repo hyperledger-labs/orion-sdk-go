@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	sdkconfig "github.ibm.com/blockchaindb/sdk/pkg/config"
 	"github.ibm.com/blockchaindb/server/config"
@@ -34,7 +33,7 @@ func setupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime tim
 
 	caCertPEM, err := ioutil.ReadFile(path.Join(cryptoTempDir, testutils.RootCAFileName+".pem"))
 	require.NoError(t, err)
-	assert.NotNil(t, caCertPEM)
+	require.NotNil(t, caCertPEM)
 
 	server, err := server.New(&config.Configurations{
 		Node: config.NodeConf{

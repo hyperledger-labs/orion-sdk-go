@@ -285,7 +285,9 @@ func TestGetPreviousOrNextHistoricalData(t *testing.T) {
 			p, err := aliceSession.Provenance()
 			require.NoError(t, err)
 			hPrevData, err := p.GetPreviousHistoricalData("bdb", tt.key, tt.version)
+			require.NoError(t, err)
 			hNextData, err := p.GetNextHistoricalData("bdb", tt.key, tt.version)
+			require.NoError(t, err)
 			if !tt.wantErr {
 				require.NoError(t, err)
 				if tt.prevValues == nil {
@@ -458,7 +460,6 @@ func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 }
 
 func TestGetTxIDsSubmittedByUser(t *testing.T) {
-
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "eve", "server"})
 	testServer, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 10)
 	defer testServer.Stop()
@@ -551,10 +552,11 @@ func runUpdateTx(t *testing.T, user string, userSession DBSession, readKey strin
 	rVal, _, err := userTx.Get(readKey)
 	require.NoError(t, err)
 	wVal := string(rVal) + "Updated"
-	userTx.Put(writeKey, []byte(wVal), &types.AccessControl{
+	err = userTx.Put(writeKey, []byte(wVal), &types.AccessControl{
 		ReadUsers:      map[string]bool{"alice": true, user: true},
 		ReadWriteUsers: map[string]bool{user: true},
 	})
+	require.NoError(t, err)
 
 	_, receipt, err := userTx.Commit(true)
 	require.NoError(t, err)
