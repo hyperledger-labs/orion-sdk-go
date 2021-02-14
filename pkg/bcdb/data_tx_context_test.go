@@ -279,6 +279,40 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	require.True(t, proto.Equal(meta.GetAccessControl(), acl))
 }
 
+func TestDataContext_GetTimeout(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	testServer.Start()
+
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
+	require.NoError(t, err)
+	addUser(t, "alice", adminSession, pemUserCert)
+	sessionNoTimeout := openUserSession(t, bcdb, "alice", clientCertTemDir)
+	sessionOneNanoTimeout := openUserSessionWithQueryTimeout(t, bcdb, "alice", clientCertTemDir, time.Nanosecond)
+	sessionTenSecondTimeout := openUserSessionWithQueryTimeout(t, bcdb, "alice", clientCertTemDir, time.Second*10)
+
+	putKeySync(t, "key1", "value1", "alice", sessionNoTimeout)
+
+	tx1, err := sessionOneNanoTimeout.DataTx("bdb")
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+	val, _, err := tx1.Get("key1")
+	require.Error(t, err)
+	require.Nil(t, val)
+	require.Contains(t, err.Error(), "queryTimeout error")
+
+	tx2, err := sessionTenSecondTimeout.DataTx("bdb")
+	require.NoError(t, err)
+	require.NotNil(t, tx2)
+	val, _, err = tx2.Get("key1")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("value1"), val)
+
+}
+
 func connectAndOpenAdminSession(t *testing.T, testServer *server.BCDBHTTPServer, cryptoDir string) (BCDB, DBSession) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)

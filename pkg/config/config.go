@@ -34,6 +34,8 @@ type SessionConfig struct {
 	// SDK will wait for `TxTimeout` + some communication margin
 	// or for timeout error from server, whatever come first.
 	TxTimeout time.Duration
+	// The query timeout - SDK will wait for query result maximum `QueryTimeout` time.
+	QueryTimeout time.Duration
 }
 
 // UserConfig user related information

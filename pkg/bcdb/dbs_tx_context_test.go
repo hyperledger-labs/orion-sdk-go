@@ -62,6 +62,43 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 	require.True(t, exist)
 }
 
+func TestDBsContext_CheckStatusTimeout(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, err := setupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	testServer.Start()
+
+	bcdb, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+	// Start submission session to create a new database
+	tx, err := session.DBsTx()
+	require.NoError(t, err)
+
+	err = tx.CreateDB("testDB")
+	require.NoError(t, err)
+
+	txId, receipt, err := tx.Commit(true)
+	require.NoError(t, err)
+	require.Greater(t, len(txId), 0)
+	require.NotNil(t, receipt)
+
+	sessionOneNano := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Nanosecond)
+	sessionTenSeconds := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Second*10)
+
+	// Check database status with timeout
+	tx1, err := sessionOneNano.DBsTx()
+	require.NoError(t, err)
+	exist, err := tx1.Exists("testDB")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "queryTimeout error")
+
+	tx2, err := sessionTenSeconds.DBsTx()
+	require.NoError(t, err)
+	exist, err = tx2.Exists("testDB")
+	require.NoError(t, err)
+	require.True(t, exist)
+}
+
 func TestDBsContext_CommitAbortFinality(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
 	testServer, err := setupTestServer(t, clientCertTemDir)

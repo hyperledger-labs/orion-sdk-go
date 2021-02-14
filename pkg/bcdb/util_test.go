@@ -88,6 +88,10 @@ func createTestLogger(t *testing.T) *logger.SugarLogger {
 }
 
 func openUserSession(t *testing.T, bcdb BCDB, user string, tempDir string) DBSession {
+	return openUserSessionWithQueryTimeout(t, bcdb, user, tempDir, 0)
+}
+
+func openUserSessionWithQueryTimeout(t *testing.T, bcdb BCDB, user string, tempDir string, queryTimeout time.Duration) DBSession {
 	// New session with alice user context
 	session, err := bcdb.Session(&sdkconfig.SessionConfig{
 		UserConfig: &sdkconfig.UserConfig{
@@ -95,7 +99,8 @@ func openUserSession(t *testing.T, bcdb BCDB, user string, tempDir string) DBSes
 			CertPath:       path.Join(tempDir, user+".pem"),
 			PrivateKeyPath: path.Join(tempDir, user+".key"),
 		},
-		TxTimeout: time.Second * 2,
+		TxTimeout:    time.Second * 2,
+		QueryTimeout: queryTimeout,
 	})
 	require.NoError(t, err)
 

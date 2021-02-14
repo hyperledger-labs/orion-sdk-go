@@ -21,14 +21,16 @@ import (
 // signing capabilities to generalize ability to send requests
 // to BCDB server
 type RestClient interface {
-	// Query sends REST request with query semantics
+	// Query sends REST request with query semantics.
+	// SDK will wait for `queryTimeout` for response from server and return error if no response received.
+	// If commitTimeout set to 0, sdk will wait for http commitTimeout.
 	Query(ctx context.Context, endpoint string, msg proto.Message) (*http.Response, error)
 
-	// Submit send REST request with transaction submission semantics and optional timeout.
-	// If timeout set to 0, server will return immediately, without waiting for transaction processing
+	// Submit send REST request with transaction submission semantics and optional commitTimeout.
+	// If commitTimeout set to 0, server will return immediately, without waiting for transaction processing
 	// pipeline to complete and response will not contain transaction receipt, otherwise, server will wait
-	// up to timeout for transaction processing to complete and will return tx receipt as result.
-	// In case of timeout, http.StatusAccepted returned.
+	// up to commitTimeout for transaction processing to complete and will return tx receipt as result.
+	// In case of commitTimeout, http.StatusAccepted returned.
 	Submit(ctx context.Context, endpoint string, msg proto.Message, serverTimeout time.Duration) (*http.Response, error)
 }
 
@@ -65,7 +67,15 @@ func (r *restClient) Query(ctx context.Context, endpoint string, msg proto.Messa
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set(constants.UserHeader, r.userID)
 	req.Header.Set(constants.SignatureHeader, base64.StdEncoding.EncodeToString(signature))
-	return r.httpClient.Do(req)
+	resp, err := r.httpClient.Do(req)
+
+	if _, ok := err.(net.Error); ok {
+		if err.(net.Error).Timeout() {
+			err = errors.WithMessage(err, "queryTimeout error")
+		}
+	}
+
+	return resp, err
 }
 
 // Submit send REST request with transaction submission semantics

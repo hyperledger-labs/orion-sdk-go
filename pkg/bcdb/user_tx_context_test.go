@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/mock"
@@ -21,18 +22,28 @@ import (
 	"github.ibm.com/blockchaindb/server/pkg/types"
 )
 
-func TestUserContext_AddAndRetrieveUser(t *testing.T) {
+func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
 	testServer, err := setupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
 
-	_, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
 
 	addUser(t, "alice", adminSession, pemUserCert)
+
+	sessionOneNano := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Nanosecond)
+	tx, err := sessionOneNano.UsersTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+	alice, err := tx.GetUser("alice")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "queryTimeout error")
+	require.Nil(t, alice)
+
 }
 
 func TestUserContext_CommitAbortFinality(t *testing.T) {

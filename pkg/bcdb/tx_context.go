@@ -19,16 +19,17 @@ const (
 )
 
 type commonTxContext struct {
-	userID     string
-	signer     Signer
-	userCert   []byte
-	replicaSet map[string]*url.URL
-	nodesCerts map[string]*x509.Certificate
-	restClient RestClient
-	txEnvelope proto.Message
-	timeout    time.Duration
-	txSpent    bool
-	logger     *logger.SugarLogger
+	userID        string
+	signer        Signer
+	userCert      []byte
+	replicaSet    map[string]*url.URL
+	nodesCerts    map[string]*x509.Certificate
+	restClient    RestClient
+	txEnvelope    proto.Message
+	commitTimeout time.Duration
+	queryTimeout  time.Duration
+	txSpent       bool
+	logger        *logger.SugarLogger
 }
 
 type txContext interface {
@@ -59,8 +60,8 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 	ctx := context.Background()
 	serverTimeout := time.Duration(0)
 	if sync {
-		serverTimeout = t.timeout
-		contextTimeout := t.timeout + contextTimeoutMargin
+		serverTimeout = t.commitTimeout
+		contextTimeout := t.commitTimeout + contextTimeoutMargin
 		var cancelFnc context.CancelFunc
 		ctx, cancelFnc = context.WithTimeout(context.Background(), contextTimeout)
 		defer cancelFnc()
@@ -145,7 +146,15 @@ func (t *commonTxContext) handleRequest(rawurl string, query, res proto.Message)
 		return err
 	}
 	restURL := t.selectReplica().ResolveReference(parsedURL).String()
-	response, err := t.restClient.Query(context.TODO(), restURL, query)
+	ctx := context.Background()
+	if t.queryTimeout > 0 {
+		contextTimeout := t.queryTimeout
+		var cancelFnc context.CancelFunc
+		ctx, cancelFnc = context.WithTimeout(context.Background(), contextTimeout)
+		defer cancelFnc()
+	}
+
+	response, err := t.restClient.Query(ctx, restURL, query)
 	if err != nil {
 		return err
 	}

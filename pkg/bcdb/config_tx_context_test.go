@@ -3,6 +3,7 @@ package bcdb
 import (
 	"path"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	sdkConfig "github.ibm.com/blockchaindb/sdk/pkg/config"
@@ -59,6 +60,30 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	require.NotNil(t, clusterConfigAgain.Nodes, "it is a deep copy")
 	require.NotNil(t, clusterConfigAgain.Admins, "it is a deep copy")
 	require.NotNil(t, clusterConfigAgain.CertAuthConfig, "it is a deep copy")
+}
+
+func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
+	cryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, err := setupTestServer(t, cryptoDir)
+	defer func() {
+		if testServer != nil {
+			_ = testServer.Stop()
+		}
+	}()
+	require.NoError(t, err)
+	err = testServer.Start()
+	require.NoError(t, err)
+
+	serverPort, err := testServer.Port()
+	require.NoError(t, err)
+
+	bcdb := createDBInstance(t, cryptoDir, serverPort)
+	session := openUserSessionWithQueryTimeout(t, bcdb, "admin", cryptoDir, time.Nanosecond)
+
+	tx, err := session.ConfigTx()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "queryTimeout error")
+	require.Nil(t, tx)
 }
 
 func TestConfigTxContext_AddAdmin(t *testing.T) {

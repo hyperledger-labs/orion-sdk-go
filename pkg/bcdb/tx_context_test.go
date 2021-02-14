@@ -11,11 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.ibm.com/blockchaindb/server/pkg/constants"
-
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb/mocks"
+	"github.ibm.com/blockchaindb/server/pkg/constants"
 	"github.ibm.com/blockchaindb/server/pkg/types"
 )
 
@@ -45,13 +44,35 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: asyncSubmit,
-						resp:     okResponseAsync(),
+						process: asyncSubmit,
+						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
 				},
 			},
 			wantErr: false,
+		},
+		{
+			name: "dataTx incorrect async",
+			txCtx: &dataTxContext{
+				commonTxContext: &commonTxContext{
+					userID:   "testUser",
+					signer:   emptySigner,
+					userCert: []byte{1, 2, 3},
+					replicaSet: map[string]*url.URL{
+						"node1": {
+							Path: "http://localhost:8888",
+						},
+					},
+					restClient: NewRestClient("testUser", &mockHttpClient{
+						process: asyncSubmit,
+						resp:    serverBadRequestResponse(),
+					}, emptySigner),
+					logger: logger,
+				},
+			},
+			wantErr: true,
+			errMsg:  "failed to submit transaction, server returned: status: Bad Request, message: Bad request error",
 		},
 		{
 			name: "dataTx correct sync",
@@ -66,18 +87,18 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: syncSubmit,
-						resp:     okResponse(),
+						process: syncSubmit,
+						resp:    okResponse(),
 					}, emptySigner),
-					timeout: time.Second * 2,
-					logger:  logger,
+					commitTimeout: time.Second * 2,
+					logger:        logger,
 				},
 			},
 			syncCommit: true,
 			wantErr:    false,
 		},
 		{
-			name: "dataTx sync server timeout",
+			name: "dataTx sync server commitTimeout",
 			txCtx: &dataTxContext{
 				commonTxContext: &commonTxContext{
 					userID:   "testUser",
@@ -89,11 +110,11 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: syncSubmit,
-						resp:     serverTimeoutResponse(),
+						process: syncSubmit,
+						resp:    serverTimeoutResponse(),
 					}, emptySigner),
-					timeout: time.Second * 2,
-					logger:  logger,
+					commitTimeout: time.Second * 2,
+					logger:        logger,
 				},
 			},
 			syncCommit: true,
@@ -113,8 +134,8 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: submitErr,
-						resp:     nil,
+						process: submitErr,
+						resp:    nil,
 					}, emptySigner),
 					logger: logger,
 				},
@@ -135,8 +156,8 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: asyncSubmit,
-						resp:     okResponseAsync(),
+						process: asyncSubmit,
+						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
 				},
@@ -157,11 +178,11 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: syncSubmit,
-						resp:     okResponse(),
+						process: syncSubmit,
+						resp:    okResponse(),
 					}, emptySigner),
-					timeout: time.Second * 2,
-					logger:  logger,
+					commitTimeout: time.Second * 2,
+					logger:        logger,
 				},
 				oldConfig: &types.ClusterConfig{},
 			},
@@ -169,7 +190,7 @@ func TestTxCommit(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name: "configTx sync server timeout",
+			name: "configTx sync server commitTimeout",
 			txCtx: &configTxContext{
 				commonTxContext: &commonTxContext{
 					userID:   "testUser",
@@ -181,11 +202,11 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: syncSubmit,
-						resp:     serverTimeoutResponse(),
+						process: syncSubmit,
+						resp:    serverTimeoutResponse(),
 					}, emptySigner),
-					timeout: time.Second * 2,
-					logger:  logger,
+					commitTimeout: time.Second * 2,
+					logger:        logger,
 				},
 				oldConfig: &types.ClusterConfig{},
 			},
@@ -206,8 +227,8 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: asyncSubmit,
-						resp:     okResponseAsync(),
+						process: asyncSubmit,
+						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
 				},
@@ -227,18 +248,18 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: syncSubmit,
-						resp:     okResponse(),
+						process: syncSubmit,
+						resp:    okResponse(),
 					}, emptySigner),
-					timeout: time.Second * 2,
-					logger:  logger,
+					commitTimeout: time.Second * 2,
+					logger:        logger,
 				},
 			},
 			syncCommit: true,
 			wantErr:    false,
 		},
 		{
-			name: "userTx sync server timeout",
+			name: "userTx sync server commitTimeout",
 			txCtx: &userTxContext{
 				commonTxContext: &commonTxContext{
 					userID:   "testUser",
@@ -250,11 +271,11 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: syncSubmit,
-						resp:     serverTimeoutResponse(),
+						process: syncSubmit,
+						resp:    serverTimeoutResponse(),
 					}, emptySigner),
-					timeout: time.Second * 2,
-					logger:  logger,
+					commitTimeout: time.Second * 2,
+					logger:        logger,
 				},
 			},
 			syncCommit: true,
@@ -274,8 +295,8 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: asyncSubmit,
-						resp:     okResponseAsync(),
+						process: asyncSubmit,
+						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
 				},
@@ -295,18 +316,18 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: syncSubmit,
-						resp:     okResponse(),
+						process: syncSubmit,
+						resp:    okResponse(),
 					}, emptySigner),
-					timeout: time.Second,
-					logger:  logger,
+					commitTimeout: time.Second,
+					logger:        logger,
 				},
 			},
 			syncCommit: true,
 			wantErr:    false,
 		},
 		{
-			name: "dbsTx sync server timeout",
+			name: "dbsTx sync server commitTimeout",
 			txCtx: &dbsTxContext{
 				commonTxContext: &commonTxContext{
 					userID:   "testUser",
@@ -318,11 +339,11 @@ func TestTxCommit(t *testing.T) {
 						},
 					},
 					restClient: NewRestClient("testUser", &mockHttpClient{
-						checkReq: syncSubmit,
-						resp:     serverTimeoutResponse(),
+						process: syncSubmit,
+						resp:    serverTimeoutResponse(),
 					}, emptySigner),
-					timeout: time.Second,
-					logger:  logger,
+					commitTimeout: time.Second,
+					logger:        logger,
 				},
 			},
 			syncCommit: true,
@@ -349,8 +370,108 @@ func TestTxCommit(t *testing.T) {
 			if tt.syncCommit {
 				require.NotNil(t, receipt)
 			}
+			require.NoError(t, err)
 		})
 	}
+
+}
+
+func TestTxQuery(t *testing.T) {
+	emptySigner := &mocks.Signer{}
+	emptySigner.On("Sign", mock.Anything).Return([]byte{1}, nil)
+
+	logger := createTestLogger(t)
+
+	tests := []struct {
+		name    string
+		txCtx   *commonTxContext
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "dataTx Get, processing 100 ms, 0 timeout",
+			txCtx: &commonTxContext{
+				userID:   "testUser",
+				signer:   emptySigner,
+				userCert: []byte{1, 2, 3},
+				replicaSet: map[string]*url.URL{
+					"node1": {
+						Path: "http://localhost:8888",
+					},
+				},
+				restClient: NewRestClient("testUser", &mockHttpClient{
+					process: querySleep100,
+					resp:    okDataQueryResponse(),
+				}, emptySigner),
+				queryTimeout: 0,
+				logger:       logger,
+			},
+			wantErr: false,
+		},
+		{
+			name: "dataTx Get, processing 100 ms, 10 ms timeout",
+			txCtx: &commonTxContext{
+				userID:   "testUser",
+				signer:   emptySigner,
+				userCert: []byte{1, 2, 3},
+				replicaSet: map[string]*url.URL{
+					"node1": {
+						Path: "http://localhost:8888",
+					},
+				},
+				restClient: NewRestClient("testUser", &mockHttpClient{
+					process: querySleep100,
+					resp:    okDataQueryResponse(),
+				}, emptySigner),
+				queryTimeout: time.Millisecond * 10,
+				logger:       logger,
+			},
+			wantErr: true,
+			errMsg:  "queryTimeout error",
+		},
+		{
+			name: "dataTx Get, processing 10 ms, 100 ms timeout",
+			txCtx: &commonTxContext{
+				userID:   "testUser",
+				signer:   emptySigner,
+				userCert: []byte{1, 2, 3},
+				replicaSet: map[string]*url.URL{
+					"node1": {
+						Path: "http://localhost:8888",
+					},
+				},
+				restClient: NewRestClient("testUser", &mockHttpClient{
+					process: querySleep10,
+					resp:    okDataQueryResponse(),
+				}, emptySigner),
+				queryTimeout: time.Millisecond * 100,
+				logger:       logger,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, err := tt.txCtx.TxEnvelope()
+			require.Error(t, err)
+			require.Contains(t, "can't access tx envelope, transaction not finalized", err.Error())
+			require.Nil(t, env)
+			res := &types.GetDataResponse{}
+			req := &types.GetDataQuery{
+				UserID: "testUSer",
+				DBName: "bdb",
+				Key:    "key1",
+			}
+			err = tt.txCtx.handleRequest(constants.URLForGetData("bdb", "key1"), req, res)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errMsg)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+
 }
 
 func okResponse() *http.Response {
@@ -398,9 +519,31 @@ func okResponseAsync() *http.Response {
 	}
 }
 
+func okDataQueryResponse() *http.Response {
+	okResp := &types.ResponseEnvelope{
+		Payload: MarshalOrPanic(&types.Payload{
+			Header: &types.ResponseHeader{
+				NodeID: "node1",
+			},
+			Response: MarshalOrPanic(&types.GetDataResponse{
+				Value:    []byte{1},
+				Metadata: &types.Metadata{},
+			}),
+		}),
+	}
+
+	okPbJson, _ := json.Marshal(okResp)
+	okRespReader := ioutil.NopCloser(bytes.NewReader([]byte(okPbJson)))
+	return &http.Response{
+		StatusCode: 200,
+		Status:     http.StatusText(200),
+		Body:       okRespReader,
+	}
+}
+
 func serverTimeoutResponse() *http.Response {
 	errResp := &types.HttpResponseErr{
-		ErrMsg: "Transaction processing timeout",
+		ErrMsg: "Transaction processing commitTimeout",
 	}
 	errPbJson, _ := json.Marshal(errResp)
 	errRespReader := ioutil.NopCloser(bytes.NewReader([]byte(errPbJson)))
@@ -419,19 +562,20 @@ func serverBadRequestResponse() *http.Response {
 	errRespReader := ioutil.NopCloser(bytes.NewReader([]byte(errPbJson)))
 	return &http.Response{
 		StatusCode: http.StatusBadRequest,
+		Status:     http.StatusText(http.StatusBadRequest),
 		Body:       errRespReader,
 	}
 }
 
-type checkRequestFunc func(req *http.Request, resp *http.Response) (*http.Response, error)
+type processFunc func(req *http.Request, resp *http.Response) (*http.Response, error)
 
 type mockHttpClient struct {
-	checkReq checkRequestFunc
-	resp     *http.Response
+	process processFunc
+	resp    *http.Response
 }
 
 func (c *mockHttpClient) Do(req *http.Request) (*http.Response, error) {
-	return c.checkReq(req, c.resp)
+	return c.process(req, c.resp)
 }
 
 func asyncSubmit(req *http.Request, resp *http.Response) (*http.Response, error) {
@@ -462,6 +606,28 @@ func submitErr(_ *http.Request, resp *http.Response) (*http.Response, error) {
 	return nil, errors.New("submit error")
 }
 
+func querySleep100(req *http.Request, resp *http.Response) (*http.Response, error) {
+	time.Sleep(time.Millisecond * 100)
+	ctx := req.Context()
+	if deadline, ok := ctx.Deadline(); ok {
+		if deadline.Before(time.Now()) {
+			return nil, &timeoutError{}
+		}
+	}
+	return resp, nil
+}
+
+func querySleep10(req *http.Request, resp *http.Response) (*http.Response, error) {
+	time.Sleep(time.Millisecond * 10)
+	ctx := req.Context()
+	if deadline, ok := ctx.Deadline(); ok {
+		if deadline.Before(time.Now()) {
+			return nil, &timeoutError{}
+		}
+	}
+	return resp, nil
+}
+
 func getTimeout(h *http.Header) (time.Duration, error) {
 	timeoutStr := h.Get(constants.TimeoutHeader)
 	if len(timeoutStr) == 0 {
@@ -478,3 +644,10 @@ func getTimeout(h *http.Header) (time.Duration, error) {
 	}
 	return timeout, nil
 }
+
+// Implements net.Error interface
+type timeoutError struct{}
+
+func (e *timeoutError) Error() string   { return "timeout" }
+func (e *timeoutError) Timeout() bool   { return true }
+func (e *timeoutError) Temporary() bool { return true }

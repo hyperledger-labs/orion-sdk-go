@@ -404,8 +404,6 @@ github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c/go.mod h1:lB8K/P019DLNhe
 github.com/xdg/stringprep v1.0.0/go.mod h1:Jhud4/sHMO4oL310DaZAKk9ZaJ08SJfe+sJh0HrGL1Y=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
-github.ibm.com/blockchaindb/server v0.0.0-20210128203852-17655e520a23 h1:JDhnsb0gya/FRxfJMr8QuAOE0i15JzSFeDDe+2LBtqI=
-github.ibm.com/blockchaindb/server v0.0.0-20210128203852-17655e520a23/go.mod h1:uK5EDibn2hSDserxzsvbftguWPK80oCyNAOYaYPNTI8=
 github.ibm.com/blockchaindb/server v0.0.0-20210209114409-387bec385e44 h1:hfJ5QNfk0nHp26mZ/wgOsKccfsYW6XBXp0jtH+OcZaE=
 github.ibm.com/blockchaindb/server v0.0.0-20210209114409-387bec385e44/go.mod h1:uK5EDibn2hSDserxzsvbftguWPK80oCyNAOYaYPNTI8=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=

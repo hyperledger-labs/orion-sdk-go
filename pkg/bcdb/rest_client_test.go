@@ -24,6 +24,8 @@ func TestRestClient_Query(t *testing.T) {
 		require.Equal(t, base64.StdEncoding.EncodeToString([]byte{1, 2, 3}), sig)
 		require.Equal(t, http.MethodGet, request.Method)
 
+		time.Sleep(time.Millisecond * 50)
+
 		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(http.StatusOK)
 	}))
@@ -33,7 +35,33 @@ func TestRestClient_Query(t *testing.T) {
 
 	client := NewRestClient("testUserID", server.Client(), signer)
 
-	response, err := client.Query(context.TODO(), server.URL, &types.GetDataQuery{
+	response, err := client.Query(context.Background(), server.URL, &types.GetDataQuery{
+		UserID: "alice",
+		DBName: "bdb",
+		Key:    "foo",
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, response)
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	ctx, cancelFnc := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancelFnc()
+
+	response, err = client.Query(ctx, server.URL, &types.GetDataQuery{
+		UserID: "alice",
+		DBName: "bdb",
+		Key:    "foo",
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "queryTimeout error")
+	require.Nil(t, response)
+
+	ctx, cancelFnc = context.WithTimeout(context.Background(), time.Second)
+	defer cancelFnc()
+
+	response, err = client.Query(ctx, server.URL, &types.GetDataQuery{
 		UserID: "alice",
 		DBName: "bdb",
 		Key:    "foo",
@@ -47,7 +75,7 @@ func TestRestClient_Query(t *testing.T) {
 func TestRestClient_Submit(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		require.Equal(t, http.MethodPost, request.Method)
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 50)
 		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(http.StatusOK)
 	}))
@@ -75,8 +103,8 @@ func TestRestClient_Submit(t *testing.T) {
 	require.Contains(t, err.Error(), "timeout error")
 	require.Nil(t, response)
 
-	ctx, cancelFnc2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancelFnc2()
+	ctx, cancelFnc = context.WithTimeout(context.Background(), time.Second)
+	defer cancelFnc()
 	response, err = client.Submit(ctx, server.URL, &types.DataTx{
 		UserID: "alice",
 		DBName: "bdb",

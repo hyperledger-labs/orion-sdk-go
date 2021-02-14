@@ -48,7 +48,7 @@ var ErrTxSpent = errors.New("transaction committed or aborted")
 type TxContext interface {
 	// Commit submits transaction to the server, can be sync or async.
 	// Sync option returns tx id and tx receipt and
-	// in case of error, timeout error is one of possible errors to return.
+	// in case of error, commitTimeout error is one of possible errors to return.
 	// Async returns tx id, always nil as tx receipt or error
 	Commit(sync bool) (string, *types.TxReceipt, error)
 	// Abort cancel submission and abandon all changes
@@ -183,24 +183,26 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 	}
 
 	return &dbSession{
-		userID:     cfg.UserConfig.UserID,
-		signer:     signer,
-		userCert:   certBytes,
-		replicaSet: b.replicaSet,
-		rootCAs:    b.rootCAs,
-		txTimeout:  cfg.TxTimeout,
-		logger:     b.logger,
+		userID:       cfg.UserConfig.UserID,
+		signer:       signer,
+		userCert:     certBytes,
+		replicaSet:   b.replicaSet,
+		rootCAs:      b.rootCAs,
+		txTimeout:    cfg.TxTimeout,
+		queryTimeout: cfg.QueryTimeout,
+		logger:       b.logger,
 	}, nil
 }
 
 type dbSession struct {
-	userID     string
-	signer     Signer
-	userCert   []byte
-	replicaSet map[string]*url.URL
-	rootCAs    *x509.CertPool
-	txTimeout  time.Duration
-	logger     *logger.SugarLogger
+	userID       string
+	signer       Signer
+	userCert     []byte
+	replicaSet   map[string]*url.URL
+	rootCAs      *x509.CertPool
+	txTimeout    time.Duration
+	queryTimeout time.Duration
+	logger       *logger.SugarLogger
 }
 
 func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (map[string]*x509.Certificate, error) {
@@ -372,14 +374,15 @@ func (d *dbSession) newCommonTxContext() (*commonTxContext, error) {
 		return nil, err
 	}
 	commonTxContext := &commonTxContext{
-		userID:     d.userID,
-		signer:     d.signer,
-		userCert:   d.userCert,
-		replicaSet: d.replicaSet,
-		nodesCerts: nodesCerts,
-		restClient: NewRestClient(d.userID, httpClient, d.signer),
-		timeout:    d.txTimeout,
-		logger:     d.logger,
+		userID:        d.userID,
+		signer:        d.signer,
+		userCert:      d.userCert,
+		replicaSet:    d.replicaSet,
+		nodesCerts:    nodesCerts,
+		restClient:    NewRestClient(d.userID, httpClient, d.signer),
+		commitTimeout: d.txTimeout,
+		queryTimeout:  d.queryTimeout,
+		logger:        d.logger,
 	}
 	return commonTxContext, nil
 }
