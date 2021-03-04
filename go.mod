@@ -16,7 +16,7 @@ require (
 	github.com/spf13/viper v1.7.1 // indirect
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/stretchr/testify v1.7.0
-	github.ibm.com/blockchaindb/server v0.0.0-20210209114409-387bec385e44
+	github.ibm.com/blockchaindb/server v0.0.0-20210304070947-00d5fe84af65
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0 // indirect
 	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
