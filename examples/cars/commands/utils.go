@@ -6,10 +6,10 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 )
 
 func marshalOrPanic(msg proto.Message) []byte {
@@ -80,4 +80,12 @@ func loadTxEvidence(demoDir, txID string, lg *logger.SugarLogger) (*types.DataTx
 	lg.Infof("Loaded tx receipt: \n%s", marshalToStringOrPanic(rct))
 
 	return env, rct, nil
+}
+
+func usersMap(users ...string) map[string]bool {
+	m := make(map[string]bool)
+	for _, u := range users {
+		m[u] = true
+	}
+	return m
 }

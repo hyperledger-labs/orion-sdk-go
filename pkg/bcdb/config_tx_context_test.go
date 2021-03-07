@@ -183,10 +183,7 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	require.NoError(t, err)
 
 	adminCert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin")
-	admin := &types.Admin{
-		ID:          "admin",
-		Certificate: adminCert.Raw,
-	}
+	admin := &types.Admin{ID: "admin", Certificate: adminCert.Raw}
 
 	admin2Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin2")
 	admin3Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin3")
@@ -251,7 +248,7 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 
 	// session1 by removed admin cannot execute additional transactions
 	tx4, err := session1.ConfigTx()
-	require.EqualError(t, err, "failed to obtain server's certificate")
+	require.EqualError(t, err, "error handling request, server returned: status: 401 Unauthorized, message: signature verification failed")
 	require.Nil(t, tx4)
 }
 
@@ -317,7 +314,7 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 
 	// session1 by updated admin cannot execute additional transactions, need to recreate session
 	tx3, err := session1.ConfigTx()
-	require.EqualError(t, err, "failed to obtain server's certificate")
+	require.EqualError(t, err, "error handling request, server returned: status: 401 Unauthorized, message: signature verification failed")
 	require.Nil(t, tx3)
 
 	// need to recreate session with new credentials
@@ -413,13 +410,14 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 	config, err := tx1.GetClusterConfig()
 	require.NoError(t, err)
 
-	id1 := config.Nodes[0].ID
+	node1 := config.Nodes[0]
 	node2 := &types.NodeConfig{
 		ID:          "testNode2",
 		Address:     config.Nodes[0].Address,
 		Port:        config.Nodes[0].Port + 1,
 		Certificate: config.Nodes[0].Certificate,
 	}
+	peer1 := config.ConsensusConfig.Members[0]
 	peer2 := &types.PeerConfig{
 		NodeId:   "testNode2",
 		RaftId:   config.ConsensusConfig.Members[0].RaftId + 1,
@@ -437,7 +435,19 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 
 	tx2, err := session1.ConfigTx()
 	require.NoError(t, err)
-	err = tx2.DeleteClusterNode(id1)
+
+	clusterConfig, err := tx2.GetClusterConfig()
+	require.NoError(t, err)
+	require.NotNil(t, clusterConfig)
+	require.Len(t, clusterConfig.Nodes, 2)
+	found, index := NodeExists("testNode2", clusterConfig.Nodes)
+	require.True(t, found)
+	require.Equal(t, clusterConfig.Nodes[index].Port, node2.Port)
+	found, index = PeerExists("testNode2", clusterConfig.ConsensusConfig.Members)
+	require.True(t, found)
+	require.Equal(t, clusterConfig.ConsensusConfig.Members[index].PeerPort, peer2.PeerPort)
+
+	err = tx2.DeleteClusterNode(node2.ID)
 	require.NoError(t, err)
 
 	txID, receipt, err = tx2.Commit(true)
@@ -449,17 +459,17 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 	// verify tx was successfully committed. "Get" works once per Tx.
 	tx3, err := session1.ConfigTx()
 	require.NoError(t, err)
-	clusterConfig, err := tx3.GetClusterConfig()
+	clusterConfig, err = tx3.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfig)
 	require.Len(t, clusterConfig.Nodes, 1)
 
-	found, index := NodeExists("testNode2", clusterConfig.Nodes)
+	found, index = NodeExists("testNode1", clusterConfig.Nodes)
 	require.True(t, found)
-	require.Equal(t, clusterConfig.Nodes[index].Port, node2.Port)
-	found, index = PeerExists("testNode2", clusterConfig.ConsensusConfig.Members)
+	require.Equal(t, clusterConfig.Nodes[index].Port, node1.Port)
+	found, index = PeerExists("testNode1", clusterConfig.ConsensusConfig.Members)
 	require.True(t, found)
-	require.Equal(t, clusterConfig.ConsensusConfig.Members[index].PeerPort, peer2.PeerPort)
+	require.Equal(t, clusterConfig.ConsensusConfig.Members[index].PeerPort, peer1.PeerPort)
 }
 
 //TODO this test will stop working once we implement quorum rules

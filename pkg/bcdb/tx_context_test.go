@@ -24,8 +24,13 @@ func TestTxCommit(t *testing.T) {
 	emptySigner := &mocks.Signer{}
 	emptySigner.On("Sign", mock.Anything).Return([]byte{1}, nil)
 
-	logger := createTestLogger(t)
+	verifier := &mocks.SignatureVerifier{}
+	verifier.On("Verify", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
+	verifierFails := &mocks.SignatureVerifier{}
+	verifierFails.On("Verify", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("bad-mock-signature"))
+
+	logger := createTestLogger(t)
 	tests := []struct {
 		name       string
 		txCtx      TxContext
@@ -45,6 +50,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: asyncSubmit,
 						resp:    okResponseAsync(),
@@ -66,6 +72,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: asyncSubmit,
 						resp:    serverBadRequestResponse(),
@@ -88,6 +95,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: syncSubmit,
 						resp:    okResponse(),
@@ -111,6 +119,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: syncSubmit,
 						resp:    serverTimeoutResponse(),
@@ -121,7 +130,7 @@ func TestTxCommit(t *testing.T) {
 			},
 			syncCommit: true,
 			wantErr:    true,
-			errMsg:     "timeout occurred on server side while submitting transaction, converted to asynchronous completion",
+			errMsg:     "timeout occurred on server side while submitting transaction, converted to asynchronous completion, TxID:",
 		},
 		{
 			name: "dataTx error submit",
@@ -135,6 +144,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: submitErr,
 						resp:    nil,
@@ -144,6 +154,29 @@ func TestTxCommit(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "submit error",
+		},
+		{
+			name: "dataTx sig verifier fails",
+			txCtx: &dataTxContext{
+				commonTxContext: &commonTxContext{
+					userID:   "testUser",
+					signer:   emptySigner,
+					userCert: []byte{1, 2, 3},
+					replicaSet: map[string]*url.URL{
+						"node1": {
+							Path: "http://localhost:8888",
+						},
+					},
+					verifier: verifierFails,
+					restClient: NewRestClient("testUser", &mockHttpClient{
+						process: asyncSubmit,
+						resp:    okResponseAsync(),
+					}, emptySigner),
+					logger: logger,
+				},
+			},
+			wantErr: true,
+			errMsg:  "signature verification failed nodeID node1, due to bad-mock-signature",
 		},
 		{
 			name: "configTx correct async",
@@ -157,6 +190,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: asyncSubmit,
 						resp:    okResponseAsync(),
@@ -179,6 +213,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: syncSubmit,
 						resp:    okResponse(),
@@ -203,6 +238,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: syncSubmit,
 						resp:    serverTimeoutResponse(),
@@ -217,6 +253,30 @@ func TestTxCommit(t *testing.T) {
 			errMsg:     "timeout occurred on server side while submitting transaction, converted to asynchronous completion",
 		},
 		{
+			name: "configTx sig verifier failed",
+			txCtx: &configTxContext{
+				commonTxContext: &commonTxContext{
+					userID:   "testUser",
+					signer:   emptySigner,
+					userCert: []byte{1, 2, 3},
+					replicaSet: map[string]*url.URL{
+						"node1": {
+							Path: "http://localhost:8888",
+						},
+					},
+					verifier: verifierFails,
+					restClient: NewRestClient("testUser", &mockHttpClient{
+						process: asyncSubmit,
+						resp:    okResponseAsync(),
+					}, emptySigner),
+					logger: logger,
+				},
+				oldConfig: &types.ClusterConfig{},
+			},
+			wantErr: true,
+			errMsg:  "signature verification failed nodeID node1, due to bad-mock-signature",
+		},
+		{
 			name: "userTx correct async",
 			txCtx: &userTxContext{
 				commonTxContext: &commonTxContext{
@@ -228,6 +288,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: asyncSubmit,
 						resp:    okResponseAsync(),
@@ -249,6 +310,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: syncSubmit,
 						resp:    okResponse(),
@@ -272,6 +334,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: syncSubmit,
 						resp:    serverTimeoutResponse(),
@@ -285,6 +348,29 @@ func TestTxCommit(t *testing.T) {
 			errMsg:     "timeout occurred on server side while submitting transaction, converted to asynchronous completion",
 		},
 		{
+			name: "userTx sig verifier fails",
+			txCtx: &userTxContext{
+				commonTxContext: &commonTxContext{
+					userID:   "testUser",
+					signer:   emptySigner,
+					userCert: []byte{1, 2, 3},
+					replicaSet: map[string]*url.URL{
+						"node1": {
+							Path: "http://localhost:8888",
+						},
+					},
+					verifier: verifierFails,
+					restClient: NewRestClient("testUser", &mockHttpClient{
+						process: asyncSubmit,
+						resp:    okResponseAsync(),
+					}, emptySigner),
+					logger: logger,
+				},
+			},
+			wantErr: true,
+			errMsg:  "signature verification failed nodeID node1, due to bad-mock-signature",
+		},
+		{
 			name: "dbsTx correct async",
 			txCtx: &dbsTxContext{
 				commonTxContext: &commonTxContext{
@@ -296,6 +382,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: asyncSubmit,
 						resp:    okResponseAsync(),
@@ -317,6 +404,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: syncSubmit,
 						resp:    okResponse(),
@@ -340,6 +428,7 @@ func TestTxCommit(t *testing.T) {
 							Path: "http://localhost:8888",
 						},
 					},
+					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: syncSubmit,
 						resp:    serverTimeoutResponse(),
@@ -352,6 +441,29 @@ func TestTxCommit(t *testing.T) {
 			wantErr:    true,
 			errMsg:     "timeout occurred on server side while submitting transaction, converted to asynchronous completion",
 		},
+		{
+			name: "dbsTx sig verifier fails",
+			txCtx: &dbsTxContext{
+				commonTxContext: &commonTxContext{
+					userID:   "testUser",
+					signer:   emptySigner,
+					userCert: []byte{1, 2, 3},
+					replicaSet: map[string]*url.URL{
+						"node1": {
+							Path: "http://localhost:8888",
+						},
+					},
+					verifier: verifierFails,
+					restClient: NewRestClient("testUser", &mockHttpClient{
+						process: asyncSubmit,
+						resp:    okResponseAsync(),
+					}, emptySigner),
+					logger: logger,
+				},
+			},
+			wantErr: true,
+			errMsg:  "signature verification failed nodeID node1, due to bad-mock-signature",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -362,7 +474,7 @@ func TestTxCommit(t *testing.T) {
 			_, receipt, err := tt.txCtx.Commit(tt.syncCommit)
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Contains(t, tt.errMsg, err.Error())
+				require.Contains(t,  err.Error(),tt.errMsg)
 				return
 			}
 			require.NoError(t, err)
@@ -381,6 +493,9 @@ func TestTxCommit(t *testing.T) {
 func TestTxQuery(t *testing.T) {
 	emptySigner := &mocks.Signer{}
 	emptySigner.On("Sign", mock.Anything).Return([]byte{1}, nil)
+
+	verifier := &mocks.SignatureVerifier{}
+	verifier.On("Verify", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	logger := createTestLogger(t)
 
@@ -401,6 +516,7 @@ func TestTxQuery(t *testing.T) {
 						Path: "http://localhost:8888",
 					},
 				},
+				verifier: verifier,
 				restClient: NewRestClient("testUser", &mockHttpClient{
 					process: querySleep100,
 					resp:    okDataQueryResponse(),
@@ -421,6 +537,7 @@ func TestTxQuery(t *testing.T) {
 						Path: "http://localhost:8888",
 					},
 				},
+				verifier: verifier,
 				restClient: NewRestClient("testUser", &mockHttpClient{
 					process: querySleep100,
 					resp:    okDataQueryResponse(),
@@ -442,6 +559,7 @@ func TestTxQuery(t *testing.T) {
 						Path: "http://localhost:8888",
 					},
 				},
+				verifier: verifier,
 				restClient: NewRestClient("testUser", &mockHttpClient{
 					process: querySleep10,
 					resp:    okDataQueryResponse(),
@@ -548,7 +666,7 @@ func serverTimeoutResponse() *http.Response {
 		ErrMsg: "Transaction processing commitTimeout",
 	}
 	errPbJson, _ := json.Marshal(errResp)
-	errRespReader := ioutil.NopCloser(bytes.NewReader([]byte(errPbJson)))
+	errRespReader := ioutil.NopCloser(bytes.NewReader(errPbJson))
 	return &http.Response{
 		StatusCode: http.StatusAccepted,
 		Status:     http.StatusText(http.StatusAccepted),
@@ -561,7 +679,7 @@ func serverBadRequestResponse() *http.Response {
 		ErrMsg: "Bad request error",
 	}
 	errPbJson, _ := json.Marshal(errResp)
-	errRespReader := ioutil.NopCloser(bytes.NewReader([]byte(errPbJson)))
+	errRespReader := ioutil.NopCloser(bytes.NewReader(errPbJson))
 	return &http.Response{
 		StatusCode: http.StatusBadRequest,
 		Status:     http.StatusText(http.StatusBadRequest),

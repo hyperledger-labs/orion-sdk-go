@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 	"github.com/pkg/errors"
@@ -62,8 +61,8 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 	ttRecKey := ttRecord.Key()
 	err = dataTx.Put(CarDBName, ttRecKey, ttRecBytes,
 		&types.AccessControl{
-			ReadUsers:      bcdb.UsersMap("dmv", buyerID),
-			ReadWriteUsers: bcdb.UsersMap(ownerID),
+			ReadUsers:      usersMap("dmv", buyerID),
+			ReadWriteUsers: usersMap(ownerID),
 		},
 	)
 	if err != nil {
@@ -152,8 +151,8 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 	trRecKey := trRec.Key()
 
 	err = dataTx.Put(CarDBName, trRecKey, trRecBytes, &types.AccessControl{
-		ReadUsers:      bcdb.UsersMap("dmv", ttRec.Owner),
-		ReadWriteUsers: bcdb.UsersMap(buyerID),
+		ReadUsers:      usersMap("dmv", ttRec.Owner),
+		ReadWriteUsers: usersMap(buyerID),
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "error during data transaction")
@@ -247,8 +246,8 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 
 	err = dataTx.Put(CarDBName, carKey, recordBytes,
 		&types.AccessControl{
-			ReadUsers:      bcdb.UsersMap(ttRec.Buyer),
-			ReadWriteUsers: bcdb.UsersMap(dmvID),
+			ReadUsers:      usersMap(ttRec.Buyer),
+			ReadWriteUsers: usersMap(dmvID),
 		},
 	)
 	if err != nil {
