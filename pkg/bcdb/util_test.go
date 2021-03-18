@@ -212,7 +212,7 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 		switch tx.(type) {
 		case ConfigTxContext:
 			// TODO remove once support for non data tx provenance added
-			e, _ := tx.TxEnvelope()
+			e, _ := tx.CommittedTxEnvelope()
 			env := e.(*types.ConfigTxEnvelope)
 			newConfig := env.GetPayload().GetNewConfig()
 			require.Eventually(t, func() bool {
@@ -231,7 +231,7 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 			waitForTx(t, txID, userSession)
 		case DBsTxContext:
 			// TODO remove once support for non data tx provenance added
-			e, _ := tx.TxEnvelope()
+			e, _ := tx.CommittedTxEnvelope()
 			env := e.(*types.DBAdministrationTxEnvelope)
 			createdDBs := env.GetPayload().GetCreateDbs()
 			deletedDBs := env.GetPayload().GetDeleteDbs()
@@ -265,7 +265,7 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 
 		case UsersTxContext:
 			// TODO remove once support for non data tx provenance added
-			e, _ := tx.TxEnvelope()
+			e, _ := tx.CommittedTxEnvelope()
 			env := e.(*types.UserAdministrationTxEnvelope)
 			deleteUsers := env.GetPayload().GetUserDeletes()
 			updateUsers := env.GetPayload().GetUserWrites()

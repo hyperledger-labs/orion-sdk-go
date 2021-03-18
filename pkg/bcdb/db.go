@@ -27,6 +27,7 @@ type BCDB interface {
 type DBSession interface {
 	UsersTx() (UsersTxContext, error)
 	DataTx() (DataTxContext, error)
+	LoadDataTx(*types.DataTxEnvelope) (LoadedDataTxContext, error)
 	DBsTx() (DBsTxContext, error)
 	ConfigTx() (ConfigTxContext, error)
 	Provenance() (Provenance, error)
@@ -46,8 +47,8 @@ type TxContext interface {
 	// Abort cancel submission and abandon all changes
 	// within given transaction context
 	Abort() error
-	// TxEnvelope returns transaction envelope, can be called only after Commit(), otherwise will return nil
-	TxEnvelope() (proto.Message, error)
+	// CommittedTxEnvelope returns transaction envelope, can be called only after Commit(), otherwise will return nil
+	CommittedTxEnvelope() (proto.Message, error)
 }
 
 type Ledger interface {
