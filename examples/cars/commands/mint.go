@@ -37,12 +37,12 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 	}
 	key := record.Key()
 
-	dataTx, err := session.DataTx(CarDBName)
+	dataTx, err := session.DataTx()
 	if err != nil {
 		return "", errors.Wrap(err, "error creating data transaction")
 	}
 
-	recordBytes, _, err := dataTx.Get(key)
+	recordBytes, _, err := dataTx.Get(CarDBName, key)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting MintRequest: %s", key)
 	}
@@ -52,7 +52,7 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 
 	recordBytes, err = json.Marshal(record)
 
-	err = dataTx.Put(key, recordBytes,
+	err = dataTx.Put(CarDBName, key, recordBytes,
 		&types.AccessControl{
 			ReadUsers:      bcdb.UsersMap("dmv"),
 			ReadWriteUsers: bcdb.UsersMap(dealerID),
@@ -104,12 +104,12 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 
 	mintReqRec := &MintRequestRecord{}
 
-	dataTx, err := session.DataTx(CarDBName)
+	dataTx, err := session.DataTx()
 	if err != nil {
 		return "", errors.Wrap(err, "error creating data transaction")
 	}
 
-	recordBytes, _, err := dataTx.Get(mintReqRecordKey)
+	recordBytes, _, err := dataTx.Get(CarDBName, mintReqRecordKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting MintRequest: %s", mintReqRecordKey)
 	}
@@ -131,7 +131,7 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 	}
 	carKey := carRecord.Key()
 
-	carRecordBytes, _, err := dataTx.Get(carKey)
+	carRecordBytes, _, err := dataTx.Get(CarDBName, carKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting Car: %s", carKey)
 	}
@@ -144,7 +144,7 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.Wrapf(err, "error marshaling car record: %s", carRecord)
 	}
 
-	err = dataTx.Put(carKey, carRecordBytes,
+	err = dataTx.Put(CarDBName, carKey, carRecordBytes,
 		&types.AccessControl{
 			ReadUsers:      bcdb.UsersMap(mintReqRec.Dealer),
 			ReadWriteUsers: bcdb.UsersMap(dmvID),

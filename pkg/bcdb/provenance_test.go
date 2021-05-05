@@ -328,11 +328,14 @@ func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 	bcdb, adminSession, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "bob.pem"))
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
 	require.NoError(t, err)
-	addUser(t, "bob", adminSession, pemUserCert)
+	addUser(t, "bob", adminSession, pemUserCert, dbPerm)
 	pemUserCert, err = ioutil.ReadFile(path.Join(clientCertTemDir, "eve.pem"))
 	require.NoError(t, err)
-	addUser(t, "eve", adminSession, pemUserCert)
+	addUser(t, "eve", adminSession, pemUserCert, dbPerm)
 	bobSession := openUserSession(t, bcdb, "bob", clientCertTemDir)
 	eveSession := openUserSession(t, bcdb, "eve", clientCertTemDir)
 
@@ -470,12 +473,15 @@ func TestGetTxIDsSubmittedByUser(t *testing.T) {
 
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "bob.pem"))
 	require.NoError(t, err)
-	addUser(t, "bob", adminSession, pemUserCert)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "bob", adminSession, pemUserCert, dbPerm)
 	bobSession := openUserSession(t, bcdb, "bob", clientCertTemDir)
 
 	pemUserCert, err = ioutil.ReadFile(path.Join(clientCertTemDir, "eve.pem"))
 	require.NoError(t, err)
-	addUser(t, "eve", adminSession, pemUserCert)
+	addUser(t, "eve", adminSession, pemUserCert, dbPerm)
 	eveSession := openUserSession(t, bcdb, "eve", clientCertTemDir)
 
 	users := []string{"alice", "bob"}
@@ -549,12 +555,12 @@ func TestGetTxIDsSubmittedByUser(t *testing.T) {
 }
 
 func runUpdateTx(t *testing.T, user string, userSession DBSession, readKey string, writeKey string) *types.TxReceipt {
-	userTx, err := userSession.DataTx("bdb")
+	userTx, err := userSession.DataTx()
 	require.NoError(t, err)
-	rVal, _, err := userTx.Get(readKey)
+	rVal, _, err := userTx.Get("bdb", readKey)
 	require.NoError(t, err)
 	wVal := string(rVal) + "Updated"
-	err = userTx.Put(writeKey, []byte(wVal), &types.AccessControl{
+	err = userTx.Put("bdb", writeKey, []byte(wVal), &types.AccessControl{
 		ReadUsers:      map[string]bool{"alice": true, user: true},
 		ReadWriteUsers: map[string]bool{user: true},
 	})

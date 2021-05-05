@@ -13,19 +13,16 @@ type DataTxContext interface {
 	// Embed general abstraction
 	TxContext
 	// Put new value to key
-	Put(key string, value []byte, acl *types.AccessControl) error
+	Put(dbName string, key string, value []byte, acl *types.AccessControl) error
 	// Get existing key value
-	Get(key string) ([]byte, *types.Metadata, error)
+	Get(dbName, key string) ([]byte, *types.Metadata, error)
 	// Delete value for key
-	Delete(key string) error
+	Delete(dbName, key string) error
 }
 
 type dataTxContext struct {
 	*commonTxContext
-	database    string
-	dataReads   map[string]*types.GetDataResponse
-	dataWrites  map[string]*types.DataWrite
-	dataDeletes map[string]*types.DataDelete
+	operations map[string]*dbOperations
 }
 
 func (d *dataTxContext) Commit(sync bool) (string, *types.TxReceipt, error) {
@@ -37,16 +34,22 @@ func (d *dataTxContext) Abort() error {
 }
 
 // Put new value to key
-func (d *dataTxContext) Put(key string, value []byte, acl *types.AccessControl) error {
+func (d *dataTxContext) Put(dbName, key string, value []byte, acl *types.AccessControl) error {
 	if d.txSpent {
 		return ErrTxSpent
 	}
 
-	_, deleteExist := d.dataDeletes[key]
-	if deleteExist {
-		delete(d.dataDeletes, key)
+	ops, ok := d.operations[dbName]
+	if !ok {
+		ops = newDBOperations()
+		d.operations[dbName] = ops
 	}
-	d.dataWrites[key] = &types.DataWrite{
+
+	_, deleteExist := ops.dataDeletes[key]
+	if deleteExist {
+		delete(ops.dataDeletes, key)
+	}
+	ops.dataWrites[key] = &types.DataWrite{
 		Key:   key,
 		Value: value,
 		ACL:   acl,
@@ -55,7 +58,7 @@ func (d *dataTxContext) Put(key string, value []byte, acl *types.AccessControl) 
 }
 
 // Get existing key value
-func (d *dataTxContext) Get(key string) ([]byte, *types.Metadata, error) {
+func (d *dataTxContext) Get(dbName, key string) ([]byte, *types.Metadata, error) {
 	if d.txSpent {
 		return nil, nil, ErrTxSpent
 	}
@@ -63,14 +66,18 @@ func (d *dataTxContext) Get(key string) ([]byte, *types.Metadata, error) {
 	// TODO For this version, we support only single version read, each sequential read to same key will return same value
 	// TODO We ignore dirty reads for now - no check if key is already part of  d.dataWrites and/or d.dataDeletes, should be handled later
 	// Is key already read?
-	if storedValue, ok := d.dataReads[key]; ok {
-		return storedValue.GetValue(), storedValue.GetMetadata(), nil
+	ops, ok := d.operations[dbName]
+	if ok {
+		if storedValue, ok := ops.dataReads[key]; ok {
+			return storedValue.GetValue(), storedValue.GetMetadata(), nil
+		}
 	}
-	path := constants.URLForGetData(d.database, key)
+
+	path := constants.URLForGetData(dbName, key)
 	res := &types.GetDataResponse{}
 	err := d.handleRequest(path, &types.GetDataQuery{
 		UserID: d.userID,
-		DBName: d.database,
+		DBName: dbName,
 		Key:    key,
 	}, res)
 	if err != nil {
@@ -78,53 +85,66 @@ func (d *dataTxContext) Get(key string) ([]byte, *types.Metadata, error) {
 		return nil, nil, err
 	}
 
-	d.dataReads[key] = res
+	if !ok {
+		ops = newDBOperations()
+		d.operations[dbName] = ops
+	}
+	ops.dataReads[key] = res
 	return res.GetValue(), res.GetMetadata(), nil
 }
 
 // Delete value for key
-func (d *dataTxContext) Delete(key string) error {
+func (d *dataTxContext) Delete(dbName, key string) error {
 	if d.txSpent {
 		return ErrTxSpent
 	}
 
-	_, writeExist := d.dataWrites[key]
-	if writeExist {
-		delete(d.dataWrites, key)
+	ops, ok := d.operations[dbName]
+	if !ok {
+		ops = newDBOperations()
+		d.operations[dbName] = ops
 	}
-	d.dataDeletes[key] = &types.DataDelete{
+
+	_, writeExist := ops.dataWrites[key]
+	if writeExist {
+		delete(ops.dataWrites, key)
+	}
+	ops.dataDeletes[key] = &types.DataDelete{
 		Key: key,
 	}
 	return nil
 }
 
 func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
-	var dataWrites []*types.DataWrite
-	var dataDeletes []*types.DataDelete
-	var dataReads []*types.DataRead
+	var dbOperations []*types.DBOperation
 
-	for _, v := range d.dataWrites {
-		dataWrites = append(dataWrites, v)
-	}
+	for name, ops := range d.operations {
+		dbOp := &types.DBOperation{
+			DBName: name,
+		}
 
-	for _, v := range d.dataDeletes {
-		dataDeletes = append(dataDeletes, v)
-	}
+		for _, v := range ops.dataWrites {
+			dbOp.DataWrites = append(dbOp.DataWrites, v)
+		}
 
-	for k, v := range d.dataReads {
-		dataReads = append(dataReads, &types.DataRead{
-			Key:     k,
-			Version: v.GetMetadata().GetVersion(),
-		})
+		for _, v := range ops.dataDeletes {
+			dbOp.DataDeletes = append(dbOp.DataDeletes, v)
+		}
+
+		for k, v := range ops.dataReads {
+			dbOp.DataReads = append(dbOp.DataReads, &types.DataRead{
+				Key:     k,
+				Version: v.GetMetadata().GetVersion(),
+			})
+		}
+
+		dbOperations = append(dbOperations, dbOp)
 	}
 
 	payload := &types.DataTx{
-		UserID:      d.userID,
-		TxID:        txID,
-		DBName:      d.database,
-		DataReads:   dataReads,
-		DataWrites:  dataWrites,
-		DataDeletes: dataDeletes,
+		UserID:       d.userID,
+		TxID:         txID,
+		DBOperations: dbOperations,
 	}
 
 	signature, err := cryptoservice.SignTx(d.signer, payload)
@@ -139,7 +159,19 @@ func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 }
 
 func (d *dataTxContext) cleanCtx() {
-	d.dataDeletes = map[string]*types.DataDelete{}
-	d.dataWrites = map[string]*types.DataWrite{}
-	d.dataReads = map[string]*types.GetDataResponse{}
+	d.operations = map[string]*dbOperations{}
+}
+
+type dbOperations struct {
+	dataReads   map[string]*types.GetDataResponse
+	dataWrites  map[string]*types.DataWrite
+	dataDeletes map[string]*types.DataDelete
+}
+
+func newDBOperations() *dbOperations {
+	return &dbOperations{
+		dataReads:   map[string]*types.GetDataResponse{},
+		dataWrites:  map[string]*types.DataWrite{},
+		dataDeletes: map[string]*types.DataDelete{},
+	}
 }

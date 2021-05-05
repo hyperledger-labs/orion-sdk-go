@@ -131,7 +131,10 @@ func startServerConnectOpenAdminCreateUserAndUserSession(t *testing.T, testServe
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, certTempDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(certTempDir, user+".pem"))
 	require.NoError(t, err)
-	addUser(t, user, adminSession, pemUserCert)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, user, adminSession, pemUserCert, dbPerm)
 	userSession := openUserSession(t, bcdb, user, certTempDir)
 
 	return bcdb, adminSession, userSession

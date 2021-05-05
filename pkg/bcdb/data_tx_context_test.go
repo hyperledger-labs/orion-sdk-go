@@ -27,16 +27,19 @@ func TestDataContext_PutAndGetKey(t *testing.T) {
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
-	putKeySync(t, "key1", "value1", "alice", userSession)
+	putKeySync(t, "bdb", "key1", "value1", "alice", userSession)
 
 	// Validate
-	tx, err := userSession.DataTx("bdb")
+	tx, err := userSession.DataTx()
 	require.NoError(t, err)
 	require.NotNil(t, tx)
-	val, meta, err := tx.Get("key1")
+	val, meta, err := tx.Get("bdb", "key1")
 	require.NoError(t, err)
 	require.EqualValues(t, []byte("value1"), val)
 	require.NotNil(t, meta)
@@ -52,14 +55,17 @@ func TestDataContext_GetNonExistKey(t *testing.T) {
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
-	putKeySync(t, "key1", "value1", "alice", userSession)
+	putKeySync(t, "bdb", "key1", "value1", "alice", userSession)
 
-	tx, err := userSession.DataTx("bdb")
+	tx, err := userSession.DataTx()
 	require.NoError(t, err)
-	res, meta, err := tx.Get("key2")
+	res, meta, err := tx.Get("bdb", "key2")
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Nil(t, meta)
@@ -73,57 +79,71 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	testServer.Start()
 
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+	txDB, err := adminSession.DBsTx()
+	require.NoError(t, err)
+
+	err = txDB.CreateDB("testDB")
+	require.NoError(t, err)
+
+	txId, receipt, err := txDB.Commit(true)
+	require.NoError(t, err)
+	require.True(t, len(txId) > 0)
+	require.NotNil(t, receipt)
+
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb":    1,
+		"testDB": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
-
-	putKeySync(t, "key1", "value1", "alice", userSession)
-	putKeySync(t, "key2", "value2", "alice", userSession)
+	putKeySync(t, "bdb", "key1", "value1", "alice", userSession)
+	putKeySync(t, "testDB", "key2", "value2", "alice", userSession)
 
 	acl := &types.AccessControl{
 		ReadUsers:      map[string]bool{"alice": true},
 		ReadWriteUsers: map[string]bool{"alice": true},
 	}
-	tx, err := userSession.DataTx("bdb")
+	tx, err := userSession.DataTx()
 	require.NoError(t, err)
-	res1, meta, err := tx.Get("key1")
+	res1, meta, err := tx.Get("bdb", "key1")
 	require.NoError(t, err)
 	require.Equal(t, []byte("value1"), res1)
 	require.True(t, proto.Equal(acl, meta.GetAccessControl()))
 
-	res2, meta, err := tx.Get("key2")
+	res2, meta, err := tx.Get("testDB", "key2")
 	require.NoError(t, err)
 	require.Equal(t, []byte("value2"), res2)
 	require.True(t, proto.Equal(acl, meta.GetAccessControl()))
 
-	err = tx.Put("key1", []byte("value3"), acl)
+	err = tx.Put("bdb", "key1", []byte("value3"), acl)
 	require.NoError(t, err)
 
-	err = tx.Delete("key2")
+	err = tx.Delete("testDB", "key2")
 	require.NoError(t, err)
 
 	dataTx, ok := tx.(*dataTxContext)
 	require.True(t, ok)
-	_, key1WriteExist := dataTx.dataWrites["key1"]
-	_, key2WriteExist := dataTx.dataWrites["key2"]
-	_, key1DeleteExist := dataTx.dataDeletes["key1"]
-	_, key2DeleteExist := dataTx.dataDeletes["key2"]
+	_, key1WriteExist := dataTx.operations["bdb"].dataWrites["key1"]
+	_, key2WriteExist := dataTx.operations["testDB"].dataWrites["key2"]
+	_, key1DeleteExist := dataTx.operations["bdb"].dataDeletes["key1"]
+	_, key2DeleteExist := dataTx.operations["testDB"].dataDeletes["key2"]
 	require.True(t, key1WriteExist)
 	require.False(t, key2WriteExist)
 	require.False(t, key1DeleteExist)
 	require.True(t, key2DeleteExist)
 
-	err = tx.Put("key2", []byte("value4"), acl)
+	err = tx.Put("testDB", "key2", []byte("value4"), acl)
 	require.NoError(t, err)
 
-	err = tx.Delete("key1")
+	err = tx.Delete("bdb", "key1")
 	require.NoError(t, err)
 
-	_, key1WriteExist = dataTx.dataWrites["key1"]
-	_, key2WriteExist = dataTx.dataWrites["key2"]
-	_, key1DeleteExist = dataTx.dataDeletes["key1"]
-	_, key2DeleteExist = dataTx.dataDeletes["key2"]
+	_, key1WriteExist = dataTx.operations["bdb"].dataWrites["key1"]
+	_, key2WriteExist = dataTx.operations["testDB"].dataWrites["key2"]
+	_, key1DeleteExist = dataTx.operations["bdb"].dataDeletes["key1"]
+	_, key2DeleteExist = dataTx.operations["testDB"].dataDeletes["key2"]
 	require.False(t, key1WriteExist)
 	require.True(t, key2WriteExist)
 	require.True(t, key1DeleteExist)
@@ -134,12 +154,15 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 
 	// Start another tx to query and make sure
 	// results was successfully committed
-	tx, err = userSession.DataTx("bdb")
+	tx, err = userSession.DataTx()
 	require.NoError(t, err)
 
 	waitForTx(t, txID, userSession)
 
-	res, _, err := tx.Get("key1")
+	err = tx.Delete("testDB", "key2")
+	require.NoError(t, err)
+
+	res, _, err := tx.Get("bdb", "key1")
 	require.NoError(t, err)
 	require.Nil(t, res)
 }
@@ -154,7 +177,10 @@ func TestDataContext_CommitAbortFinality(t *testing.T) {
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
 	acl := &types.AccessControl{
@@ -163,28 +189,28 @@ func TestDataContext_CommitAbortFinality(t *testing.T) {
 	}
 
 	for i := 0; i < 3; i++ {
-		tx, err := userSession.DataTx("bdb")
+		tx, err := userSession.DataTx()
 		require.NoError(t, err)
-		err = tx.Put("key1", []byte("value1"), acl)
+		err = tx.Put("bdb", "key1", []byte("value1"), acl)
 		require.NoError(t, err)
 
 		assertTxFinality(t, TxFinality(i), tx, userSession)
 
-		val, meta, err := tx.Get("key")
+		val, meta, err := tx.Get("bdb", "key")
 		require.EqualError(t, err, ErrTxSpent.Error())
 		require.Nil(t, val)
 		require.Nil(t, meta)
 
-		err = tx.Put("key", []byte("value"), acl)
+		err = tx.Put("bdb", "key", []byte("value"), acl)
 		require.EqualError(t, err, ErrTxSpent.Error())
 
-		err = tx.Delete("key")
+		err = tx.Delete("bdb", "key")
 		require.EqualError(t, err, ErrTxSpent.Error())
 
 		if TxFinality(i) != TxFinalityAbort {
-			tx, err := userSession.DataTx("bdb")
+			tx, err := userSession.DataTx()
 			require.NoError(t, err)
-			val, meta, err := tx.Get("key1")
+			val, meta, err := tx.Get("bdb", "key1")
 			require.NoError(t, err)
 			require.Equal(t, []byte("value1"), val)
 			require.NotNil(t, meta)
@@ -202,25 +228,28 @@ func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
-	putKeySync(t, "key1", "value1", "alice", userSession)
+	putKeySync(t, "bdb", "key1", "value1", "alice", userSession)
 
-	tx, err := userSession.DataTx("bdb")
+	tx, err := userSession.DataTx()
 	require.NoError(t, err)
-	res, meta, err := tx.Get("key1")
+	res, meta, err := tx.Get("bdb", "key1")
 	require.NoError(t, err)
 	require.Equal(t, []byte("value1"), res)
-	storedRead, ok := tx.(*dataTxContext).dataReads["key1"]
+	storedRead, ok := tx.(*dataTxContext).operations["bdb"].dataReads["key1"]
 	require.True(t, ok)
 	require.Equal(t, res, storedRead.GetValue())
 	require.Equal(t, meta, storedRead.GetMetadata())
 
-	putKeySync(t, "key1", "value2", "alice", userSession)
-	res, meta, err = tx.Get("key1")
+	putKeySync(t, "bdb", "key1", "value2", "alice", userSession)
+	res, meta, err = tx.Get("bdb", "key1")
 	require.NoError(t, err)
-	storedReadUpdated, ok := tx.(*dataTxContext).dataReads["key1"]
+	storedReadUpdated, ok := tx.(*dataTxContext).operations["bdb"].dataReads["key1"]
 	require.True(t, ok)
 	require.Equal(t, res, storedRead.GetValue())
 	require.Equal(t, meta, storedRead.GetMetadata())
@@ -242,30 +271,33 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 	aliceSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
-	putKeySync(t, "key1", "value1", "alice", aliceSession)
+	putKeySync(t, "bdb", "key1", "value1", "alice", aliceSession)
 
 	pemUserCert, err = ioutil.ReadFile(path.Join(clientCertTemDir, "bob.pem"))
 	require.NoError(t, err)
-	addUser(t, "bob", adminSession, pemUserCert)
+	addUser(t, "bob", adminSession, pemUserCert, dbPerm)
 	bobSession := openUserSession(t, bcdb, "bob", clientCertTemDir)
-	tx, err := bobSession.DataTx("bdb")
+	tx, err := bobSession.DataTx()
 	require.NoError(t, err)
-	_, _, err = tx.Get("key1")
+	_, _, err = tx.Get("bdb", "key1")
 	require.Error(t, err)
 	require.EqualError(t, err, "error handling request, server returned: status: 403 Forbidden, message: error while processing 'GET /data/bdb/key1' because the user [bob] has no permission to read key [key1] from database [bdb]")
 	err = tx.Abort()
 	require.NoError(t, err)
 
-	txUpdateUser, err := aliceSession.DataTx("bdb")
+	txUpdateUser, err := aliceSession.DataTx()
 	require.NoError(t, err)
 	acl := &types.AccessControl{
 		ReadUsers:      map[string]bool{"alice": true, "bob": true},
 		ReadWriteUsers: map[string]bool{"alice": true},
 	}
-	err = txUpdateUser.Put("key1", []byte("value2"), acl)
+	err = txUpdateUser.Put("bdb", "key1", []byte("value2"), acl)
 	require.NoError(t, err)
 
 	txID, _, err := txUpdateUser.Commit(false)
@@ -273,9 +305,9 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	waitForTx(t, txID, aliceSession)
 	validateValue(t, "key1", "value2", aliceSession)
 
-	tx, err = bobSession.DataTx("bdb")
+	tx, err = bobSession.DataTx()
 	require.NoError(t, err)
-	bobVal, meta, err := tx.Get("key1")
+	bobVal, meta, err := tx.Get("bdb", "key1")
 	require.NoError(t, err)
 	require.EqualValues(t, []byte("value2"), bobVal)
 	require.True(t, proto.Equal(meta.GetAccessControl(), acl))
@@ -291,28 +323,30 @@ func TestDataContext_GetTimeout(t *testing.T) {
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
-	addUser(t, "alice", adminSession, pemUserCert)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 	sessionNoTimeout := openUserSession(t, bcdb, "alice", clientCertTemDir)
 	sessionOneNanoTimeout := openUserSessionWithQueryTimeout(t, bcdb, "alice", clientCertTemDir, time.Nanosecond)
 	sessionTenSecondTimeout := openUserSessionWithQueryTimeout(t, bcdb, "alice", clientCertTemDir, time.Second*10)
 
-	putKeySync(t, "key1", "value1", "alice", sessionNoTimeout)
+	putKeySync(t, "bdb", "key1", "value1", "alice", sessionNoTimeout)
 
-	tx1, err := sessionOneNanoTimeout.DataTx("bdb")
+	tx1, err := sessionOneNanoTimeout.DataTx()
 	require.NoError(t, err)
 	require.NotNil(t, tx1)
-	val, _, err := tx1.Get("key1")
+	val, _, err := tx1.Get("bdb", "key1")
 	require.Error(t, err)
 	require.Nil(t, val)
 	require.Contains(t, err.Error(), "queryTimeout error")
 
-	tx2, err := sessionTenSecondTimeout.DataTx("bdb")
+	tx2, err := sessionTenSecondTimeout.DataTx()
 	require.NoError(t, err)
 	require.NotNil(t, tx2)
-	val, _, err = tx2.Get("key1")
+	val, _, err = tx2.Get("bdb", "key1")
 	require.NoError(t, err)
 	require.EqualValues(t, []byte("value1"), val)
-
 }
 
 func connectAndOpenAdminSession(t *testing.T, testServer *server.BCDBHTTPServer, cryptoDir string) (BCDB, DBSession) {
@@ -326,7 +360,7 @@ func connectAndOpenAdminSession(t *testing.T, testServer *server.BCDBHTTPServer,
 	return bcdb, session
 }
 
-func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byte) {
+func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byte, dbPerm map[string]types.Privilege_Access) {
 	tx, err := session.UsersTx()
 	require.NoError(t, err)
 
@@ -335,7 +369,7 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 		ID:          userName,
 		Certificate: certBlock.Bytes,
 		Privilege: &types.Privilege{
-			DBPermission: map[string]types.Privilege_Access{"bdb": 1},
+			DBPermission: dbPerm,
 		},
 	}, nil)
 	require.NoError(t, err)
@@ -350,8 +384,8 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 	require.Equal(t, userName, user.GetID())
 }
 
-func putKeySync(t *testing.T, key string, value string, user string, session DBSession) {
-	tx, err := session.DataTx("bdb")
+func putKeySync(t *testing.T, dbName, key string, value string, user string, session DBSession) {
+	tx, err := session.DataTx()
 	require.NoError(t, err)
 
 	readUsers := make(map[string]bool)
@@ -360,7 +394,7 @@ func putKeySync(t *testing.T, key string, value string, user string, session DBS
 	readUsers[user] = true
 	readWriteUsers[user] = true
 
-	err = tx.Put(key, []byte(value), &types.AccessControl{
+	err = tx.Put(dbName, key, []byte(value), &types.AccessControl{
 		ReadUsers:      readUsers,
 		ReadWriteUsers: readWriteUsers,
 	})
@@ -380,7 +414,7 @@ func putMultipleKeysAndValidateMultipleUsers(t *testing.T, key []string, value [
 	// Creating new key
 	var txId string
 	for i := 0; i < len(key); i++ {
-		tx, err := session.DataTx("bdb")
+		tx, err := session.DataTx()
 		require.NoError(t, err)
 
 		readUsers := make(map[string]bool)
@@ -389,7 +423,7 @@ func putMultipleKeysAndValidateMultipleUsers(t *testing.T, key []string, value [
 			readUsers[user] = true
 			readWriteUsers[user] = true
 		}
-		err = tx.Put(key[i], []byte(value[i]), &types.AccessControl{
+		err = tx.Put("bdb", key[i], []byte(value[i]), &types.AccessControl{
 			ReadUsers:      readUsers,
 			ReadWriteUsers: readWriteUsers,
 		})
@@ -409,9 +443,9 @@ func putMultipleKeysAndValidateMultipleUsers(t *testing.T, key []string, value [
 func validateValue(t *testing.T, key string, value string, session DBSession) {
 	// Start another tx to query and make sure
 	// results was successfully committed
-	tx, err := session.DataTx("bdb")
+	tx, err := session.DataTx()
 	require.NoError(t, err)
-	val, _, err := tx.Get(key)
+	val, _, err := tx.Get("bdb", key)
 	require.NoError(t, err)
 	require.Equal(t, val, []byte(value))
 }

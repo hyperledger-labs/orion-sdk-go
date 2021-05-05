@@ -36,7 +36,7 @@ type BCDB interface {
 // DBSession captures user's session
 type DBSession interface {
 	UsersTx() (UsersTxContext, error)
-	DataTx(database string) (DataTxContext, error)
+	DataTx() (DataTxContext, error)
 	DBsTx() (DBsTxContext, error)
 	ConfigTx() (ConfigTxContext, error)
 	Provenance() (Provenance, error)
@@ -311,17 +311,14 @@ func (d *dbSession) DBsTx() (DBsTxContext, error) {
 }
 
 // DataTx returns data's transaction context
-func (d *dbSession) DataTx(database string) (DataTxContext, error) {
+func (d *dbSession) DataTx() (DataTxContext, error) {
 	commonCtx, err := d.newCommonTxContext()
 	if err != nil {
 		return nil, err
 	}
 	dataTx := &dataTxContext{
 		commonTxContext: commonCtx,
-		database:        database,
-		dataReads:       make(map[string]*types.GetDataResponse),
-		dataWrites:      make(map[string]*types.DataWrite),
-		dataDeletes:     make(map[string]*types.DataDelete),
+		operations:      make(map[string]*dbOperations),
 	}
 	return dataTx, nil
 }

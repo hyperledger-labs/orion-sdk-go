@@ -30,13 +30,13 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 		return "", errors.Wrap(err, "error creating database session")
 	}
 
-	dataTx, err := session.DataTx(CarDBName)
+	dataTx, err := session.DataTx()
 	if err != nil {
 		return "", errors.Wrap(err, "error creating data transaction")
 	}
 
 	carKey := CarRecordKeyPrefix + carRegistration
-	carRecBytes, _, err := dataTx.Get(carKey)
+	carRecBytes, _, err := dataTx.Get(CarDBName, carKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting car record, key: %s", carKey)
 	}
@@ -60,7 +60,7 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 	}
 	ttRecBytes, err := json.Marshal(ttRecord)
 	ttRecKey := ttRecord.Key()
-	err = dataTx.Put(ttRecKey, ttRecBytes,
+	err = dataTx.Put(CarDBName, ttRecKey, ttRecBytes,
 		&types.AccessControl{
 			ReadUsers:      bcdb.UsersMap("dmv", buyerID),
 			ReadWriteUsers: bcdb.UsersMap(ownerID),
@@ -108,13 +108,13 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 		return "", errors.Wrap(err, "error creating database session")
 	}
 
-	dataTx, err := session.DataTx(CarDBName)
+	dataTx, err := session.DataTx()
 	if err != nil {
 		return "", errors.Wrap(err, "error creating data transaction")
 	}
 
 	ttRec := &TransferToRecord{}
-	recordBytes, _, err := dataTx.Get(transferToRecordKey)
+	recordBytes, _, err := dataTx.Get(CarDBName, transferToRecordKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting TransferTo : %s", transferToRecordKey)
 	}
@@ -151,7 +151,7 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 	}
 	trRecKey := trRec.Key()
 
-	err = dataTx.Put(trRecKey, trRecBytes, &types.AccessControl{
+	err = dataTx.Put(CarDBName, trRecKey, trRecBytes, &types.AccessControl{
 		ReadUsers:      bcdb.UsersMap("dmv", ttRec.Owner),
 		ReadWriteUsers: bcdb.UsersMap(buyerID),
 	})
@@ -196,13 +196,13 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 		return "", errors.Wrap(err, "error creating database session")
 	}
 
-	dataTx, err := session.DataTx(CarDBName)
+	dataTx, err := session.DataTx()
 	if err != nil {
 		return "", errors.Wrap(err, "error creating data transaction")
 	}
 
 	ttRec := &TransferToRecord{}
-	recordBytes, _, err := dataTx.Get(transferToRecordKey)
+	recordBytes, _, err := dataTx.Get(CarDBName, transferToRecordKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting TransferTo : %s", transferToRecordKey)
 	}
@@ -214,7 +214,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 	}
 
 	trRec := &TransferReceiveRecord{}
-	recordBytes, _, err = dataTx.Get(transferRcvRecordKey)
+	recordBytes, _, err = dataTx.Get(CarDBName, transferRcvRecordKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting TransferTo : %s", transferToRecordKey)
 	}
@@ -227,7 +227,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 
 	carRec := &CarRecord{}
 	carKey := CarRecordKeyPrefix + ttRec.CarRegistration
-	recordBytes, _, err = dataTx.Get(carKey)
+	recordBytes, _, err = dataTx.Get(CarDBName, carKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting Car : %s", carKey)
 	}
@@ -245,7 +245,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 	carRec.Owner = ttRec.Buyer
 	recordBytes, err = json.Marshal(carRec)
 
-	err = dataTx.Put(carKey, recordBytes,
+	err = dataTx.Put(CarDBName, carKey, recordBytes,
 		&types.AccessControl{
 			ReadUsers:      bcdb.UsersMap(ttRec.Buyer),
 			ReadWriteUsers: bcdb.UsersMap(dmvID),

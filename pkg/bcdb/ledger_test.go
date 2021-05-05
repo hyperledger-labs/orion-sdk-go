@@ -21,7 +21,7 @@ func TestGetBlockHeader(t *testing.T) {
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	for i := 1; i < 10; i++ {
-		putKeySync(t, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
 	}
 
 	l, err := aliceSession.Ledger()
@@ -46,7 +46,7 @@ func TestGetLedgerPath(t *testing.T) {
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	for i := 1; i < 10; i++ {
-		putKeySync(t, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
 	}
 
 	p, err := aliceSession.Ledger()

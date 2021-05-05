@@ -29,13 +29,13 @@ func ListCar(demoDir, userID, carRegistration string, provenance bool, lg *logge
 		return "", errors.Wrap(err, "error creating database session")
 	}
 
-	dataTx, err := session.DataTx(CarDBName)
+	dataTx, err := session.DataTx()
 	if err != nil {
 		return "", errors.Wrap(err, "error creating data transaction")
 	}
 
 	carKey := CarRecordKeyPrefix + carRegistration
-	carRecBytes, _, err := dataTx.Get(carKey)
+	carRecBytes, _, err := dataTx.Get(CarDBName, carKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting car record, key: %s", carKey)
 	}

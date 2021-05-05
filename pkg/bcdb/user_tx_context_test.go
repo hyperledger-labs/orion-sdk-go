@@ -35,7 +35,10 @@ func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
 
-	addUser(t, "alice", adminSession, pemUserCert)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 
 	sessionOneNano := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Nanosecond)
 	tx, err := sessionOneNano.UsersTx()

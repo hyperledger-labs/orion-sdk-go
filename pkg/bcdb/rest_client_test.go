@@ -87,7 +87,11 @@ func TestRestClient_Submit(t *testing.T) {
 
 	response, err := client.Submit(context.Background(), server.URL, &types.DataTx{
 		UserID: "alice",
-		DBName: "bdb",
+		DBOperations: []*types.DBOperation{
+			{
+				DBName: "bdb",
+			},
+		},
 	}, 0)
 
 	require.NoError(t, err)
@@ -98,7 +102,11 @@ func TestRestClient_Submit(t *testing.T) {
 	defer cancelFnc()
 	response, err = client.Submit(ctx, server.URL, &types.DataTx{
 		UserID: "alice",
-		DBName: "bdb",
+		DBOperations: []*types.DBOperation{
+			{
+				DBName: "bdb",
+			},
+		},
 	}, 0)
 
 	require.Error(t, err)
@@ -109,7 +117,11 @@ func TestRestClient_Submit(t *testing.T) {
 	defer cancelFnc()
 	response, err = client.Submit(ctx, server.URL, &types.DataTx{
 		UserID: "alice",
-		DBName: "bdb",
+		DBOperations: []*types.DBOperation{
+			{
+				DBName: "bdb",
+			},
+		},
 	}, 0)
 
 	require.NoError(t, err)
