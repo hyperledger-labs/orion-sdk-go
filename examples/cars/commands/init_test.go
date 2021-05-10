@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"github.ibm.com/blockchaindb/sdk/internal/test"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -28,7 +29,8 @@ func TestInit(t *testing.T) {
 	require.NoError(t, err)
 	defer func() {
 		if testServer != nil {
-			_ = testServer.Stop()
+			err = testServer.Stop()
+			require.NoError(t, err)
 		}
 	}()
 	require.NoError(t, err)
@@ -79,42 +81,75 @@ func setupTestServer(t *testing.T, demoDir string) (*server.BCDBHTTPServer, stri
 	})
 
 	cryptoDir := path.Join(demoDir, "crypto")
-	server, err := server.New(&config.Configurations{
-		Node: config.NodeConf{
-			Identity: config.IdentityConf{
-				ID:              "demo",
-				CertificatePath: path.Join(cryptoDir, "server", "server.pem"),
-				KeyPath:         path.Join(cryptoDir, "server", "server.key"),
-			},
-			Database: config.DatabaseConf{
-				Name:            "leveldb",
-				LedgerDirectory: path.Join(tempDataDir, "ledger"),
-			},
-			Network: config.NetworkConf{
-				Address: "127.0.0.1",
-				Port:    0, // use ephemeral port for testing
-			},
-			QueueLength: config.QueueLengthConf{
-				Block:                     1,
-				Transaction:               1,
-				ReorderedTransactionBatch: 1,
-			},
 
-			LogLevel: "info",
+	nodePort, peerPort := test.GetPorts()
+
+	server, err := server.New(&config.Configurations{
+		LocalConfig: &config.LocalConfiguration{
+			Server: config.ServerConf{
+				Identity: config.IdentityConf{ID: "demo",
+					CertificatePath: path.Join(cryptoDir, "server", "server.pem"),
+					KeyPath:         path.Join(cryptoDir, "server", "server.key"),
+				},
+				Network: config.NetworkConf{
+					Address: "127.0.0.1",
+					Port:    nodePort,
+				},
+				Database: config.DatabaseConf{
+					Name:            "leveldb",
+					LedgerDirectory: path.Join(tempDataDir, "ledger"),
+				},
+				Replication: config.ReplicationConf{},
+				QueueLength: config.QueueLengthConf{
+					Block:                     10,
+					Transaction:               10,
+					ReorderedTransactionBatch: 10,
+				},
+				LogLevel: "info",
+			},
+			BlockCreation: config.BlockCreationConf{
+				MaxBlockSize:                1000000,
+				MaxTransactionCountPerBlock: 1,
+				BlockTimeout:                500 * time.Millisecond,
+			},
+			Replication: config.ReplicationConf{},
+			Bootstrap:   config.BootstrapConf{},
 		},
-		Admin: config.AdminConf{
-			ID:              "admin",
-			CertificatePath: path.Join(cryptoDir, "admin", "admin.pem"),
-		},
-		CAConfig: config.CAConfiguration{
-			RootCACertsPath: []string{path.Join(cryptoDir, "CA", "CA.pem")},
-		},
-		Consensus: config.ConsensusConf{
-			Algorithm:                   "solo",
-			BlockTimeout:                500 * time.Millisecond,
-			MaxBlockSize:                1,
-			MaxTransactionCountPerBlock: 1,
+
+		SharedConfig: &config.SharedConfiguration{
+			Nodes: []config.NodeConf{
+				{
+					NodeID:          "demo",
+					Host:            "127.0.0.1",
+					Port:            nodePort,
+					CertificatePath: path.Join(cryptoDir, "server", "server.pem"),
+				},
+			},
+			Consensus: &config.ConsensusConf{
+				Algorithm: "raft",
+				Members: []*config.PeerConf{
+					{
+						NodeId:   "demo",
+						RaftId:   1,
+						PeerHost: "127.0.0.1",
+						PeerPort: peerPort,
+					},
+				},
+				RaftConfig: &config.RaftConf{
+					TickInterval:   "100ms",
+					ElectionTicks:  100,
+					HeartbeatTicks: 10,
+				},
+			},
+			CAConfig: config.CAConfiguration{
+				RootCACertsPath: []string{path.Join(cryptoDir, "CA", "CA.pem")},
+			},
+			Admin: config.AdminConf{
+				ID:              "admin",
+				CertificatePath: path.Join(cryptoDir, "admin", "admin.pem"),
+			},
 		},
 	})
+
 	return server, tempDataDir, err
 }

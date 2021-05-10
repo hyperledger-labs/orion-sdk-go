@@ -27,13 +27,13 @@ type ConfigTxContext interface {
 	UpdateAdmin(admin *types.Admin) error
 
 	// AddClusterNode add cluster node record.
-	AddClusterNode(node *types.NodeConfig) error
+	AddClusterNode(node *types.NodeConfig, peer *types.PeerConfig) error
 
 	// DeleteClusterNode delete cluster node record.
 	DeleteClusterNode(nodeID string) error
 
 	// UpdateClusterNode Update cluster node record.
-	UpdateClusterNode(node *types.NodeConfig) error
+	UpdateClusterNode(node *types.NodeConfig, peer *types.PeerConfig) error
 
 	// GetClusterConfig returns the current cluster config.
 	// A ConfigTxContext only gets the current config once, subsequent calls return a cached value.
@@ -132,13 +132,21 @@ func (c *configTxContext) UpdateAdmin(admin *types.Admin) (err error) {
 	return nil
 }
 
-func (c *configTxContext) AddClusterNode(node *types.NodeConfig) (err error) {
+func (c *configTxContext) AddClusterNode(node *types.NodeConfig, peer *types.PeerConfig) (err error) {
 	if c.txSpent {
 		return ErrTxSpent
 	}
 
+	if node.ID != peer.NodeId {
+		return errors.Errorf("node.ID [%s] does not match peer.NodeId [%s]", node.ID, peer.NodeId)
+	}
+
 	if exist, _ := NodeExists(node.ID, c.oldConfig.Nodes); exist {
 		return errors.Errorf("node already exists in current config: %s", node.ID)
+	}
+
+	if exist, _ := PeerExists(peer.NodeId, c.oldConfig.ConsensusConfig.Members); exist {
+		return errors.Errorf("peer already exists in current config: %s", peer.NodeId)
 	}
 
 	if c.newConfig == nil {
@@ -147,9 +155,13 @@ func (c *configTxContext) AddClusterNode(node *types.NodeConfig) (err error) {
 		if exist, _ := NodeExists(node.ID, c.newConfig.Nodes); exist {
 			return errors.Errorf("node already added: %s", node.ID)
 		}
+		if exist, _ := PeerExists(node.ID, c.newConfig.ConsensusConfig.Members); exist {
+			return errors.Errorf("peer already added: %s", node.ID)
+		}
 	}
 
 	c.newConfig.Nodes = append(c.newConfig.Nodes, node)
+	c.newConfig.ConsensusConfig.Members = append(c.newConfig.ConsensusConfig.Members, peer)
 
 	c.logger.Debugf("Added node: %v", node)
 
@@ -165,6 +177,14 @@ func (c *configTxContext) DeleteClusterNode(nodeID string) (err error) {
 		return errors.Errorf("node does not exist in current config: %s", nodeID)
 	}
 
+	if exist, _ := PeerExists(nodeID, c.oldConfig.ConsensusConfig.Members); !exist {
+		return errors.Errorf("peer does not exist in current config: %s", nodeID)
+	}
+
+	if len(c.oldConfig.Nodes) == 1 {
+		return errors.Errorf("cannot remove the last node in the cluster: %s", nodeID)
+	}
+
 	if c.newConfig == nil {
 		c.newConfig = proto.Clone(c.oldConfig).(*types.ClusterConfig)
 	}
@@ -176,36 +196,57 @@ func (c *configTxContext) DeleteClusterNode(nodeID string) (err error) {
 		}
 	}
 
+	var newPeers []*types.PeerConfig
+	for _, existingPeer := range c.newConfig.ConsensusConfig.Members {
+		if existingPeer.NodeId != nodeID {
+			newPeers = append(newPeers, existingPeer)
+		}
+	}
+
 	if len(c.newConfig.Nodes) == len(newNodes) {
 		return errors.Errorf("node already removed: %s", nodeID)
 	}
 	c.newConfig.Nodes = newNodes
+	c.newConfig.ConsensusConfig.Members = newPeers
 
 	c.logger.Debugf("Removed node: %v", nodeID)
 
 	return nil
 }
 
-func (c *configTxContext) UpdateClusterNode(node *types.NodeConfig) (err error) {
+func (c *configTxContext) UpdateClusterNode(node *types.NodeConfig, peer *types.PeerConfig) (err error) {
 	if c.txSpent {
 		return ErrTxSpent
+	}
+
+	if node.ID != peer.NodeId {
+		return errors.Errorf("node.ID [%s] does not match peer.NodeId [%s]", node.ID, peer.NodeId)
 	}
 
 	if exist, _ := NodeExists(node.ID, c.oldConfig.Nodes); !exist {
 		return errors.Errorf("node does not exist in current config: %s", node.ID)
 	}
 
+	if exist, _ := PeerExists(node.ID, c.oldConfig.ConsensusConfig.Members); !exist {
+		return errors.Errorf("peer does not exist in current config: %s", node.ID)
+	}
+
 	if c.newConfig == nil {
 		c.newConfig = proto.Clone(c.oldConfig).(*types.ClusterConfig)
 	}
 
-	found, index := NodeExists(node.ID, c.newConfig.Nodes)
+	found, nIndex := NodeExists(node.ID, c.newConfig.Nodes)
 	if !found {
 		return errors.Errorf("node does not exist in pending config: %s", node.ID)
 	}
-	c.newConfig.Nodes[index] = node
+	c.newConfig.Nodes[nIndex] = node
+	found, pIndex := PeerExists(node.ID, c.newConfig.ConsensusConfig.Members)
+	if !found {
+		return errors.Errorf("peer does not exist in pending config: %s", node.ID)
+	}
+	c.newConfig.ConsensusConfig.Members[pIndex] = peer
 
-	c.logger.Debugf("Updated node: %v", node)
+	c.logger.Debugf("Updated: node: %+v, peer: %+v", node, peer)
 
 	return nil
 }
@@ -225,9 +266,7 @@ func (c *configTxContext) queryClusterConfig() error {
 
 	configResponse := &types.GetConfigResponse{}
 	path := constants.URLForGetConfig()
-	err := c.handleRequest(path, &types.GetConfigQuery{
-		UserID: c.userID,
-	}, configResponse)
+	err := c.handleRequest(path, &types.GetConfigQuery{UserID: c.userID}, configResponse)
 	if err != nil {
 		c.logger.Errorf("failed to execute cluster config query path %s, due to %s", path, err)
 		return err
@@ -267,6 +306,15 @@ func (c *configTxContext) cleanCtx() {
 func NodeExists(nodeID string, nodeSet []*types.NodeConfig) (bool, int) {
 	for index, existingNode := range nodeSet {
 		if existingNode.ID == nodeID {
+			return true, index
+		}
+	}
+	return false, -1
+}
+
+func PeerExists(nodeID string, peerSet []*types.PeerConfig) (bool, int) {
+	for index, existingPeer := range peerSet {
+		if existingPeer.NodeId == nodeID {
 			return true, index
 		}
 	}

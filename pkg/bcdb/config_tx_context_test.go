@@ -15,7 +15,7 @@ import (
 
 func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	cryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
-	testServer, err := setupTestServer(t, cryptoDir)
+	testServer, nodePort, peerPort, err := SetupTestServer(t, cryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -34,6 +34,8 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	tx, err := session.ConfigTx()
 	require.NoError(t, err)
 
+	// TODO Check consensus config
+
 	clusterConfig, err := tx.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfig)
@@ -41,7 +43,7 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	require.Equal(t, 1, len(clusterConfig.Nodes))
 	require.Equal(t, "testNode1", clusterConfig.Nodes[0].ID)
 	require.Equal(t, "127.0.0.1", clusterConfig.Nodes[0].Address)
-	require.Equal(t, 0, int(clusterConfig.Nodes[0].Port))
+	require.Equal(t, nodePort, clusterConfig.Nodes[0].Port)
 	serverCertBytes, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "server")
 	require.Equal(t, serverCertBytes.Raw, clusterConfig.Nodes[0].Certificate)
 
@@ -54,19 +56,28 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	require.True(t, len(clusterConfig.CertAuthConfig.Roots) > 0)
 	require.Equal(t, caCert.Raw, clusterConfig.CertAuthConfig.Roots[0])
 
+	require.Equal(t, "raft", clusterConfig.ConsensusConfig.Algorithm)
+	require.Equal(t, 1, len(clusterConfig.ConsensusConfig.Members))
+	require.Equal(t, "testNode1", clusterConfig.ConsensusConfig.Members[0].NodeId)
+	require.Equal(t, "127.0.0.1", clusterConfig.ConsensusConfig.Members[0].PeerHost)
+	require.Equal(t, peerPort, clusterConfig.ConsensusConfig.Members[0].PeerPort)
+	require.Equal(t, uint64(1), clusterConfig.ConsensusConfig.Members[0].RaftId)
+
 	clusterConfig.Nodes = nil
 	clusterConfig.Admins = nil
 	clusterConfig.CertAuthConfig = nil
+	clusterConfig.ConsensusConfig = nil
 	clusterConfigAgain, err := tx.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfigAgain.Nodes, "it is a deep copy")
 	require.NotNil(t, clusterConfigAgain.Admins, "it is a deep copy")
 	require.NotNil(t, clusterConfigAgain.CertAuthConfig, "it is a deep copy")
+	require.NotNil(t, clusterConfigAgain.ConsensusConfig, "it is a deep copy")
 }
 
 func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
 	cryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
-	testServer, err := setupTestServer(t, cryptoDir)
+	testServer, _, _, err := SetupTestServer(t, cryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -90,7 +101,7 @@ func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
 
 func TestConfigTxContext_AddAdmin(t *testing.T) {
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "server"})
-	testServer, err := setupTestServer(t, clientCryptoDir)
+	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 
 	defer func() {
 		if testServer != nil {
@@ -158,7 +169,7 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 
 func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "admin3", "server"})
-	testServer, err := setupTestServer(t, clientCryptoDir)
+	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -246,7 +257,7 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 
 func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "adminUpdated", "server"})
-	testServer, err := setupTestServer(t, clientCryptoDir)
+	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -323,9 +334,10 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	require.NotNil(t, tx3)
 }
 
+//TODO this test will stop working once we implement quorum rules
 func TestConfigTxContext_AddClusterNode(t *testing.T) {
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
-	testServer, err := setupTestServer(t, clientCryptoDir)
+	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -345,16 +357,26 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 	config, err := tx.GetClusterConfig()
 	require.NoError(t, err)
 
-	node2 := config.Nodes[0]
-	node2.ID = "testNode2"
-	node2.Port++
-	err = tx.AddClusterNode(node2)
+	node2 := &types.NodeConfig{
+		ID:          "testNode2",
+		Address:     config.Nodes[0].Address,
+		Port:        config.Nodes[0].Port + 1,
+		Certificate: config.Nodes[0].Certificate,
+	}
+	peer2 := &types.PeerConfig{
+		NodeId:   "testNode2",
+		RaftId:   config.ConsensusConfig.Members[0].RaftId + 1,
+		PeerHost: config.ConsensusConfig.Members[0].PeerHost,
+		PeerPort: config.ConsensusConfig.Members[0].PeerPort + 1,
+	}
+	err = tx.AddClusterNode(node2, peer2)
 	require.NoError(t, err)
 
 	txID, receipt, err := tx.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
 	require.NotNil(t, receipt)
+	require.Equal(t, types.Flag_VALID, receipt.Header.ValidationInfo[receipt.GetTxIndex()].Flag)
 
 	tx2, err := session1.ConfigTx()
 	require.NoError(t, err)
@@ -368,9 +390,10 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 	require.Equal(t, clusterConfig.Nodes[index].Port, node2.Port)
 }
 
+//TODO this test will stop working once we implement quorum rules
 func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
-	testServer, err := setupTestServer(t, clientCryptoDir)
+	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -391,24 +414,42 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 	require.NoError(t, err)
 
 	id1 := config.Nodes[0].ID
-	node2 := config.Nodes[0]
-	node2.ID = "testNode2"
-	node2.Port++
+	node2 := &types.NodeConfig{
+		ID:          "testNode2",
+		Address:     config.Nodes[0].Address,
+		Port:        config.Nodes[0].Port + 1,
+		Certificate: config.Nodes[0].Certificate,
+	}
+	peer2 := &types.PeerConfig{
+		NodeId:   "testNode2",
+		RaftId:   config.ConsensusConfig.Members[0].RaftId + 1,
+		PeerHost: config.ConsensusConfig.Members[0].PeerHost,
+		PeerPort: config.ConsensusConfig.Members[0].PeerPort + 1,
+	}
 
-	err = tx1.AddClusterNode(node2)
+	err = tx1.AddClusterNode(node2, peer2)
 	require.NoError(t, err)
-	err = tx1.DeleteClusterNode(id1)
-	require.NoError(t, err)
-
 	txID, receipt, err := tx1.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
 	require.NotNil(t, receipt)
+	require.Equal(t, types.Flag_VALID, receipt.Header.ValidationInfo[receipt.GetTxIndex()].Flag)
+
+	tx2, err := session1.ConfigTx()
+	require.NoError(t, err)
+	err = tx2.DeleteClusterNode(id1)
+	require.NoError(t, err)
+
+	txID, receipt, err = tx2.Commit(true)
+	require.NoError(t, err)
+	require.NotNil(t, txID)
+	require.NotNil(t, receipt)
+	require.Equal(t, types.Flag_VALID, receipt.Header.ValidationInfo[receipt.GetTxIndex()].Flag)
 
 	// verify tx was successfully committed. "Get" works once per Tx.
-	tx, err := session1.ConfigTx()
+	tx3, err := session1.ConfigTx()
 	require.NoError(t, err)
-	clusterConfig, err := tx.GetClusterConfig()
+	clusterConfig, err := tx3.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfig)
 	require.Len(t, clusterConfig.Nodes, 1)
@@ -416,11 +457,15 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 	found, index := NodeExists("testNode2", clusterConfig.Nodes)
 	require.True(t, found)
 	require.Equal(t, clusterConfig.Nodes[index].Port, node2.Port)
+	found, index = PeerExists("testNode2", clusterConfig.ConsensusConfig.Members)
+	require.True(t, found)
+	require.Equal(t, clusterConfig.ConsensusConfig.Members[index].PeerPort, peer2.PeerPort)
 }
 
+//TODO this test will stop working once we implement quorum rules
 func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
-	testServer, err := setupTestServer(t, clientCryptoDir)
+	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -442,7 +487,9 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 
 	node1 := config.Nodes[0]
 	node1.Port++
-	err = tx1.UpdateClusterNode(node1)
+	peer1 := config.ConsensusConfig.Members[0]
+	peer1.PeerPort++
+	err = tx1.UpdateClusterNode(node1, peer1)
 	require.NoError(t, err)
 
 	txID, receipt, err := tx1.Commit(true)
@@ -465,7 +512,7 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 
 func TestConfigTx_CommitAbortFinality(t *testing.T) {
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
-	testServer, err := setupTestServer(t, clientCryptoDir)
+	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
 			_ = testServer.Stop()
@@ -490,7 +537,7 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 		node1.Port++
 		nodeId := node1.ID
 		nodePort := node1.Port
-		err = tx.UpdateClusterNode(config.Nodes[0])
+		err = tx.UpdateClusterNode(config.Nodes[0], config.ConsensusConfig.Members[0])
 		require.NoError(t, err)
 
 		assertTxFinality(t, TxFinality(i), tx, session)
@@ -499,11 +546,11 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 		require.EqualError(t, err, ErrTxSpent.Error())
 		require.Nil(t, config)
 
-		err = tx.AddClusterNode(&types.NodeConfig{})
+		err = tx.AddClusterNode(&types.NodeConfig{}, nil)
 		require.EqualError(t, err, ErrTxSpent.Error())
 		err = tx.DeleteClusterNode("id")
 		require.EqualError(t, err, ErrTxSpent.Error())
-		err = tx.UpdateClusterNode(&types.NodeConfig{})
+		err = tx.UpdateClusterNode(&types.NodeConfig{}, nil)
 		require.EqualError(t, err, ErrTxSpent.Error())
 
 		err = tx.AddAdmin(&types.Admin{})

@@ -5,6 +5,7 @@ package commands
 import (
 	"crypto/tls"
 	"fmt"
+	"github.ibm.com/blockchaindb/sdk/internal/test"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -105,8 +106,9 @@ func Generate(demoDir string) error {
 }
 
 func writeConfigFile(demoDir string) error {
-	config := &config.Configurations{
-		Node: config.NodeConf{
+	nodePort, peerPort := test.GetPorts()
+	localConfig := &config.LocalConfiguration{
+		Server: config.ServerConf{
 			Identity: config.IdentityConf{
 				ID:              "demo",
 				CertificatePath: path.Join(demoDir, "crypto", "server", "server.pem"),
@@ -114,35 +116,71 @@ func writeConfigFile(demoDir string) error {
 			},
 			Network: config.NetworkConf{
 				Address: "127.0.0.1",
-				Port:    8080,
+				Port:    nodePort,
 			},
-			LogLevel: "debug",
 			Database: config.DatabaseConf{
 				Name:            "leveldb",
 				LedgerDirectory: path.Join(demoDir, "database"),
 			},
 			QueueLength: config.QueueLengthConf{
-				ReorderedTransactionBatch: 1,
-				Transaction:               1,
-				Block:                     1,
+				Transaction:               10,
+				ReorderedTransactionBatch: 10,
+				Block:                     10,
 			},
+			LogLevel: "info",
+		},
+		BlockCreation: config.BlockCreationConf{
+			MaxBlockSize:                1000000,
+			MaxTransactionCountPerBlock: 1,
+			BlockTimeout:                500 * time.Millisecond,
+		},
+		Replication: config.ReplicationConf{
+			Network: config.NetworkConf{
+				Address: "127.0.0.1",
+				Port:    peerPort,
+			},
+			TLS: config.TLSConf{Enabled: false},
+		},
+		Bootstrap: config.BootstrapConf{
+			Method: "genesis",
+			File:   path.Join(demoDir, "config", "bootstrap-shared-config.yaml"),
+		},
+	}
+	bootstrap := &config.SharedConfiguration{
+		Nodes: []config.NodeConf{
+			{
+				NodeID:          "demo",
+				Host:            "127.0.0.1",
+				Port:            nodePort,
+				CertificatePath: path.Join(demoDir, "crypto", "server", "server.pem"),
+			},
+		},
+		Consensus: &config.ConsensusConf{
+			Algorithm: "raft",
+			Members: []*config.PeerConf{
+				{
+					NodeId:   "demo",
+					RaftId:   1,
+					PeerHost: "127.0.0.1",
+					PeerPort: peerPort,
+				},
+			},
+			RaftConfig: &config.RaftConf{
+				TickInterval:   "100ms",
+				ElectionTicks:  100,
+				HeartbeatTicks: 10,
+			},
+		},
+		CAConfig: config.CAConfiguration{
+			RootCACertsPath: []string{path.Join(demoDir, "crypto", "CA", "CA.pem")},
 		},
 		Admin: config.AdminConf{
 			ID:              "admin",
 			CertificatePath: path.Join(demoDir, "crypto", "admin", "admin.pem"),
 		},
-		CAConfig: config.CAConfiguration{
-			RootCACertsPath: []string{path.Join(demoDir, "crypto", "CA", "CA.pem")},
-		},
-		Consensus: config.ConsensusConf{
-			MaxTransactionCountPerBlock: 1,
-			MaxBlockSize:                1,
-			BlockTimeout:                100 * time.Millisecond,
-			Algorithm:                   "solo",
-		},
 	}
 
-	c, err := yaml.Marshal(config)
+	c, err := yaml.Marshal(localConfig)
 	if err != nil {
 		return err
 	}
@@ -152,7 +190,17 @@ func writeConfigFile(demoDir string) error {
 		return err
 	}
 
-	serverUrl, err := url.Parse(fmt.Sprintf("http://%s:%d", config.Node.Network.Address, config.Node.Network.Port))
+	b, err := yaml.Marshal(bootstrap)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(path.Join(demoDir, "config", "bootstrap-shared-config.yaml"), b, 0644)
+	if err != nil {
+		return err
+	}
+
+	serverUrl, err := url.Parse(fmt.Sprintf("http://%s:%d", localConfig.Server.Network.Address, localConfig.Server.Network.Port))
 	if err != nil {
 		return err
 	}

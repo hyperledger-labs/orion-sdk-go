@@ -19,7 +19,7 @@ import (
 
 func TestDataContext_PutAndGetKey(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -47,7 +47,7 @@ func TestDataContext_PutAndGetKey(t *testing.T) {
 
 func TestDataContext_GetNonExistKey(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -73,7 +73,7 @@ func TestDataContext_GetNonExistKey(t *testing.T) {
 
 func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -169,7 +169,7 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 
 func TestDataContext_CommitAbortFinality(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -220,7 +220,7 @@ func TestDataContext_CommitAbortFinality(t *testing.T) {
 
 func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -263,7 +263,7 @@ func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 
 func TestDataContext_GetUserPermissions(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -315,7 +315,7 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 
 func TestDataContext_GetTimeout(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()

@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
+	"github.ibm.com/blockchaindb/sdk/internal/test"
 	sdkconfig "github.ibm.com/blockchaindb/sdk/pkg/config"
 	"github.ibm.com/blockchaindb/server/config"
 	"github.ibm.com/blockchaindb/server/pkg/logger"
@@ -21,13 +22,13 @@ import (
 	"github.ibm.com/blockchaindb/server/pkg/types"
 )
 
-func setupTestServer(t *testing.T, cryptoTempDir string) (*server.BCDBHTTPServer, error) {
-	s, e := setupTestServerWithParams(t, cryptoTempDir, 500*time.Millisecond, 1)
-	return s, e
+func SetupTestServer(t *testing.T, cryptoTempDir string) (*server.BCDBHTTPServer, uint32, uint32, error) {
+	s, nodePort, peerPort, e := SetupTestServerWithParams(t, cryptoTempDir, 500*time.Millisecond, 1)
+	return s, nodePort, peerPort, e
 }
 
-func setupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime time.Duration, txPerBlock uint32) (*server.BCDBHTTPServer, error) {
-	tempDir, err := ioutil.TempDir("/tmp", "userTxContextTest")
+func SetupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime time.Duration, txPerBlock uint32) (*server.BCDBHTTPServer, uint32, uint32, error) {
+	tempDir, err := ioutil.TempDir(os.TempDir(), "userTxContextTest")
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		os.RemoveAll(tempDir)
@@ -37,42 +38,72 @@ func setupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime tim
 	require.NoError(t, err)
 	require.NotNil(t, caCertPEM)
 
-	server, err := server.New(&config.Configurations{
-		Node: config.NodeConf{
-			Identity: config.IdentityConf{
-				ID:              "testNode1",
-				CertificatePath: path.Join(cryptoTempDir, "server.pem"),
-				KeyPath:         path.Join(cryptoTempDir, "server.key"),
-			},
-			Database: config.DatabaseConf{
-				Name:            "leveldb",
-				LedgerDirectory: path.Join(tempDir, "ledger"),
-			},
-			Network: config.NetworkConf{
-				Address: "127.0.0.1",
-				Port:    0, // use ephemeral port for testing
-			},
-			QueueLength: config.QueueLengthConf{
-				Block:                     10,
-				Transaction:               10,
-				ReorderedTransactionBatch: 10,
-			},
+	nodePort, peerPort := test.GetPorts()
 
-			LogLevel: "debug",
+	server, err := server.New(&config.Configurations{
+		LocalConfig: &config.LocalConfiguration{
+			Server: config.ServerConf{
+				Identity: config.IdentityConf{ID: "testNode1",
+					CertificatePath: path.Join(cryptoTempDir, "server.pem"),
+					KeyPath:         path.Join(cryptoTempDir, "server.key"),
+				},
+				Network: config.NetworkConf{
+					Address: "127.0.0.1",
+					Port:    nodePort,
+				},
+				Database: config.DatabaseConf{
+					Name:            "leveldb",
+					LedgerDirectory: path.Join(tempDir, "ledger"),
+				},
+				Replication: config.ReplicationConf{},
+				QueueLength: config.QueueLengthConf{
+					Block:                     10,
+					Transaction:               10,
+					ReorderedTransactionBatch: 10,
+				},
+				LogLevel: "info",
+			},
+			BlockCreation: config.BlockCreationConf{
+				MaxBlockSize:                1000000,
+				MaxTransactionCountPerBlock: txPerBlock,
+				BlockTimeout:                blockTime,
+			},
+			Replication: config.ReplicationConf{},
+			Bootstrap:   config.BootstrapConf{},
 		},
-		Admin: config.AdminConf{
-			ID:              "admin",
-			CertificatePath: path.Join(cryptoTempDir, "admin.pem"),
-		},
-		CAConfig: config.CAConfiguration{RootCACertsPath: []string{path.Join(cryptoTempDir, testutils.RootCAFileName+".pem")}},
-		Consensus: config.ConsensusConf{
-			Algorithm:                   "solo",
-			BlockTimeout:                blockTime,
-			MaxBlockSize:                1,
-			MaxTransactionCountPerBlock: txPerBlock,
+		SharedConfig: &config.SharedConfiguration{
+			Nodes: []config.NodeConf{
+				{
+					NodeID:          "testNode1",
+					Host:            "127.0.0.1",
+					Port:            nodePort,
+					CertificatePath: path.Join(cryptoTempDir, "server.pem"),
+				},
+			},
+			Consensus: &config.ConsensusConf{
+				Algorithm: "raft",
+				Members: []*config.PeerConf{
+					{
+						NodeId:   "testNode1",
+						RaftId:   1,
+						PeerHost: "127.0.0.1",
+						PeerPort: peerPort,
+					},
+				},
+				RaftConfig: &config.RaftConf{
+					TickInterval:   "100ms",
+					ElectionTicks:  100,
+					HeartbeatTicks: 10,
+				},
+			},
+			CAConfig: config.CAConfiguration{RootCACertsPath: []string{path.Join(cryptoTempDir, testutils.RootCAFileName+".pem")}},
+			Admin: config.AdminConf{
+				ID:              "admin",
+				CertificatePath: path.Join(cryptoTempDir, "admin.pem"),
+			},
 		},
 	})
-	return server, err
+	return server, nodePort, peerPort, err
 }
 
 func createTestLogger(t *testing.T) *logger.SugarLogger {

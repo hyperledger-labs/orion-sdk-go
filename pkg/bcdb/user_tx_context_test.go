@@ -26,7 +26,7 @@ import (
 
 func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -53,7 +53,7 @@ func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {
 
 func TestUserContext_CommitAbortFinality(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()
@@ -97,7 +97,7 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 
 func TestUserContext_MalformedRequest(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	testServer.Start()

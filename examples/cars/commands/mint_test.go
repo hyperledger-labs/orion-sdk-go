@@ -25,7 +25,8 @@ func TestMint(t *testing.T) {
 	require.NoError(t, err)
 	defer func() {
 		if testServer != nil {
-			_ = testServer.Stop()
+			err = testServer.Stop()
+			require.NoError(t,err)
 		}
 	}()
 	require.NoError(t, err)

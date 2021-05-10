@@ -15,7 +15,7 @@ import (
 
 func TestGetBlockHeader(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
@@ -40,7 +40,7 @@ func TestGetBlockHeader(t *testing.T) {
 
 func TestGetLedgerPath(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServer(t, clientCertTemDir)
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
@@ -118,7 +118,7 @@ func TestGetLedgerPath(t *testing.T) {
 
 func TestGetTransactionProof(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 10)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, 5*time.Second, 10)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
@@ -193,7 +193,7 @@ func TestGetTransactionProof(t *testing.T) {
 
 func TestGetTransactionReceipt(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, err := setupTestServerWithParams(t, clientCertTemDir, time.Second, 10)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, 5*time.Second, 10)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
