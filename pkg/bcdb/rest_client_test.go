@@ -86,7 +86,7 @@ func TestRestClient_Submit(t *testing.T) {
 	client := NewRestClient("testUserID", server.Client(), signer)
 
 	response, err := client.Submit(context.Background(), server.URL, &types.DataTx{
-		UserID: "alice",
+		MustSignUserIDs: []string{"alice"},
 		DBOperations: []*types.DBOperation{
 			{
 				DBName: "bdb",
@@ -101,7 +101,7 @@ func TestRestClient_Submit(t *testing.T) {
 	ctx, cancelFnc := context.WithTimeout(context.Background(), 0)
 	defer cancelFnc()
 	response, err = client.Submit(ctx, server.URL, &types.DataTx{
-		UserID: "alice",
+		MustSignUserIDs: []string{"alice"},
 		DBOperations: []*types.DBOperation{
 			{
 				DBName: "bdb",
@@ -116,7 +116,7 @@ func TestRestClient_Submit(t *testing.T) {
 	ctx, cancelFnc = context.WithTimeout(context.Background(), time.Second)
 	defer cancelFnc()
 	response, err = client.Submit(ctx, server.URL, &types.DataTx{
-		UserID: "alice",
+		MustSignUserIDs: []string{"alice"},
 		DBOperations: []*types.DBOperation{
 			{
 				DBName: "bdb",

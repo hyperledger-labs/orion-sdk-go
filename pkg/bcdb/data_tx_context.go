@@ -142,9 +142,9 @@ func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	}
 
 	payload := &types.DataTx{
-		UserID:       d.userID,
-		TxID:         txID,
-		DBOperations: dbOperations,
+		MustSignUserIDs: []string{d.userID},
+		TxID:            txID,
+		DBOperations:    dbOperations,
 	}
 
 	signature, err := cryptoservice.SignTx(d.signer, payload)
@@ -153,8 +153,10 @@ func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	}
 
 	return &types.DataTxEnvelope{
-		Payload:   payload,
-		Signature: signature,
+		Payload: payload,
+		Signatures: map[string][]byte{
+			d.userID: signature,
+		},
 	}, nil
 }
 
