@@ -12,7 +12,7 @@ import (
 	"os"
 
 	"github.ibm.com/blockchaindb/sdk/examples/cars/commands"
-	"github.ibm.com/blockchaindb/server/pkg/logger"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 

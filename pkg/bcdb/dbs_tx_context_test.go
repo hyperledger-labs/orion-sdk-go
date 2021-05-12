@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb/mocks"
 	sdkConfig "github.ibm.com/blockchaindb/sdk/pkg/config"
-	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
 )
 
 func TestDBsContext_CheckStatusOfDefaultDB(t *testing.T) {

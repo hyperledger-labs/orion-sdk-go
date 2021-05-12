@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.ibm.com/blockchaindb/server/pkg/crypto"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/crypto"
 )
 
 const (

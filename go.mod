@@ -1,8 +1,9 @@
-module github.ibm.com/blockchaindb/sdk
+module github.com/IBM-Blockchain/bcdb-sdk
 
 go 1.14
 
 require (
+	github.com/IBM-Blockchain/bcdb-server v0.0.0-20210512092004-7d2a34f84cdf // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20201120081800-1786d5ef83d4 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
@@ -16,7 +17,6 @@ require (
 	github.com/spf13/viper v1.7.1 // indirect
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/stretchr/testify v1.7.0
-	github.ibm.com/blockchaindb/server v0.0.0-20210510075300-9fd549699507 // server commit that introduces multi-sign
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0 // indirect
 	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect

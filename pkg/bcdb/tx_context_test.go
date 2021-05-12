@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.ibm.com/blockchaindb/sdk/pkg/bcdb/mocks"
-	"github.ibm.com/blockchaindb/server/pkg/constants"
-	"github.ibm.com/blockchaindb/server/pkg/types"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 )
 
 func TestTxCommit(t *testing.T) {

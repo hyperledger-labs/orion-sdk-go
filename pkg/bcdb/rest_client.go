@@ -13,8 +13,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/server/pkg/constants"
-	"github.ibm.com/blockchaindb/server/pkg/cryptoservice"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/cryptoservice"
 )
 
 //go:generate mockery --dir . --name RestClient --case underscore --output mocks/

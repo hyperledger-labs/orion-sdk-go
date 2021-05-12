@@ -17,6 +17,8 @@ github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78/go.mod h1:LmzpDX
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
+github.com/IBM-Blockchain/bcdb-server v0.0.0-20210512092004-7d2a34f84cdf h1:D7JRw8nfb8o3Aqhz0RtmIO50AEQzx21w458nLisy+LQ=
+github.com/IBM-Blockchain/bcdb-server v0.0.0-20210512092004-7d2a34f84cdf/go.mod h1:3/eL2aR2AxiitHtzet++d1b1kgtmfgHdoezwYXZivwc=
 github.com/Microsoft/go-winio v0.4.12/go.mod h1:VhR8bwka0BXejwEJY73c50VrPtXAaKcyvVC4A4RozmA=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
@@ -404,14 +406,6 @@ github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c/go.mod h1:lB8K/P019DLNhe
 github.com/xdg/stringprep v1.0.0/go.mod h1:Jhud4/sHMO4oL310DaZAKk9ZaJ08SJfe+sJh0HrGL1Y=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
-github.ibm.com/blockchaindb/server v0.0.0-20210209114409-387bec385e44 h1:hfJ5QNfk0nHp26mZ/wgOsKccfsYW6XBXp0jtH+OcZaE=
-github.ibm.com/blockchaindb/server v0.0.0-20210209114409-387bec385e44/go.mod h1:uK5EDibn2hSDserxzsvbftguWPK80oCyNAOYaYPNTI8=
-github.ibm.com/blockchaindb/server v0.0.0-20210308055807-85579a8192f8 h1:3zkLlwedAtymUgvh4Gm7axtbSXftqNcAr5YRznlzVnk=
-github.ibm.com/blockchaindb/server v0.0.0-20210308055807-85579a8192f8/go.mod h1:uK5EDibn2hSDserxzsvbftguWPK80oCyNAOYaYPNTI8=
-github.ibm.com/blockchaindb/server v0.0.0-20210426053203-cae744f9372b h1:oL8b5MhWtYGDZD2+Ib1P3ggCiQgrMniPjp2UKhvCHes=
-github.ibm.com/blockchaindb/server v0.0.0-20210426053203-cae744f9372b/go.mod h1:U7vKhDYe8/CvsCV6mgf3I1kTy5kPcrdPrv2wQWe7GS0=
-github.ibm.com/blockchaindb/server v0.0.0-20210510075300-9fd549699507 h1:A01p/2LFEBwGSzn74wkIj/36W3mQcw4S0x+3B9STnDI=
-github.ibm.com/blockchaindb/server v0.0.0-20210510075300-9fd549699507/go.mod h1:U7vKhDYe8/CvsCV6mgf3I1kTy5kPcrdPrv2wQWe7GS0=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.mongodb.org/mongo-driver v1.0.4/go.mod h1:u7ryQJ+DOzQmeO7zB6MHyr8jkEQvC8vH7qLUO4lqsUM=

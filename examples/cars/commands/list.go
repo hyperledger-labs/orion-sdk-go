@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/server/pkg/logger"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 )
 
 func ListCar(demoDir, userID, carRegistration string, provenance bool, lg *logger.SugarLogger) (out string, err error) {

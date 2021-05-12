@@ -4,9 +4,9 @@ package bcdb
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.ibm.com/blockchaindb/server/pkg/constants"
-	"github.ibm.com/blockchaindb/server/pkg/cryptoservice"
-	"github.ibm.com/blockchaindb/server/pkg/types"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/cryptoservice"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 )
 
 // DBsTxContext abstraction for database management transaction context

@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/server/pkg/logger"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 )
 
 func VerifyEvidence(demoDir, userID, txID string, lg *logger.SugarLogger) (out string, err error) {

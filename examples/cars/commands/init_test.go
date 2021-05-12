@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.ibm.com/blockchaindb/server/config"
-	"github.ibm.com/blockchaindb/server/pkg/logger"
-	"github.ibm.com/blockchaindb/server/pkg/server"
+	"github.com/IBM-Blockchain/bcdb-server/config"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/server"
 )
 
 func TestInit(t *testing.T) {

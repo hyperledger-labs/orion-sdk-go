@@ -3,8 +3,8 @@
 package bcdb
 
 import (
-	"github.ibm.com/blockchaindb/server/pkg/constants"
-	"github.ibm.com/blockchaindb/server/pkg/types"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 )
 
 type ledger struct {

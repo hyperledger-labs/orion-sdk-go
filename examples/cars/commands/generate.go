@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.ibm.com/blockchaindb/server/config"
-	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
+	"github.com/IBM-Blockchain/bcdb-server/config"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
 	"gopkg.in/yaml.v2"
 )
 

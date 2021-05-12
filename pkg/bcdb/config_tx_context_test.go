@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	sdkConfig "github.ibm.com/blockchaindb/sdk/pkg/config"
-	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
-	"github.ibm.com/blockchaindb/server/pkg/types"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 )
 
 func TestConfigTxContext_GetClusterConfig(t *testing.T) {

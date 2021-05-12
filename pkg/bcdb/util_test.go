@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.ibm.com/blockchaindb/sdk/internal/test"
 	sdkconfig "github.ibm.com/blockchaindb/sdk/pkg/config"
-	"github.ibm.com/blockchaindb/server/config"
-	"github.ibm.com/blockchaindb/server/pkg/logger"
-	"github.ibm.com/blockchaindb/server/pkg/server"
-	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
-	"github.ibm.com/blockchaindb/server/pkg/types"
+	"github.com/IBM-Blockchain/bcdb-server/config"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/server"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 )
 
 func SetupTestServer(t *testing.T, cryptoTempDir string) (*server.BCDBHTTPServer, uint32, uint32, error) {

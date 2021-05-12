@@ -5,8 +5,8 @@ package bcdb
 import (
 	"errors"
 
-	"github.ibm.com/blockchaindb/server/pkg/constants"
-	"github.ibm.com/blockchaindb/server/pkg/types"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 )
 
 type provenance struct {

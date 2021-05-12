@@ -12,8 +12,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
-	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
-	"github.ibm.com/blockchaindb/server/pkg/types"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 )
 
 func TestGetHistoricalData(t *testing.T) {

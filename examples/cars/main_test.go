@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.ibm.com/blockchaindb/server/pkg/logger"
-	"github.ibm.com/blockchaindb/server/pkg/server/testutils"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
 )
 
 func TestCars_Generate(t *testing.T) {
