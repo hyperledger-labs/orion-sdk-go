@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb/mocks"
+	sdkConfig "github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.ibm.com/blockchaindb/sdk/pkg/bcdb/mocks"
-	sdkConfig "github.ibm.com/blockchaindb/sdk/pkg/config"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
 )
 
 func TestDBsContext_CheckStatusOfDefaultDB(t *testing.T) {

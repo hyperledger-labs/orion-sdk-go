@@ -5,7 +5,6 @@ package commands
 import (
 	"crypto/tls"
 	"fmt"
-	"github.ibm.com/blockchaindb/sdk/internal/test"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/IBM-Blockchain/bcdb-sdk/internal/test"
 	"github.com/IBM-Blockchain/bcdb-server/config"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
 	"gopkg.in/yaml.v2"

@@ -16,14 +16,14 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/sdk/pkg/config"
+	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/crypto"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/cryptoservice"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 )
 
 // BCDB Blockchain Database interface, defines set of APIs

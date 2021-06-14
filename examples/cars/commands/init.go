@@ -10,11 +10,11 @@ import (
 	"path"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
-	"github.ibm.com/blockchaindb/sdk/pkg/config"
+	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb"
+	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/pkg/errors"
 )
 
 const CarDBName = "carDB"

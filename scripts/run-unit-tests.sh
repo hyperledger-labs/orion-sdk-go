@@ -16,7 +16,7 @@ run_tests() {
 
 main() {
     # default behavior is to run all tests
-    local -a package_spec=("${TEST_PKGS:-github.ibm.com/blockchaindb/sdk/...}")
+    local -a package_spec=("${TEST_PKGS:-github.com/IBM-Blockchain/bcdb-sdk/...}")
 
     # expand the package specs into arrays of packages
     local -a packages

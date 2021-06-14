@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pkg/errors"
-	"github.ibm.com/blockchaindb/sdk/pkg/bcdb"
+	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/pkg/errors"
 )
 
 func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.SugarLogger) (out string, err error) {
