@@ -14,14 +14,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"github.ibm.com/blockchaindb/sdk/pkg/bcdb/mocks"
-	sdkConfig "github.ibm.com/blockchaindb/sdk/pkg/config"
+	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb/mocks"
+	sdkConfig "github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {

@@ -1,8 +1,0 @@
-language: go
-go:
-  - 1.15.5
-
-before_script:
-  - git config --global url."https://9add3cf0e62e5a89e6010a4dcd73cc930a5ab6ff:x-oauth-basic@github.ibm.com/blockchaindb".insteadOf "https://github.ibm.com/blockchaindb"
-script:
-  - scripts/run-unit-tests.sh

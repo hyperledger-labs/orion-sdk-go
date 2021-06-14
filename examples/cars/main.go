@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.ibm.com/blockchaindb/sdk/examples/cars/commands"
+	"github.com/IBM-Blockchain/bcdb-sdk/examples/cars/commands"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"gopkg.in/alecthomas/kingpin.v2"
 )

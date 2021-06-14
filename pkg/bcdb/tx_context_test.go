@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"github.ibm.com/blockchaindb/sdk/pkg/bcdb/mocks"
+	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb/mocks"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTxCommit(t *testing.T) {

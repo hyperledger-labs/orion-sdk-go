@@ -3,7 +3,6 @@
 package commands
 
 import (
-	"github.ibm.com/blockchaindb/sdk/internal/test"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -11,10 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"github.com/IBM-Blockchain/bcdb-sdk/internal/test"
 	"github.com/IBM-Blockchain/bcdb-server/config"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/server"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInit(t *testing.T) {
