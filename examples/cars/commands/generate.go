@@ -185,7 +185,7 @@ func writeConfigFile(demoDir string) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(path.Join(demoDir, "config", "config.yaml"), c, 0644)
+	err = ioutil.WriteFile(path.Join(demoDir, "config", "config.yml"), c, 0644)
 	if err != nil {
 		return err
 	}

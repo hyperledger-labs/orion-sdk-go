@@ -55,7 +55,6 @@ func SetupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime tim
 					Name:            "leveldb",
 					LedgerDirectory: path.Join(tempDir, "ledger"),
 				},
-				Replication: config.ReplicationConf{},
 				QueueLength: config.QueueLengthConf{
 					Block:                     10,
 					Transaction:               10,

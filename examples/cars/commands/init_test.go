@@ -99,7 +99,6 @@ func setupTestServer(t *testing.T, demoDir string) (*server.BCDBHTTPServer, stri
 					Name:            "leveldb",
 					LedgerDirectory: path.Join(tempDataDir, "ledger"),
 				},
-				Replication: config.ReplicationConf{},
 				QueueLength: config.QueueLengthConf{
 					Block:                     10,
 					Transaction:               10,
