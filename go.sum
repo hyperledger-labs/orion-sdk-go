@@ -9,6 +9,8 @@ github.com/IBM-Blockchain/bcdb-server v0.0.0-20210609180532-d6c2c4edaed9 h1:pXBF
 github.com/IBM-Blockchain/bcdb-server v0.0.0-20210609180532-d6c2c4edaed9/go.mod h1:3/eL2aR2AxiitHtzet++d1b1kgtmfgHdoezwYXZivwc=
 github.com/IBM-Blockchain/bcdb-server v0.0.0-20210617023424-769c72bf3ee7 h1:sxICIV8raTrRCXFNJ3xBQ6SJ/cv6g4TUo4PPveHxbLo=
 github.com/IBM-Blockchain/bcdb-server v0.0.0-20210617023424-769c72bf3ee7/go.mod h1:mtuB0GJek4elh+cUs7DGtdsUrzcjX4JJznIeRjcDJko=
+github.com/IBM-Blockchain/bcdb-server v0.0.0-20210620090414-7807cc5304c5 h1:F+hv8hDlAvyl0L5vDgtHwp4wxqGUScsBbNGi7VnD/fk=
+github.com/IBM-Blockchain/bcdb-server v0.0.0-20210620090414-7807cc5304c5/go.mod h1:mtuB0GJek4elh+cUs7DGtdsUrzcjX4JJznIeRjcDJko=
 github.com/Microsoft/go-winio v0.4.12/go.mod h1:VhR8bwka0BXejwEJY73c50VrPtXAaKcyvVC4A4RozmA=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
