@@ -41,14 +41,14 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	require.NotNil(t, clusterConfig)
 
 	require.Equal(t, 1, len(clusterConfig.Nodes))
-	require.Equal(t, "testNode1", clusterConfig.Nodes[0].ID)
+	require.Equal(t, "testNode1", clusterConfig.Nodes[0].Id)
 	require.Equal(t, "127.0.0.1", clusterConfig.Nodes[0].Address)
 	require.Equal(t, nodePort, clusterConfig.Nodes[0].Port)
 	serverCertBytes, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "server")
 	require.Equal(t, serverCertBytes.Raw, clusterConfig.Nodes[0].Certificate)
 
 	require.Equal(t, 1, len(clusterConfig.Admins))
-	require.Equal(t, "admin", clusterConfig.Admins[0].ID)
+	require.Equal(t, "admin", clusterConfig.Admins[0].Id)
 	adminCertBytes, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "admin")
 	require.Equal(t, adminCertBytes.Raw, clusterConfig.Admins[0].Certificate)
 
@@ -117,12 +117,12 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 
 	adminCert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin")
 	admin := &types.Admin{
-		ID:          "admin",
+		Id:          "admin",
 		Certificate: adminCert.Raw,
 	}
 
 	admin2Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin2")
-	admin2 := &types.Admin{ID: "admin2", Certificate: admin2Cert.Raw}
+	admin2 := &types.Admin{Id: "admin2", Certificate: admin2Cert.Raw}
 
 	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session1 := openUserSession(t, bcdb, "admin", clientCryptoDir)
@@ -183,13 +183,13 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	require.NoError(t, err)
 
 	adminCert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin")
-	admin := &types.Admin{ID: "admin", Certificate: adminCert.Raw}
+	admin := &types.Admin{Id: "admin", Certificate: adminCert.Raw}
 
 	admin2Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin2")
 	admin3Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin3")
 
-	admin2 := &types.Admin{ID: "admin2", Certificate: admin2Cert.Raw}
-	admin3 := &types.Admin{ID: "admin3", Certificate: admin3Cert.Raw}
+	admin2 := &types.Admin{Id: "admin2", Certificate: admin2Cert.Raw}
+	admin3 := &types.Admin{Id: "admin3", Certificate: admin3Cert.Raw}
 
 	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session1 := openUserSession(t, bcdb, "admin", clientCryptoDir)
@@ -219,9 +219,9 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	session2 := openUserSession(t, bcdb, "admin2", clientCryptoDir)
 	tx2, err := session2.ConfigTx()
 	require.NoError(t, err)
-	err = tx2.DeleteAdmin(admin.ID)
+	err = tx2.DeleteAdmin(admin.Id)
 	require.NoError(t, err)
-	err = tx2.DeleteAdmin(admin.ID)
+	err = tx2.DeleteAdmin(admin.Id)
 	require.EqualError(t, err, "admin does not exist in pending config: admin")
 	err = tx2.DeleteAdmin("non-admin")
 	require.EqualError(t, err, "admin does not exist in current config: non-admin")
@@ -270,7 +270,7 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	admin2Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin2")
 	adminUpdatedCert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "adminUpdated")
 
-	admin2 := &types.Admin{ID: "admin2", Certificate: admin2Cert.Raw}
+	admin2 := &types.Admin{Id: "admin2", Certificate: admin2Cert.Raw}
 
 	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
 	session1 := openUserSession(t, bcdb, "admin", clientCryptoDir)
@@ -291,9 +291,9 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	session2 := openUserSession(t, bcdb, "admin2", clientCryptoDir)
 	tx2, err := session2.ConfigTx()
 	require.NoError(t, err)
-	err = tx2.UpdateAdmin(&types.Admin{ID: "admin", Certificate: adminUpdatedCert.Raw})
+	err = tx2.UpdateAdmin(&types.Admin{Id: "admin", Certificate: adminUpdatedCert.Raw})
 	require.NoError(t, err)
-	err = tx2.UpdateAdmin(&types.Admin{ID: "non-admin", Certificate: []byte("bad-cert")})
+	err = tx2.UpdateAdmin(&types.Admin{Id: "non-admin", Certificate: []byte("bad-cert")})
 	require.EqualError(t, err, "admin does not exist in current config: non-admin")
 
 	txID, receipt, err = tx2.Commit(true)
@@ -355,7 +355,7 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 	require.NoError(t, err)
 
 	node2 := &types.NodeConfig{
-		ID:          "testNode2",
+		Id:          "testNode2",
 		Address:     config.Nodes[0].Address,
 		Port:        config.Nodes[0].Port + 1,
 		Certificate: config.Nodes[0].Certificate,
@@ -412,7 +412,7 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 
 	node1 := config.Nodes[0]
 	node2 := &types.NodeConfig{
-		ID:          "testNode2",
+		Id:          "testNode2",
 		Address:     config.Nodes[0].Address,
 		Port:        config.Nodes[0].Port + 1,
 		Certificate: config.Nodes[0].Certificate,
@@ -447,7 +447,7 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, clusterConfig.ConsensusConfig.Members[index].PeerPort, peer2.PeerPort)
 
-	err = tx2.DeleteClusterNode(node2.ID)
+	err = tx2.DeleteClusterNode(node2.Id)
 	require.NoError(t, err)
 
 	txID, receipt, err = tx2.Commit(true)
@@ -545,7 +545,7 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 		require.NoError(t, err)
 		node1 := config.Nodes[0]
 		node1.Port++
-		nodeId := node1.ID
+		nodeId := node1.Id
 		nodePort := node1.Port
 		err = tx.UpdateClusterNode(config.Nodes[0], config.ConsensusConfig.Members[0])
 		require.NoError(t, err)
@@ -577,7 +577,7 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 			config, err := tx.GetClusterConfig()
 			require.NoError(t, err)
 			node1 := config.Nodes[0]
-			require.Equal(t, nodeId, node1.ID)
+			require.Equal(t, nodeId, node1.Id)
 			require.Equal(t, nodePort, node1.Port)
 		}
 	}

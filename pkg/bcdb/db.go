@@ -4,6 +4,9 @@ package bcdb
 
 import (
 	"encoding/pem"
+	"io/ioutil"
+	"net/url"
+
 	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/certificateauthority"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/crypto"
@@ -11,8 +14,6 @@ import (
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"io/ioutil"
-	"net/url"
 )
 
 // BCDB Blockchain Database interface, defines set of APIs

@@ -149,10 +149,10 @@ func initUsers(demoDir string, session bcdb.DBSession, logger *logger.SugarLogge
 		certBlock, _ := pem.Decode(certFile)
 		err = usersTx.PutUser(
 			&types.User{
-				ID:          role,
+				Id:          role,
 				Certificate: certBlock.Bytes,
 				Privilege: &types.Privilege{
-					DBPermission: map[string]types.Privilege_Access{CarDBName: 1},
+					DbPermission: map[string]types.Privilege_Access{CarDBName: 1},
 				},
 			}, &types.AccessControl{
 				ReadWriteUsers: usersMap("admin"),

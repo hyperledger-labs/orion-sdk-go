@@ -217,8 +217,8 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 			// TODO remove once support for non data tx provenance added
 			e, _ := tx.TxEnvelope()
 			env := e.(*types.DBAdministrationTxEnvelope)
-			createdDBs := env.GetPayload().GetCreateDBs()
-			deletedDBs := env.GetPayload().GetDeleteDBs()
+			createdDBs := env.GetPayload().GetCreateDbs()
+			deletedDBs := env.GetPayload().GetDeleteDbs()
 			require.Eventually(t, func() bool {
 				// verify tx was successfully committed. "Get" works once per Tx.
 				res := true
@@ -262,8 +262,8 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 				}
 				if len(deleteUsers) > 0 {
 					for _, userDelete := range deleteUsers {
-						userDelete.GetUserID()
-						dUser, err := userTx.GetUser(userDelete.GetUserID())
+						userDelete.GetUserId()
+						dUser, err := userTx.GetUser(userDelete.GetUserId())
 						if err != nil {
 							return false
 						}
@@ -272,7 +272,7 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 				}
 				if len(updateUsers) > 0 {
 					for _, userUpdate := range updateUsers {
-						uUser, err := userTx.GetUser(userUpdate.User.ID)
+						uUser, err := userTx.GetUser(userUpdate.User.Id)
 						if err != nil {
 							return false
 						}

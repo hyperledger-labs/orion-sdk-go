@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/stretchr/testify/require"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetHistoricalData(t *testing.T) {
@@ -547,7 +547,7 @@ func TestGetTxIDsSubmittedByUser(t *testing.T) {
 			require.Equal(t, tt.userTxNum, len(txs))
 			expectedTxIds := make([]string, 0)
 			for _, tx := range tt.userTx {
-				expectedTxIds = append(expectedTxIds, tx.(*types.DataTxEnvelope).GetPayload().GetTxID())
+				expectedTxIds = append(expectedTxIds, tx.(*types.DataTxEnvelope).GetPayload().GetTxId())
 			}
 			require.ElementsMatch(t, expectedTxIds, txs)
 		})

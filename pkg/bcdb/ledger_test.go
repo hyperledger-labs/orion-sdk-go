@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/stretchr/testify/require"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetBlockHeader(t *testing.T) {
@@ -223,21 +223,21 @@ func TestGetTransactionReceipt(t *testing.T) {
 			name:    "block 3, tx 5",
 			block:   3,
 			txIdx:   5,
-			txID:    txEnvelopesPerBlock[0][5].(*types.DataTxEnvelope).GetPayload().GetTxID(),
+			txID:    txEnvelopesPerBlock[0][5].(*types.DataTxEnvelope).GetPayload().GetTxId(),
 			wantErr: false,
 		},
 		{
 			name:    "block 5, tx 8",
 			block:   5,
 			txIdx:   8,
-			txID:    txEnvelopesPerBlock[2][8].(*types.DataTxEnvelope).GetPayload().GetTxID(),
+			txID:    txEnvelopesPerBlock[2][8].(*types.DataTxEnvelope).GetPayload().GetTxId(),
 			wantErr: false,
 		},
 		{
 			name:    "block 11, tx 2",
 			block:   11,
 			txIdx:   2,
-			txID:    txEnvelopesPerBlock[8][2].(*types.DataTxEnvelope).GetPayload().GetTxID(),
+			txID:    txEnvelopesPerBlock[8][2].(*types.DataTxEnvelope).GetPayload().GetTxId(),
 			wantErr: false,
 		},
 		{

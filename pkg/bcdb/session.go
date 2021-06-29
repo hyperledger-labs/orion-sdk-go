@@ -165,7 +165,7 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 	}
 
 	signature, err := cryptoservice.SignQuery(d.signer, &types.GetConfigQuery{
-		UserID: d.userID,
+		UserId: d.userID,
 	})
 	if err != nil {
 		d.logger.Errorf("failed signed transaction, %s", err)
@@ -186,27 +186,13 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 		return nil, errors.New(fmt.Sprintf("error response from the server, %s", response.Status))
 	}
 
-	resEnv := &types.ResponseEnvelope{}
+	resEnv := &types.GetConfigResponseEnvelope{}
 	err = json.NewDecoder(response.Body).Decode(resEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	payload := &types.Payload{}
-	err = json.Unmarshal(resEnv.GetPayload(), payload)
-	if err != nil {
-		d.logger.Errorf("failed to unmarshal response payload, due to %s", err)
-		return nil, err
-	}
-
-	configResponse := &types.GetConfigResponse{}
-	err = json.Unmarshal(payload.GetResponse(), configResponse)
-	if err != nil {
-		d.logger.Errorf("failed to unmarshal config response, due to %s", err)
-		return nil, err
-	}
-
-	for _, node := range configResponse.GetConfig().GetNodes() {
+	for _, node := range resEnv.GetResponse().GetConfig().GetNodes() {
 		err := d.rootCAs.VerifyLeafCert(node.Certificate)
 		if err != nil {
 			return nil, err
@@ -215,7 +201,7 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 		if err != nil {
 			return nil, err
 		}
-		nodesCerts[node.ID] = cert
+		nodesCerts[node.Id] = cert
 	}
 
 	verifier, err := NewVerifier(nodesCerts, d.logger)
@@ -223,9 +209,14 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 		return nil, err
 	}
 
+	respBytes, err := json.Marshal(resEnv.GetResponse())
+	if err != nil {
+		return nil, err
+	}
+
 	if err = verifier.Verify(
-		payload.GetHeader().GetNodeID(),
-		resEnv.GetPayload(),
+		resEnv.GetResponse().GetHeader().GetNodeId(),
+		respBytes,
 		resEnv.GetSignature()); err != nil {
 		d.logger.Errorf("failed to verify configuration response, error = %s", err)
 		return nil, errors.Errorf("failed to verify configuration response, error = %s", err)

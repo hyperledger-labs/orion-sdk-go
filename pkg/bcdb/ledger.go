@@ -13,59 +13,86 @@ type ledger struct {
 
 func (l *ledger) GetBlockHeader(blockNum uint64) (*types.BlockHeader, error) {
 	path := constants.URLForLedgerBlock(blockNum)
-	res := &types.GetBlockResponse{}
-	err := l.handleRequest(path, &types.GetBlockQuery{
-		UserID:      l.userID,
-		BlockNumber: blockNum,
-	}, res)
+	resEnv := &types.GetBlockResponseEnvelope{}
+	err := l.handleRequest(
+		path,
+		&types.GetBlockQuery{
+			UserId:      l.userID,
+			BlockNumber: blockNum,
+		},
+		resEnv,
+	)
 	if err != nil {
 		l.logger.Errorf("failed to execute ledger block query %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetBlockHeader(), nil
+
+	// TODO: signature verification
+
+	return resEnv.GetResponse().GetBlockHeader(), nil
 }
 
 func (l *ledger) GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeader, error) {
 	path := constants.URLForLedgerPath(startBlock, endBlock)
-	res := &types.GetLedgerPathResponse{}
-	err := l.handleRequest(path, &types.GetLedgerPathQuery{
-		UserID:           l.userID,
-		StartBlockNumber: startBlock,
-		EndBlockNumber:   endBlock,
-	}, res)
+	resEnv := &types.GetLedgerPathResponseEnvelope{}
+	err := l.handleRequest(
+		path,
+		&types.GetLedgerPathQuery{
+			UserId:           l.userID,
+			StartBlockNumber: startBlock,
+			EndBlockNumber:   endBlock,
+		},
+		resEnv,
+	)
 	if err != nil {
 		l.logger.Errorf("failed to execute ledger path query path %s, due to %s", path, err)
 		return nil, err
 	}
-	return res.GetBlockHeaders(), nil
+
+	// TODO: signature verification
+
+	return resEnv.GetResponse().GetBlockHeaders(), nil
 }
 
 func (l *ledger) GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, error) {
 	path := constants.URLTxProof(blockNum, txIndex)
-	res := &types.GetTxProofResponse{}
-	err := l.handleRequest(path, &types.GetTxProofQuery{
-		UserID:      l.userID,
-		BlockNumber: blockNum,
-		TxIndex:     uint64(txIndex),
-	}, res)
+	resEnv := &types.GetTxProofResponseEnvelope{}
+	err := l.handleRequest(
+		path,
+		&types.GetTxProofQuery{
+			UserId:      l.userID,
+			BlockNumber: blockNum,
+			TxIndex:     uint64(txIndex),
+		}, resEnv,
+	)
 	if err != nil {
 		l.logger.Errorf("failed to execute transaction proof query %s, due to %s", path, err)
 		return nil, err
 	}
-	return &TxProof{intermediateHashes: res.GetHashes()}, nil
+
+	// TODO: signature verification
+
+	return &TxProof{
+		intermediateHashes: resEnv.GetResponse().GetHashes(),
+	}, nil
 }
 
 func (l *ledger) GetTransactionReceipt(txId string) (*types.TxReceipt, error) {
 	path := constants.URLForGetTransactionReceipt(txId)
-	res := &types.TxResponse{}
-	err := l.handleRequest(path, &types.GetTxReceiptQuery{
-		UserID: l.userID,
-		TxID:   txId,
-	}, res)
+	resEnv := &types.TxReceiptResponseEnvelope{}
+	err := l.handleRequest(
+		path,
+		&types.GetTxReceiptQuery{
+			UserId: l.userID,
+			TxId:   txId,
+		}, resEnv,
+	)
 	if err != nil {
 		l.logger.Errorf("failed to execute transaction receipt query %s, due to %s", path, err)
 		return nil, err
 	}
 
-	return res.GetReceipt(), nil
+	// TODO: signature verification
+
+	return resEnv.GetResponse().GetReceipt(), nil
 }

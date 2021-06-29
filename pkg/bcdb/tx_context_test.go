@@ -578,8 +578,8 @@ func TestTxQuery(t *testing.T) {
 			require.Nil(t, env)
 			res := &types.GetDataResponse{}
 			req := &types.GetDataQuery{
-				UserID: "testUSer",
-				DBName: "bdb",
+				UserId: "testUSer",
+				DbName: "bdb",
 				Key:    "key1",
 			}
 			err = tt.txCtx.handleRequest(constants.URLForGetData("bdb", "key1"), req, res)
@@ -595,22 +595,20 @@ func TestTxQuery(t *testing.T) {
 }
 
 func okResponse() *http.Response {
-	okResp := &types.ResponseEnvelope{
-		Payload: MarshalOrPanic(&types.Payload{
+	okResp := &types.TxReceiptResponseEnvelope{
+		Response: &types.TxReceiptResponse{
 			Header: &types.ResponseHeader{
-				NodeID: "node1",
+				NodeId: "node1",
 			},
-			Response: MarshalOrPanic(&types.TxResponse{
-				Receipt: &types.TxReceipt{
-					Header: &types.BlockHeader{
-						BaseHeader: &types.BlockHeaderBase{
-							Number: 1,
-						},
+			Receipt: &types.TxReceipt{
+				Header: &types.BlockHeader{
+					BaseHeader: &types.BlockHeaderBase{
+						Number: 1,
 					},
-					TxIndex: 1,
 				},
-			}),
-		}),
+				TxIndex: 1,
+			},
+		},
 	}
 	okPbJson, _ := json.Marshal(okResp)
 	okRespReader := ioutil.NopCloser(bytes.NewReader([]byte(okPbJson)))
@@ -622,13 +620,20 @@ func okResponse() *http.Response {
 }
 
 func okResponseAsync() *http.Response {
-	okResp := &types.ResponseEnvelope{
-		Payload: MarshalOrPanic(&types.Payload{
+	okResp := &types.TxReceiptResponseEnvelope{
+		Response: &types.TxReceiptResponse{
 			Header: &types.ResponseHeader{
-				NodeID: "node1",
+				NodeId: "node1",
 			},
-			Response: MarshalOrPanic(&types.TxResponse{}),
-		}),
+			Receipt: &types.TxReceipt{
+				Header: &types.BlockHeader{
+					BaseHeader: &types.BlockHeaderBase{
+						Number: 1,
+					},
+				},
+				TxIndex: 1,
+			},
+		},
 	}
 	okPbJson, _ := json.Marshal(okResp)
 	okRespReader := ioutil.NopCloser(bytes.NewReader([]byte(okPbJson)))
@@ -640,16 +645,14 @@ func okResponseAsync() *http.Response {
 }
 
 func okDataQueryResponse() *http.Response {
-	okResp := &types.ResponseEnvelope{
-		Payload: MarshalOrPanic(&types.Payload{
+	okResp := &types.GetDataResponseEnvelope{
+		Response: &types.GetDataResponse{
 			Header: &types.ResponseHeader{
-				NodeID: "node1",
+				NodeId: "node1",
 			},
-			Response: MarshalOrPanic(&types.GetDataResponse{
-				Value:    []byte{1},
-				Metadata: &types.Metadata{},
-			}),
-		}),
+			Value:    []byte{1},
+			Metadata: &types.Metadata{},
+		},
 	}
 
 	okPbJson, _ := json.Marshal(okResp)
