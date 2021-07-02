@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 	"github.com/pkg/errors"
@@ -54,8 +53,8 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 
 	err = dataTx.Put(CarDBName, key, recordBytes,
 		&types.AccessControl{
-			ReadUsers:      bcdb.UsersMap("dmv"),
-			ReadWriteUsers: bcdb.UsersMap(dealerID),
+			ReadUsers:      usersMap("dmv"),
+			ReadWriteUsers: usersMap(dealerID),
 		},
 	)
 	if err != nil {
@@ -146,8 +145,8 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 
 	err = dataTx.Put(CarDBName, carKey, carRecordBytes,
 		&types.AccessControl{
-			ReadUsers:      bcdb.UsersMap(mintReqRec.Dealer),
-			ReadWriteUsers: bcdb.UsersMap(dmvID),
+			ReadUsers:      usersMap(mintReqRec.Dealer),
+			ReadWriteUsers: usersMap(dmvID),
 		},
 	)
 	if err != nil {

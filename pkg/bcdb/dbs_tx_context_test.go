@@ -5,6 +5,7 @@ package bcdb
 import (
 	"errors"
 	"fmt"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 	"net/http"
 	"net/url"
 	"path"
@@ -55,6 +56,8 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, len(txId) > 0)
 	require.NotNil(t, receipt)
+	require.True(t, len(receipt.GetHeader().GetValidationInfo())>0)
+	require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_VALID)
 
 	// Check database status, whenever created or not
 	tx, err = session.DBsTx()
@@ -162,18 +165,15 @@ func TestDBsContext_MalformedRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// New session with admin user context
-	session, err := bcdb.Session(&sdkConfig.SessionConfig{
+	_, err = bcdb.Session(&sdkConfig.SessionConfig{
 		UserConfig: &sdkConfig.UserConfig{
 			UserID:         "adminX",
 			CertPath:       path.Join(clientCertTemDir, "admin.pem"),
 			PrivateKeyPath: path.Join(clientCertTemDir, "admin.key"),
 		},
 	})
-	require.NoError(t, err)
-
-	_, err = session.DBsTx()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to obtain server's certificate")
+	require.EqualError(t, err, "cannot create a signature verifier: failed to obtain the servers' certificates")
 }
 
 func TestDBsContext_ExistsFailureScenarios(t *testing.T) {

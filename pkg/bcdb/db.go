@@ -3,27 +3,16 @@
 package bcdb
 
 import (
-	"context"
-	"crypto/rand"
-	"crypto/x509"
-	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
-	"fmt"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"net/url"
-	"time"
-
 	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
+	"github.com/IBM-Blockchain/bcdb-server/pkg/certificateauthority"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/crypto"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/cryptoservice"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"io/ioutil"
+	"net/url"
 )
 
 // BCDB Blockchain Database interface, defines set of APIs
@@ -119,28 +108,26 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 		}
 	}
 
-	// Load root CA certificates
-	certsPool := x509.NewCertPool()
+	var rootCAs [][]byte
 	for _, rootCAPath := range config.RootCAs {
 		rootCABytes, err := ioutil.ReadFile(rootCAPath)
 		if err != nil {
 			dbLogger.Errorf("failed to read root CA certificate, due to %s", err)
 			return nil, errors.Wrap(err, "failed to read root CA certificate")
 		}
-		// TODO there are might be multiple PEM encoded blocks need to make
-		// sure we read correct one
-		pemBlock, _ := pem.Decode(rootCABytes)
-		if pemBlock == nil {
-			dbLogger.Error("failed decoding root CA certificate")
-			return nil, errors.New("failed decoding root CA certificate")
-		}
-		rootCACert, err := x509.ParseCertificate(pemBlock.Bytes)
-		if err != nil {
-			dbLogger.Errorf("failed to parse X509 root CA certificate, due to %s", err)
-			return nil, errors.Wrap(err, "failed to parse X509 root CA certificate")
-		}
-		certsPool.AddCert(rootCACert)
+		asn1Data, _ := pem.Decode(rootCABytes)
+		rootCAs = append(rootCAs, asn1Data.Bytes)
 	}
+	rootCACerts, err := certificateauthority.NewCACertCollection(rootCAs, nil)
+	if err != nil {
+		dbLogger.Errorf("failed to create CACertCollection, due to %s", err)
+		return nil, err
+	}
+	if err = rootCACerts.VerifyCollection(); err != nil {
+		dbLogger.Errorf("verification of CA certs collection is failed, due to %s", err)
+		return nil, err
+	}
+
 	// Validate replica set URIs
 	urls := map[string]*url.URL{}
 	for _, uri := range config.ReplicaSet {
@@ -154,14 +141,14 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 
 	return &bDB{
 		replicaSet: urls,
-		rootCAs:    certsPool,
+		rootCAs:    rootCACerts,
 		logger:     dbLogger,
 	}, nil
 }
 
 type bDB struct {
 	replicaSet map[string]*url.URL
-	rootCAs    *x509.CertPool
+	rootCAs    *certificateauthority.CACertCollection
 	logger     *logger.SugarLogger
 }
 
@@ -184,7 +171,7 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 		return nil, errors.Wrap(err, "cannot read user's certificate with user's private key")
 	}
 
-	return &dbSession{
+	session := &dbSession{
 		userID:       cfg.UserConfig.UserID,
 		signer:       signer,
 		userCert:     certBytes,
@@ -193,264 +180,13 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 		txTimeout:    cfg.TxTimeout,
 		queryTimeout: cfg.QueryTimeout,
 		logger:       b.logger,
-	}, nil
-}
-
-type dbSession struct {
-	userID       string
-	signer       Signer
-	userCert     []byte
-	replicaSet   map[string]*url.URL
-	rootCAs      *x509.CertPool
-	txTimeout    time.Duration
-	queryTimeout time.Duration
-	logger       *logger.SugarLogger
-}
-
-func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (map[string]*x509.Certificate, error) {
-	nodesCerts := map[string]*x509.Certificate{}
-	getConfig := &url.URL{
-		Path: constants.URLForGetConfig(),
 	}
-	configREST := replica.ResolveReference(getConfig)
-	ctx := context.TODO()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, configREST.String(), nil)
+	httpClient := newHTTPClient()
+	session.verifier, err = session.sigVerifier(httpClient)
 	if err != nil {
-		return nil, err
+		b.logger.Errorf("cannot create a signature verifier, error: %s", err)
+		return nil, errors.Wrap(err, "cannot create a signature verifier")
 	}
 
-	signature, err := cryptoservice.SignQuery(d.signer, &types.GetConfigQuery{
-		UserID: d.userID,
-	})
-	if err != nil {
-		d.logger.Errorf("failed signed transaction, %s", err)
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set(constants.UserHeader, d.userID)
-	req.Header.Set(constants.SignatureHeader, base64.StdEncoding.EncodeToString(signature))
-	response, err := httpClient.Do(req)
-	if err != nil {
-		d.logger.Errorf("failed to send transaction to server %s, due to %s", getConfig.String(), err)
-		return nil, err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		d.logger.Errorf("error response from the server, %s", response.Status)
-		return nil, errors.New(fmt.Sprintf("error response from the server, %s", response.Status))
-	}
-
-	resEnv := &types.ResponseEnvelope{}
-	err = json.NewDecoder(response.Body).Decode(resEnv)
-	if err != nil {
-		return nil, err
-	}
-
-	payload := &types.Payload{}
-	err = json.Unmarshal(resEnv.GetPayload(), payload)
-	if err != nil {
-		d.logger.Errorf("failed to unmarshal response payload, due to %s", err)
-		return nil, err
-	}
-
-	// TODO need to validate payload's signature
-	// resEnv.Signature - the signature over payload
-	// payload.GetHeader().NodeID - the id of the node signed response
-
-	configResponse := &types.GetConfigResponse{}
-	err = json.Unmarshal(payload.GetResponse(), configResponse)
-	if err != nil {
-		d.logger.Errorf("failed to unmarshal config response, due to %s", err)
-		return nil, err
-	}
-
-	for _, node := range configResponse.GetConfig().GetNodes() {
-		cert, err := x509.ParseCertificate(node.Certificate)
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = cert.Verify(x509.VerifyOptions{
-			Roots: d.rootCAs,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		nodesCerts[node.ID] = cert
-	}
-
-	return nodesCerts, nil
-}
-
-// UsersTx returns user's transaction context
-func (d *dbSession) UsersTx() (UsersTxContext, error) {
-	commonCtx, err := d.newCommonTxContext()
-	if err != nil {
-		return nil, err
-	}
-	userTx := &userTxContext{
-		commonTxContext: commonCtx,
-	}
-	return userTx, nil
-}
-
-// DBsTx returns database management transaction context
-func (d *dbSession) DBsTx() (DBsTxContext, error) {
-	commonCtx, err := d.newCommonTxContext()
-	if err != nil {
-		return nil, err
-	}
-	dbsTx := &dbsTxContext{
-		commonTxContext: commonCtx,
-		createdDBs:      map[string]bool{},
-		deletedDBs:      map[string]bool{},
-	}
-	return dbsTx, nil
-}
-
-// DataTx returns data's transaction context
-func (d *dbSession) DataTx() (DataTxContext, error) {
-	commonCtx, err := d.newCommonTxContext()
-	if err != nil {
-		return nil, err
-	}
-	dataTx := &dataTxContext{
-		commonTxContext: commonCtx,
-		operations:      make(map[string]*dbOperations),
-	}
-	return dataTx, nil
-}
-
-// ConfigTx returns config transaction context
-func (d *dbSession) ConfigTx() (ConfigTxContext, error) {
-	commonCtx, err := d.newCommonTxContext()
-	if err != nil {
-		return nil, err
-	}
-	configTx := &configTxContext{
-		commonTxContext:      commonCtx,
-		oldConfig:            nil,
-		readOldConfigVersion: nil,
-		newConfig:            nil,
-	}
-
-	if err = configTx.queryClusterConfig(); err != nil {
-		return nil, err
-	}
-
-	return configTx, nil
-}
-
-// Provenance returns handler to access provenance
-func (d *dbSession) Provenance() (Provenance, error) {
-	commonCtx, err := d.newCommonTxContext()
-	if err != nil {
-		return nil, err
-	}
-	return &provenance{
-		commonCtx,
-	}, nil
-}
-
-// Ledger returns handler to access bcdb ledger data
-func (d *dbSession) Ledger() (Ledger, error) {
-	commonCtx, err := d.newCommonTxContext()
-	if err != nil {
-		return nil, err
-	}
-	return &ledger{
-		commonCtx,
-	}, nil
-}
-
-func (d *dbSession) newCommonTxContext() (*commonTxContext, error) {
-	httpClient := d.newHTTPClient()
-
-	nodesCerts, err := d.getServerCertificates(httpClient)
-	if err != nil {
-		return nil, err
-	}
-	commonTxContext := &commonTxContext{
-		userID:        d.userID,
-		signer:        d.signer,
-		userCert:      d.userCert,
-		replicaSet:    d.replicaSet,
-		nodesCerts:    nodesCerts,
-		restClient:    NewRestClient(d.userID, httpClient, d.signer),
-		commitTimeout: d.txTimeout,
-		queryTimeout:  d.queryTimeout,
-		logger:        d.logger,
-	}
-	return commonTxContext, nil
-}
-
-func (d *dbSession) getServerCertificates(httpClient *http.Client) (map[string]*x509.Certificate, error) {
-	var nodesCerts map[string]*x509.Certificate
-	var err error
-	for _, replica := range d.replicaSet {
-		nodesCerts, err = d.getNodesCerts(replica, httpClient)
-		if err != nil {
-			d.logger.Errorf("failed to obtain server's certificate, replica: %s", replica)
-			continue
-		}
-	}
-
-	if len(nodesCerts) == 0 {
-		d.logger.Errorf("failed to obtain server's certificate, replicaSet: %s", d.replicaSet)
-		return nil, errors.New("failed to obtain server's certificate")
-	}
-	return nodesCerts, nil
-}
-
-func (d *dbSession) newHTTPClient() *http.Client {
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-	}
-	return httpClient
-}
-
-func ComputeTxID(userCert []byte) (string, error) {
-	nonce := make([]byte, 24)
-	_, err := rand.Read(nonce)
-	if err != nil {
-		return "", err
-	}
-
-	b := append(nonce, userCert...)
-
-	sha256Hash, err := crypto.ComputeSHA256Hash(b)
-	if err != nil {
-		return "", err
-	}
-	return base64.URLEncoding.EncodeToString(sha256Hash), err
-}
-
-func UsersMap(users ...string) map[string]bool {
-	m := make(map[string]bool)
-	for _, u := range users {
-		m[u] = true
-	}
-	return m
-}
-
-type ServerTimeout struct {
-	TxID string
-}
-
-func (e *ServerTimeout) Error() string {
-	return "timeout occurred on server side while submitting transaction, converted to asynchronous completion"
+	return session, nil
 }

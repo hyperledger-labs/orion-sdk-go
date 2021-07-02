@@ -155,8 +155,8 @@ func initUsers(demoDir string, session bcdb.DBSession, logger *logger.SugarLogge
 					DBPermission: map[string]types.Privilege_Access{CarDBName: 1},
 				},
 			}, &types.AccessControl{
-				ReadWriteUsers: bcdb.UsersMap("admin"),
-				ReadUsers:      bcdb.UsersMap("admin"),
+				ReadWriteUsers: usersMap("admin"),
+				ReadUsers:      usersMap("admin"),
 			})
 		if err != nil {
 			usersTx.Abort()

@@ -4,16 +4,15 @@ package bcdb
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/json"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -25,7 +24,7 @@ type commonTxContext struct {
 	signer        Signer
 	userCert      []byte
 	replicaSet    map[string]*url.URL
-	nodesCerts    map[string]*x509.Certificate
+	verifier      SignatureVerifier
 	restClient    RestClient
 	txEnvelope    proto.Message
 	commitTimeout time.Duration
@@ -48,7 +47,7 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 	replica := t.selectReplica()
 	postEndpointResolved := replica.ResolveReference(&url.URL{Path: postEndpoint})
 
-	txID, err := ComputeTxID(t.userCert)
+	txID, err := computeTxID(t.userCert)
 	if err != nil {
 		return "", nil, err
 	}
@@ -108,16 +107,19 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 		return txID, nil, err
 	}
 
+	nodeID := payload.GetHeader().GetNodeID()
+	err = t.verifier.Verify(nodeID, txResponseEnvelope.GetPayload(), txResponseEnvelope.GetSignature())
+	if err != nil {
+		t.logger.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
+		return "", nil, errors.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
+	}
+
 	txResponse := &types.TxResponse{}
 	err = json.Unmarshal(payload.GetResponse(), txResponse)
 	if err != nil {
 		t.logger.Errorf("failed to unmarshal response, due to %s", err)
 		return txID, nil, err
 	}
-
-	// TODO need to validate payload's signature
-	// r.Signature - the signature over payload
-	// payload.GetHeader().NodeID - the id of the node signed response
 
 	t.txSpent = true
 	tx.cleanCtx()
@@ -187,9 +189,12 @@ func (t *commonTxContext) handleRequest(rawurl string, query, res proto.Message)
 		return err
 	}
 
-	// TODO need to validate payload's signature
-	// r.Signature - the signature over payload
-	// payload.GetHeader().NodeID - the id of the node signed response
+	nodeID := payload.GetHeader().GetNodeID()
+	err = t.verifier.Verify(nodeID, r.GetPayload(), r.GetSignature())
+	if err != nil {
+		t.logger.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
+		return errors.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
+	}
 
 	err = json.Unmarshal(payload.GetResponse(), res)
 	if err != nil {
@@ -208,3 +213,11 @@ func (t *commonTxContext) TxEnvelope() (proto.Message, error) {
 }
 
 var ErrTxNotFinalized = errors.New("can't access tx envelope, transaction not finalized")
+
+type ServerTimeout struct {
+	TxID string
+}
+
+func (e *ServerTimeout) Error() string {
+	return "timeout occurred on server side while submitting transaction, converted to asynchronous completion, TxID: " + e.TxID
+}

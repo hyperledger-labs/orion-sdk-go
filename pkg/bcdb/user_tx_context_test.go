@@ -105,21 +105,14 @@ func TestUserContext_MalformedRequest(t *testing.T) {
 	bcdb, _ := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 
 	// New session with admin user context
-	session, err := bcdb.Session(&sdkConfig.SessionConfig{
+	_, err = bcdb.Session(&sdkConfig.SessionConfig{
 		UserConfig: &sdkConfig.UserConfig{
 			UserID:         "adminX",
 			CertPath:       path.Join(clientCertTemDir, "admin.pem"),
 			PrivateKeyPath: path.Join(clientCertTemDir, "admin.key"),
 		},
 	})
-	require.NoError(t, err)
-
-	// transaction init should fail since wrong user id was configured
-	// in the session config, therefore it will fail to fetch node
-	// certificate and fail to start transaction
-	_, err = session.UsersTx()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to obtain server's certificate")
+	require.EqualError(t, err, "cannot create a signature verifier: failed to obtain the servers' certificates")
 }
 
 func TestUserContext_GetUserFailureScenarios(t *testing.T) {
@@ -185,6 +178,10 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 	signer := &mocks.Signer{}
 	signer.On("Sign", mock.Anything).Return([]byte{0}, nil)
+
+	verifier := &mocks.SignatureVerifier{}
+	verifier.On("Verify", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	restClient := &mocks.RestClient{}
 
 	expectedUser := &types.User{
@@ -236,6 +233,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 			userID:     "testUserId",
 			restClient: restClient,
 			logger:     logger,
+			verifier:   verifier,
 			replicaSet: map[string]*url.URL{
 				"node1": {
 					Path: "http://localhost:8888",
