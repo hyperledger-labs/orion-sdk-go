@@ -3,10 +3,10 @@
 package bcdb
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/cryptoservice"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/golang/protobuf/proto"
 )
 
 type DataTxContext interface {
@@ -52,7 +52,7 @@ func (d *dataTxContext) Put(dbName, key string, value []byte, acl *types.AccessC
 	ops.dataWrites[key] = &types.DataWrite{
 		Key:   key,
 		Value: value,
-		ACL:   acl,
+		Acl:   acl,
 	}
 	return nil
 }
@@ -74,21 +74,25 @@ func (d *dataTxContext) Get(dbName, key string) ([]byte, *types.Metadata, error)
 	}
 
 	path := constants.URLForGetData(dbName, key)
-	res := &types.GetDataResponse{}
+	resEnv := &types.GetDataResponseEnvelope{}
 	err := d.handleRequest(path, &types.GetDataQuery{
-		UserID: d.userID,
-		DBName: dbName,
+		UserId: d.userID,
+		DbName: dbName,
 		Key:    key,
-	}, res)
+	}, resEnv)
 	if err != nil {
 		d.logger.Errorf("failed to execute ledger data query path %s, due to %s", path, err)
 		return nil, nil, err
 	}
 
+	// TODO: signature verification
+
 	if !ok {
 		ops = newDBOperations()
 		d.operations[dbName] = ops
 	}
+
+	res := resEnv.GetResponse()
 	ops.dataReads[key] = res
 	return res.GetValue(), res.GetMetadata(), nil
 }
@@ -120,7 +124,7 @@ func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 
 	for name, ops := range d.operations {
 		dbOp := &types.DBOperation{
-			DBName: name,
+			DbName: name,
 		}
 
 		for _, v := range ops.dataWrites {
@@ -142,9 +146,9 @@ func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	}
 
 	payload := &types.DataTx{
-		MustSignUserIDs: []string{d.userID},
-		TxID:            txID,
-		DBOperations:    dbOperations,
+		MustSignUserIds: []string{d.userID},
+		TxId:            txID,
+		DbOperations:    dbOperations,
 	}
 
 	signature, err := cryptoservice.SignTx(d.signer, payload)

@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/stretchr/testify/require"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/server"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDataContext_PutAndGetKey(t *testing.T) {
@@ -366,10 +366,10 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 
 	certBlock, _ := pem.Decode(pemUserCert)
 	err = tx.PutUser(&types.User{
-		ID:          userName,
+		Id:          userName,
 		Certificate: certBlock.Bytes,
 		Privilege: &types.Privilege{
-			DBPermission: dbPerm,
+			DbPermission: dbPerm,
 		},
 	}, nil)
 	require.NoError(t, err)
@@ -381,7 +381,7 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 	require.NoError(t, err)
 	user, err := tx.GetUser(userName)
 	require.NoError(t, err)
-	require.Equal(t, userName, user.GetID())
+	require.Equal(t, userName, user.GetId())
 }
 
 func putKeySync(t *testing.T, dbName, key string, value string, user string, session DBSession) {

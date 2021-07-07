@@ -3,10 +3,10 @@
 package bcdb
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/cryptoservice"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/golang/protobuf/proto"
 )
 
 // DBsTxContext abstraction for database management transaction context
@@ -58,16 +58,22 @@ func (d *dbsTxContext) Exists(dbName string) (bool, error) {
 	}
 
 	path := constants.URLForGetDBStatus(dbName)
-	res := &types.GetDBStatusResponse{}
-	err := d.handleRequest(path, &types.GetDBStatusQuery{
-		UserID: d.userID,
-		DBName: dbName,
-	}, res)
+	resEnv := &types.GetDBStatusResponseEnvelope{}
+	err := d.handleRequest(
+		path,
+		&types.GetDBStatusQuery{
+			UserId: d.userID,
+			DbName: dbName,
+		}, resEnv,
+	)
 	if err != nil {
 		d.logger.Errorf("failed to execute database status query, path = %s, due to %s", path, err)
 		return false, err
 	}
-	return res.GetExist(), nil
+
+	// TODO: signature verification
+
+	return resEnv.GetResponse().GetExist(), nil
 }
 
 func (d *dbsTxContext) cleanCtx() {
@@ -77,16 +83,16 @@ func (d *dbsTxContext) cleanCtx() {
 
 func (d *dbsTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	payload := &types.DBAdministrationTx{
-		UserID: d.userID,
-		TxID:   txID,
+		UserId: d.userID,
+		TxId:   txID,
 	}
 
 	for db := range d.createdDBs {
-		payload.CreateDBs = append(payload.CreateDBs, db)
+		payload.CreateDbs = append(payload.CreateDbs, db)
 	}
 
 	for db := range d.deletedDBs {
-		payload.DeleteDBs = append(payload.DeleteDBs, db)
+		payload.DeleteDbs = append(payload.DeleteDbs, db)
 	}
 
 	signature, err := cryptoservice.SignTx(d.signer, payload)

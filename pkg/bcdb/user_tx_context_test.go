@@ -48,7 +48,6 @@ func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "queryTimeout error")
 	require.Nil(t, alice)
-
 }
 
 func TestUserContext_CommitAbortFinality(t *testing.T) {
@@ -69,7 +68,7 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 		pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 		require.NoError(t, err)
 		certBlock, _ := pem.Decode(pemUserCert)
-		err = tx.PutUser(&types.User{ID: "alice", Certificate: certBlock.Bytes}, nil)
+		err = tx.PutUser(&types.User{Id: "alice", Certificate: certBlock.Bytes}, nil)
 		require.NoError(t, err)
 
 		assertTxFinality(t, TxFinality(i), tx, session)
@@ -78,7 +77,7 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 		require.EqualError(t, err, ErrTxSpent.Error())
 		require.Nil(t, val)
 
-		err = tx.PutUser(&types.User{ID: "bob", Certificate: certBlock.Bytes}, nil)
+		err = tx.PutUser(&types.User{Id: "bob", Certificate: certBlock.Bytes}, nil)
 		require.EqualError(t, err, ErrTxSpent.Error())
 
 		err = tx.RemoveUser("bob")
@@ -90,7 +89,7 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 			val, err = tx.GetUser("alice")
 			require.NoError(t, err)
 			require.NotNil(t, val)
-			require.True(t, proto.Equal(&types.User{ID: "alice", Certificate: certBlock.Bytes}, val))
+			require.True(t, proto.Equal(&types.User{Id: "alice", Certificate: certBlock.Bytes}, val))
 		}
 	}
 }
@@ -185,25 +184,23 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 	restClient := &mocks.RestClient{}
 
 	expectedUser := &types.User{
-		ID:          "alice",
+		Id:          "alice",
 		Certificate: []byte{1, 2, 3},
 	}
 
-	queryResult := &types.ResponseEnvelope{
-		Payload: MarshalOrPanic(&types.Payload{
+	queryResult := &types.GetUserResponseEnvelope{
+		Response: &types.GetUserResponse{
 			Header: &types.ResponseHeader{
-				NodeID: "node1",
+				NodeId: "node1",
 			},
-			Response: MarshalOrPanic(&types.GetUserResponse{
-				User: expectedUser,
-				Metadata: &types.Metadata{
-					Version: &types.Version{
-						TxNum:    1,
-						BlockNum: 1,
-					},
+			User: expectedUser,
+			Metadata: &types.Metadata{
+				Version: &types.Version{
+					TxNum:    1,
+					BlockNum: 1,
 				},
-			}),
-		}),
+			},
+		},
 		Signature: []byte{0},
 	}
 	queryResultBytes, err := json.Marshal(queryResult)
@@ -217,8 +214,8 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 			require.Equal(t, constants.URLForGetUser("alice"), uri)
 
 			user := args.Get(2).(*types.GetUserQuery)
-			require.Equal(t, "testUserId", user.UserID)
-			require.Equal(t, "alice", user.TargetUserID)
+			require.Equal(t, "testUserId", user.UserId)
+			require.Equal(t, "alice", user.TargetUserId)
 		}).
 		Return(&http.Response{
 			StatusCode: http.StatusOK,
@@ -249,18 +246,18 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 			tx := args.Get(2).(*types.UserAdministrationTxEnvelope)
 			require.NotNil(t, tx)
 			require.NotNil(t, tx.Payload)
-			require.Equal(t, "testUserId", tx.Payload.UserID)
+			require.Equal(t, "testUserId", tx.Payload.UserId)
 			require.Equal(t, 1, len(tx.Payload.UserWrites))
 			require.Equal(t, &types.UserWrite{
 				User: &types.User{
-					ID:          "carol",
+					Id:          "carol",
 					Certificate: []byte{1, 1, 1},
 				},
 			}, tx.Payload.UserWrites[0])
 
 			require.Equal(t, 1, len(tx.Payload.UserReads))
 			require.Equal(t, &types.UserRead{
-				UserID: "alice",
+				UserId: "alice",
 				Version: &types.Version{
 					TxNum:    1,
 					BlockNum: 1,
@@ -270,7 +267,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 			require.Equal(t, 1, len(tx.Payload.UserDeletes))
 
 			require.Equal(t, &types.UserDelete{
-				UserID: "bob",
+				UserId: "bob",
 			}, tx.Payload.UserDeletes[0])
 		}).
 		Return(okResponse(), nil)
@@ -283,7 +280,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 	require.NoError(t, err)
 
 	err = usrCtx.PutUser(&types.User{
-		ID:          "carol",
+		Id:          "carol",
 		Certificate: []byte{1, 1, 1},
 	}, nil)
 	require.NoError(t, err)

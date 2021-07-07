@@ -93,37 +93,29 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 		return txID, nil, errors.Errorf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg)
 	}
 
-	txResponseEnvelope := &types.ResponseEnvelope{}
+	txResponseEnvelope := &types.TxReceiptResponseEnvelope{}
 	err = json.NewDecoder(response.Body).Decode(txResponseEnvelope)
 	if err != nil {
 		t.logger.Errorf("failed to decode json response, due to %s", err)
 		return txID, nil, err
 	}
 
-	payload := &types.Payload{}
-	err = json.Unmarshal(txResponseEnvelope.GetPayload(), payload)
+	nodeID := txResponseEnvelope.GetResponse().GetHeader().GetNodeId()
+	respBytes, err := json.Marshal(txResponseEnvelope.GetResponse())
 	if err != nil {
-		t.logger.Errorf("failed to unmarshal transaction response payload, due to %s", err)
+		t.logger.Errorf("failed to marshal the response")
 		return txID, nil, err
 	}
 
-	nodeID := payload.GetHeader().GetNodeID()
-	err = t.verifier.Verify(nodeID, txResponseEnvelope.GetPayload(), txResponseEnvelope.GetSignature())
+	err = t.verifier.Verify(nodeID, respBytes, txResponseEnvelope.GetSignature())
 	if err != nil {
 		t.logger.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
 		return "", nil, errors.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
 	}
 
-	txResponse := &types.TxResponse{}
-	err = json.Unmarshal(payload.GetResponse(), txResponse)
-	if err != nil {
-		t.logger.Errorf("failed to unmarshal response, due to %s", err)
-		return txID, nil, err
-	}
-
 	t.txSpent = true
 	tx.cleanCtx()
-	return txID, txResponse.GetReceipt(), nil
+	return txID, txResponseEnvelope.GetResponse().GetReceipt(), nil
 }
 
 func (t *commonTxContext) abort(tx txContext) error {
@@ -175,30 +167,10 @@ func (t *commonTxContext) handleRequest(rawurl string, query, res proto.Message)
 		}
 		return errors.Errorf("error handling request, server returned: status: %s, message: %s", response.Status, errMsg)
 	}
-	r := &types.ResponseEnvelope{}
-	err = json.NewDecoder(response.Body).Decode(r)
+
+	err = json.NewDecoder(response.Body).Decode(res)
 	if err != nil {
 		t.logger.Errorf("failed to decode json response, due to %s", err)
-		return err
-	}
-
-	payload := &types.Payload{}
-	err = json.Unmarshal(r.GetPayload(), payload)
-	if err != nil {
-		t.logger.Errorf("failed to unmarshal reponse payload, due to %s", err)
-		return err
-	}
-
-	nodeID := payload.GetHeader().GetNodeID()
-	err = t.verifier.Verify(nodeID, r.GetPayload(), r.GetSignature())
-	if err != nil {
-		t.logger.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
-		return errors.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
-	}
-
-	err = json.Unmarshal(payload.GetResponse(), res)
-	if err != nil {
-		t.logger.Errorf("failed to unmarshal response, due to %s", err)
 		return err
 	}
 

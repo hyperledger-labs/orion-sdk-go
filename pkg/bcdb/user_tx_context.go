@@ -3,10 +3,10 @@
 package bcdb
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/cryptoservice"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/golang/protobuf/proto"
 )
 
 // UsersTxContext transaction context to operate with
@@ -49,7 +49,7 @@ func (u *userTxContext) PutUser(user *types.User, acl *types.AccessControl) erro
 	// TODO: decide whenever we going to support read your own writes
 	u.userWrites = append(u.userWrites, &types.UserWrite{
 		User: user,
-		ACL:  acl,
+		Acl:  acl,
 	})
 	return nil
 }
@@ -60,17 +60,24 @@ func (u *userTxContext) GetUser(userID string) (*types.User, error) {
 	}
 
 	path := constants.URLForGetUser(userID)
-	res := &types.GetUserResponse{}
-	err := u.handleRequest(path, &types.GetUserQuery{
-		UserID:       u.userID,
-		TargetUserID: userID,
-	}, res)
+	resEnv := &types.GetUserResponseEnvelope{}
+	err := u.handleRequest(
+		path,
+		&types.GetUserQuery{
+			UserId:       u.userID,
+			TargetUserId: userID,
+		}, resEnv,
+	)
 	if err != nil {
 		u.logger.Errorf("failed to execute user query, path = %s, due to %s", path, err)
 		return nil, err
 	}
+
+	// TODO: signature verification
+
+	res := resEnv.GetResponse()
 	u.userReads = append(u.userReads, &types.UserRead{
-		UserID:  userID,
+		UserId:  userID,
 		Version: res.GetMetadata().GetVersion(),
 	})
 
@@ -83,15 +90,15 @@ func (u *userTxContext) RemoveUser(userID string) error {
 	}
 
 	u.userDeletes = append(u.userDeletes, &types.UserDelete{
-		UserID: userID,
+		UserId: userID,
 	})
 	return nil
 }
 
 func (u *userTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	payload := &types.UserAdministrationTx{
-		UserID:      u.userID,
-		TxID:        txID,
+		UserId:      u.userID,
+		TxId:        txID,
 		UserReads:   u.userReads,
 		UserWrites:  u.userWrites,
 		UserDeletes: u.userDeletes,
