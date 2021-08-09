@@ -156,13 +156,13 @@ func TestGetTransactionProof(t *testing.T) {
 			name:       "block 15, tx 0, block not exist",
 			block:      15,
 			txIdx:      0,
-			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/proof/15?idx=0' because requested block number [15] cannot be greater than the last committed block number",
+			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/proof/tx/15?idx=0' because requested block number [15] cannot be greater than the last committed block number",
 		},
 		{
 			name:       "block 10, tx 30, tx not exist in block",
 			block:      10,
 			txIdx:      30,
-			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/proof/10?idx=30' because node with index 30 is not part of merkle tree (0, 9)",
+			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/proof/tx/10?idx=30' because node with index 30 is not part of merkle tree (0, 9)",
 		},
 	}
 	for _, tt := range tests {

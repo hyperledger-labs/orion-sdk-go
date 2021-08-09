@@ -24,7 +24,7 @@ func TestDBsContext_CheckStatusOfDefaultDB(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	tx, err := session.DBsTx()
@@ -42,7 +42,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	// Start submission session to create a new database
@@ -72,7 +72,7 @@ func TestDBsContext_CheckStatusTimeout(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	// Start submission session to create a new database
@@ -109,7 +109,7 @@ func TestDBsContext_CommitAbortFinality(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 
@@ -148,7 +148,7 @@ func TestDBsContext_MalformedRequest(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -243,7 +243,7 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	// Start submission session to create a new database
@@ -295,7 +295,7 @@ func TestDBsContext_AttemptDeleteSystemDatabase(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	// Start submission session to create a new database

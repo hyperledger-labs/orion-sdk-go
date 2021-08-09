@@ -4,6 +4,7 @@ package commands
 
 import (
 	"io/ioutil"
+	"math"
 	"net/url"
 	"os"
 	"path"
@@ -36,6 +37,7 @@ func TestInit(t *testing.T) {
 	require.NoError(t, err)
 	err = testServer.Start()
 	require.NoError(t, err)
+	require.Eventually(t, func() bool { return testServer.IsLeader() == nil }, 30*time.Second, 100*time.Millisecond)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -111,7 +113,17 @@ func setupTestServer(t *testing.T, demoDir string) (*server.BCDBHTTPServer, stri
 				MaxTransactionCountPerBlock: 1,
 				BlockTimeout:                500 * time.Millisecond,
 			},
-			Replication: config.ReplicationConf{},
+			Replication: config.ReplicationConf{
+				WALDir:  path.Join(tempDataDir, "raft", "wal"),
+				SnapDir: path.Join(tempDataDir, "raft", "snap"),
+				Network: config.NetworkConf{
+					Address: "127.0.0.1",
+					Port:    peerPort,
+				},
+				TLS:     config.TLSConf{
+					Enabled: false,
+				},
+			},
 			Bootstrap:   config.BootstrapConf{},
 		},
 
@@ -135,9 +147,11 @@ func setupTestServer(t *testing.T, demoDir string) (*server.BCDBHTTPServer, stri
 					},
 				},
 				RaftConfig: &config.RaftConf{
-					TickInterval:   "100ms",
-					ElectionTicks:  100,
-					HeartbeatTicks: 10,
+					TickInterval:         "10ms",
+					ElectionTicks:        10,
+					HeartbeatTicks:       1,
+					MaxInflightBlocks:    50,
+					SnapshotIntervalSize: math.MaxInt64,
 				},
 			},
 			CAConfig: config.CAConfiguration{

@@ -29,7 +29,7 @@ func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
@@ -55,7 +55,7 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	require.NoError(t, err)
@@ -99,7 +99,7 @@ func TestUserContext_MalformedRequest(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, _ := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 

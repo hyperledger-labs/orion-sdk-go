@@ -8,9 +8,10 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMint(t *testing.T) {
@@ -32,6 +33,8 @@ func TestMint(t *testing.T) {
 	require.NoError(t, err)
 	err = testServer.Start()
 	require.NoError(t, err)
+	require.Eventually(t, func() bool { return testServer.IsLeader() == nil }, 30*time.Second, 100*time.Millisecond)
+
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)

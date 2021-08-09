@@ -22,8 +22,7 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 		}
 	}()
 	require.NoError(t, err)
-	err = testServer.Start()
-	require.NoError(t, err)
+	StartTestServer(t, testServer)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -84,8 +83,7 @@ func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
 		}
 	}()
 	require.NoError(t, err)
-	err = testServer.Start()
-	require.NoError(t, err)
+	StartTestServer(t, testServer)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -100,6 +98,8 @@ func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
 }
 
 func TestConfigTxContext_AddAdmin(t *testing.T) {
+	t.Skip("Add admin is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/148")
+
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 
@@ -109,8 +109,7 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 		}
 	}()
 	require.NoError(t, err)
-	err = testServer.Start()
-	require.NoError(t, err)
+	StartTestServer(t, testServer)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -168,6 +167,8 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_DeleteAdmin(t *testing.T) {
+	t.Skip("Delete admin is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/148")
+
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "admin3", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
@@ -176,8 +177,7 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 		}
 	}()
 	require.NoError(t, err)
-	err = testServer.Start()
-	require.NoError(t, err)
+	StartTestServer(t, testServer)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -253,6 +253,8 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_UpdateAdmin(t *testing.T) {
+	t.Skip("Update admin is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/148")
+
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "adminUpdated", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
@@ -261,8 +263,7 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 		}
 	}()
 	require.NoError(t, err)
-	err = testServer.Start()
-	require.NoError(t, err)
+	StartTestServer(t, testServer)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -333,6 +334,8 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 
 //TODO this test will stop working once we implement quorum rules
 func TestConfigTxContext_AddClusterNode(t *testing.T) {
+	t.Skip("Add node is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/40")
+
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
@@ -341,8 +344,7 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 		}
 	}()
 	require.NoError(t, err)
-	err = testServer.Start()
-	require.NoError(t, err)
+	StartTestServer(t, testServer)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -389,6 +391,8 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 
 //TODO this test will stop working once we implement quorum rules
 func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
+	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/40")
+
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
@@ -397,8 +401,7 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 		}
 	}()
 	require.NoError(t, err)
-	err = testServer.Start()
-	require.NoError(t, err)
+	StartTestServer(t, testServer)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -474,6 +477,8 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 
 //TODO this test will stop working once we implement quorum rules
 func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
+	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/40")
+
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
@@ -482,8 +487,7 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 		}
 	}()
 	require.NoError(t, err)
-	err = testServer.Start()
-	require.NoError(t, err)
+	StartTestServer(t, testServer)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -521,6 +525,8 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 }
 
 func TestConfigTx_CommitAbortFinality(t *testing.T) {
+	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/40")
+
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
@@ -529,8 +535,7 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 		}
 	}()
 	require.NoError(t, err)
-	err = testServer.Start()
-	require.NoError(t, err)
+	StartTestServer(t, testServer)
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
