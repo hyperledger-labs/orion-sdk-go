@@ -22,7 +22,7 @@ func TestDataContext_PutAndGetKey(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
@@ -50,7 +50,7 @@ func TestDataContext_GetNonExistKey(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
@@ -76,7 +76,7 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	txDB, err := adminSession.DBsTx()
@@ -172,7 +172,7 @@ func TestDataContext_CommitAbortFinality(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
@@ -223,7 +223,7 @@ func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
@@ -266,7 +266,7 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
@@ -318,7 +318,7 @@ func TestDataContext_GetTimeout(t *testing.T) {
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))

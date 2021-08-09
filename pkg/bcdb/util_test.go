@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"path"
 	"testing"
@@ -25,6 +26,12 @@ import (
 func SetupTestServer(t *testing.T, cryptoTempDir string) (*server.BCDBHTTPServer, uint32, uint32, error) {
 	s, nodePort, peerPort, e := SetupTestServerWithParams(t, cryptoTempDir, 500*time.Millisecond, 1)
 	return s, nodePort, peerPort, e
+}
+
+func StartTestServer(t *testing.T, s *server.BCDBHTTPServer) {
+	err := s.Start()
+	require.NoError(t, err)
+	require.Eventually(t, func() bool { return s.IsLeader() == nil }, 30*time.Second, 100*time.Millisecond)
 }
 
 func SetupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime time.Duration, txPerBlock uint32) (*server.BCDBHTTPServer, uint32, uint32, error) {
@@ -67,8 +74,15 @@ func SetupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime tim
 				MaxTransactionCountPerBlock: txPerBlock,
 				BlockTimeout:                blockTime,
 			},
-			Replication: config.ReplicationConf{},
-			Bootstrap:   config.BootstrapConf{},
+			Replication: config.ReplicationConf{
+				WALDir:  path.Join(tempDir, "raft", "wal"),
+				SnapDir: path.Join(tempDir, "raft", "snap"),
+				Network: config.NetworkConf{
+					Address: "127.0.0.1",
+					Port:    peerPort},
+				TLS: config.TLSConf{Enabled: false},
+			},
+			Bootstrap: config.BootstrapConf{},
 		},
 		SharedConfig: &config.SharedConfiguration{
 			Nodes: []config.NodeConf{
@@ -90,9 +104,11 @@ func SetupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime tim
 					},
 				},
 				RaftConfig: &config.RaftConf{
-					TickInterval:   "100ms",
-					ElectionTicks:  100,
-					HeartbeatTicks: 10,
+					TickInterval:         "10ms",
+					ElectionTicks:        10,
+					HeartbeatTicks:       1,
+					MaxInflightBlocks:    50,
+					SnapshotIntervalSize: math.MaxInt64,
 				},
 			},
 			CAConfig: config.CAConfiguration{RootCACertsPath: []string{path.Join(cryptoTempDir, testutils.RootCAFileName+".pem")}},
@@ -156,7 +172,7 @@ func createDBInstance(t *testing.T, cryptoDir string, serverPort string) BCDB {
 }
 
 func startServerConnectOpenAdminCreateUserAndUserSession(t *testing.T, testServer *server.BCDBHTTPServer, certTempDir string, user string) (BCDB, DBSession, DBSession) {
-	testServer.Start()
+	StartTestServer(t, testServer)
 
 	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, certTempDir)
 	pemUserCert, err := ioutil.ReadFile(path.Join(certTempDir, user+".pem"))
