@@ -13,11 +13,11 @@ To build a docker image, the following are the prerequisites that should be inst
 
 To clone the repository, create the required directory
 ```
-mkdir -p github.com/IBM-Blockchain
+mkdir -p github.com/hyperledger-labs
 ```
 Change the current working directory to the above created folder 
 ```
-cd github.com/IBM-Blockchain
+cd github.com/hyperledger-labs
 ```
 #### Clone server and sdk repositories
 ```

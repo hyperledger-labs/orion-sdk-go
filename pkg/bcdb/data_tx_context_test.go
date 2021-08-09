@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/server"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -367,7 +367,7 @@ func TestDataContext_AssertRead(t *testing.T) {
 
 	err = tx1.Put("bdb", "interestRate", []byte("0.01"), nil)
 	require.NoError(t, err)
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10; i++ {
 		key := "account" + strconv.Itoa(i)
 		err = tx1.Put("bdb", key, []byte(strconv.Itoa(i)), nil)
 		require.NoError(t, err)
@@ -387,7 +387,7 @@ func TestDataContext_AssertRead(t *testing.T) {
 	_, _, err = tx2.Commit(true)
 	require.NoError(t, err)
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10; i++ {
 		tx3, err := adminSession.DataTx()
 		require.NoError(t, err)
 		require.NotNil(t, tx3)
@@ -694,7 +694,7 @@ func createDB(t *testing.T, dbName string, session DBSession) {
 	require.True(t, exist)
 }
 
-func putKeySync(t *testing.T, dbName, key string, value string, user string, session DBSession) {
+func putKeySync(t *testing.T, dbName, key string, value string, user string, session DBSession) *types.TxReceipt {
 	tx, err := session.DataTx()
 	require.NoError(t, err)
 
@@ -714,6 +714,7 @@ func putKeySync(t *testing.T, dbName, key string, value string, user string, ses
 	require.NoError(t, err, fmt.Sprintf("Key = %s, value = %s", key, value))
 	require.NotNil(t, txID)
 	require.NotNil(t, receipt)
+	return receipt
 }
 
 func putMultipleKeysAndValues(t *testing.T, key []string, value []string, user string, session DBSession) (txEnvelopes []proto.Message) {

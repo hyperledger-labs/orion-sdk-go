@@ -4,6 +4,7 @@ package bcdb
 
 import (
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
+	"github.com/hyperledger-labs/orion-server/pkg/state"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 )
 
@@ -95,4 +96,41 @@ func (l *ledger) GetTransactionReceipt(txId string) (*types.TxReceipt, error) {
 	// TODO: signature verification
 
 	return resEnv.GetResponse().GetReceipt(), nil
+}
+
+func (l *ledger) GetDataProof(blockNum uint64, dbName, key string, isDeleted bool) (*state.Proof, error) {
+	path := constants.URLDataProof(blockNum, dbName, key, isDeleted)
+	resEnv := &types.GetDataProofResponseEnvelope{}
+	err := l.handleRequest(
+		path,
+		&types.GetDataProofQuery{
+			UserId:      l.userID,
+			BlockNumber: blockNum,
+			DbName:      dbName,
+			Key:         key,
+			IsDeleted:   isDeleted,
+		}, resEnv,
+	)
+	if err != nil {
+		l.logger.Errorf("failed to execute state proof query %s, due to %s", path, err)
+		return nil, err
+	}
+
+	// TODO: signature verification
+
+	return state.NewProof(resEnv.GetResponse().GetPath()), nil
+}
+
+// CalculateValueHash creates unique hash for specific value, by hashing concatenation
+// of database name, key and value hashes
+func CalculateValueHash(dbName, key string, value []byte) ([]byte, error) {
+	stateTrieKey, err := state.ConstructCompositeKey(dbName, key)
+	if err != nil {
+		return nil, err
+	}
+	valueHash, err := state.CalculateKeyValueHash(stateTrieKey, value)
+	if err != nil {
+		return nil, err
+	}
+	return valueHash, nil
 }

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,8 +20,14 @@ func TestGetBlockHeader(t *testing.T) {
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
+	txReceipts := make([]*types.TxReceipt, 0)
+	firstdataBlockIndex := 0
 	for i := 1; i < 10; i++ {
-		putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		txReceipt := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		txReceipts = append(txReceipts, txReceipt)
+		if firstdataBlockIndex == 0 {
+			firstdataBlockIndex = int(txReceipt.Header.BaseHeader.Number)
+		}
 	}
 
 	l, err := aliceSession.Ledger()
@@ -31,6 +37,9 @@ func TestGetBlockHeader(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, header)
 		require.Equal(t, uint64(i), header.GetBaseHeader().GetNumber())
+		if i >= firstdataBlockIndex {
+			require.True(t, proto.Equal(txReceipts[i - firstdataBlockIndex].Header, header))
+		}
 	}
 
 	header, err := l.GetBlockHeader(100)
@@ -263,6 +272,107 @@ func TestGetTransactionReceipt(t *testing.T) {
 			} else {
 				require.EqualError(t, err, tt.errMessage)
 				require.Nil(t, receipt)
+			}
+		})
+	}
+}
+
+func TestGetStateProof(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, 20*time.Second, 10)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
+
+	txEnvelopesPerBlock := make([][]proto.Message, 0)
+
+	// Ten blocks, each 10 tx
+	for i := 0; i < 10; i++ {
+		keys := make([]string, 0)
+		values := make([]string, 0)
+		for j := 0; j < 10; j++ {
+			keys = append(keys, fmt.Sprintf("key%d_%d", i, j))
+			values = append(values, fmt.Sprintf("value%d_%d", i, j))
+		}
+		blockTx := putMultipleKeysAndValues(t, keys, values, "alice", aliceSession)
+		txEnvelopesPerBlock = append(txEnvelopesPerBlock, blockTx)
+	}
+
+	tests := []struct {
+		name       string
+		block      uint64
+		dbName     string
+		key        string
+		value      []byte
+		isDeleted  bool
+		incorrect  bool
+		errMessage string
+	}{
+		{
+			name:      "block 3, key0_0",
+			block:     3,
+			dbName:    "bdb",
+			key:       "key0_0",
+			value:     []byte("value0_0"),
+			isDeleted: false,
+		},
+		{
+			name:      "block 3, key0_0, incorrect value",
+			block:     3,
+			dbName:    "bdb",
+			key:       "key0_0",
+			value:     []byte("value0_2"),
+			isDeleted: false,
+			incorrect: true,
+		},
+		{
+			name:       "block 3, key6_1, not created yet",
+			block:      3,
+			dbName:     "bdb",
+			key:        "key6_1",
+			value:      []byte("value6_1"),
+			isDeleted:  false,
+			errMessage: "because no proof for block 3, db bdb, key key6_1, isDeleted false found",
+		},
+		{
+			name:      "block 9, key6_1",
+			block:     9,
+			dbName:    "bdb",
+			key:       "key6_1",
+			value:     []byte("value6_1"),
+			isDeleted: false,
+		},
+		{
+			name:       "block 19, key6_1, block not exist",
+			block:      19,
+			dbName:     "bdb",
+			key:        "key6_1",
+			value:      []byte("value6_1"),
+			isDeleted:  false,
+			errMessage: "404 Not Found, message: error while processing 'GET /ledger/proof/data/bdb/key6_1?block=19' because block not found: 19",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := aliceSession.Ledger()
+			require.NoError(t, err)
+			proof, err := p.GetDataProof(tt.block, tt.dbName, tt.key, tt.isDeleted)
+			if tt.errMessage == "" {
+				require.NoError(t, err)
+				kvHash, err := CalculateValueHash(tt.dbName, tt.key, tt.value)
+				require.NoError(t, err)
+				blockHeader, err := p.GetBlockHeader(tt.block)
+				require.NoError(t, err)
+				res, err := proof.Verify(kvHash, blockHeader.GetStateMerkelTreeRootHash(), tt.isDeleted)
+				require.NoError(t, err)
+				if tt.incorrect {
+					require.False(t, res)
+				} else {
+					require.True(t, res)
+				}
+			} else {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errMessage)
 			}
 		})
 	}
