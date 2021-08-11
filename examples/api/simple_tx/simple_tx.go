@@ -8,6 +8,10 @@ import (
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
 )
 
+/*
+	Add, get, update and delete key-value pairs on the database
+ */
+
 func main() {
 	c, err := ReadConfig("./config.yml")
 	if err != nil {
@@ -56,27 +60,27 @@ func main() {
 		return
 	}
 
-	fmt.Printf("Adding key, value: key1, val1 to the database")
+	fmt.Println("Adding key, value: key1, val1 to the database")
 	err = tx.Put("bdb", "key1", []byte("val1"), nil)
 	if err != nil {
 		fmt.Printf("Adding new key to database failed, reason: %s\n", err.Error())
 		return
 	}
 
-	fmt.Printf("Adding key, value: key2, val2 to the database")
+	fmt.Println("Adding key, value: key2, val2 to the database")
 	err = tx.Put("bdb", "key2", []byte("val2"), nil)
 	if err != nil {
 		fmt.Printf("Adding new key to database failed, reason: %s\n", err.Error())
 		return
 	}
 
-	fmt.Printf("Committing transaction")
+	fmt.Println("Committing transaction")
 	txID, _, err := tx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
 		return
 	}
-	fmt.Printf("Transaction number " + txID + " committed successfully")
+	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
 	fmt.Println("Opening data transaction")
 	tx, err = session.DataTx()
@@ -85,33 +89,33 @@ func main() {
 		return
 	}
 
-	fmt.Printf("Getting key1 value")
+	fmt.Println("Getting key1 value")
 	val, _, err := tx.Get("bdb", "key1")
 	if err != nil {
 		fmt.Printf("Getting existing key value failed, reason: %s\n", err.Error())
 		return
 	}
-	fmt.Printf("key1 value is " + string(val))
+	fmt.Printf("key1 value is %s\n", string(val))
 
-	fmt.Printf("Updating key1 value to val0")
+	fmt.Println("Updating key1 value to val0")
 	err = tx.Put("bdb", "key1", []byte("val0"), nil)
 	if err != nil {
 		fmt.Printf("Updating value failed, reason: %s\n", err.Error())
 		return
 	}
 
-	fmt.Printf("Deleting key2 from the database")
+	fmt.Println("Deleting key2 from the database")
 	err = tx.Delete("bdb", "key2")
 	if err != nil {
 		fmt.Printf("Deleting key from database failed, reason: %s\n", err.Error())
 		return
 	}
 
-	fmt.Printf("Committing transaction")
+	fmt.Println("Committing transaction")
 	txID, _, err = tx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
 		return
 	}
-	fmt.Printf("Transaction number " + txID + " committed successfully")
+	fmt.Printf("Transaction number %s committed successfully\n", txID)
 }
