@@ -11,6 +11,9 @@ import (
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 )
 
+/*
+   Create, update and delete database users
+*/
 func main() {
 	c, err := ReadConfig("./config.yml")
 	if err != nil {
