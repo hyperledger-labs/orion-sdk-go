@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/pem"
 	"fmt"
+	"github.com/IBM-Blockchain/bcdb-sdk/examples/util"
 	"io/ioutil"
 
 	"github.com/IBM-Blockchain/bcdb-sdk/examples/util"

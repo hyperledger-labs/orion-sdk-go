@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/IBM-Blockchain/bcdb-sdk/examples/util"
 
 	"github.com/IBM-Blockchain/bcdb-sdk/examples/util"
 	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb"
