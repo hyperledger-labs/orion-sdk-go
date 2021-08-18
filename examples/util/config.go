@@ -1,4 +1,4 @@
-package main
+package util
 
 import (
 	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"

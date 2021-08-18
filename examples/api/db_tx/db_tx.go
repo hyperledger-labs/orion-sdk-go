@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/IBM-Blockchain/bcdb-sdk/examples/util"
 	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb"
 	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
@@ -10,9 +11,9 @@ import (
 
 /*
 	Create and delete databases
- */
+*/
 func main() {
-	c, err := ReadConfig("./config.yml")
+	c, err := util.ReadConfig("../../util/config.yml")
 	if err != nil {
 		fmt.Printf(err.Error())
 	}
@@ -95,7 +96,7 @@ func main() {
 		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
 		return
 	}
-	if exist{
+	if exist {
 		fmt.Println("Database db1 exists")
 	} else {
 		fmt.Println("Database db1 does not exist")
@@ -107,7 +108,7 @@ func main() {
 		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
 		return
 	}
-	if exist{
+	if exist {
 		fmt.Println("Database db2 exists")
 	} else {
 		fmt.Println("Database db2 does not exist")
@@ -164,7 +165,7 @@ func main() {
 		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
 		return
 	}
-	if exist{
+	if exist {
 		fmt.Println("Database db1 exists")
 	} else {
 		fmt.Println("Database db1 does not exist")
@@ -176,7 +177,7 @@ func main() {
 		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
 		return
 	}
-	if exist{
+	if exist {
 		fmt.Println("Database db2 exists")
 	} else {
 		fmt.Println("Database db2 does not exist")

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/IBM-Blockchain/bcdb-sdk/examples/util"
 	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb"
 	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
@@ -10,10 +11,9 @@ import (
 
 /*
 	Add, get, update and delete key-value pairs on the database
- */
-
+*/
 func main() {
-	c, err := ReadConfig("./config.yml")
+	c, err := util.ReadConfig("../../util/config.yml")
 	if err != nil {
 		fmt.Printf(err.Error())
 	}
