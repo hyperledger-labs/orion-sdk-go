@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/IBM-Blockchain/bcdb-sdk/examples/util"
 	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb"
 	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
@@ -15,7 +16,7 @@ import (
    Create, update and delete database users
 */
 func main() {
-	c, err := ReadConfig("./config.yml")
+	c, err := util.ReadConfig("../../util/config.yml")
 	if err != nil {
 		fmt.Printf(err.Error())
 	}
@@ -163,7 +164,7 @@ func main() {
 		fmt.Printf("Getting user's record from database failed, reason: %s\n", err.Error())
 		return
 	}
-	fmt.Printf("alice information: id: %s, privilege: %s\n",user.GetId(), user.GetPrivilege().String())
+	fmt.Printf("alice information: id: %s, privilege: %s\n", user.GetId(), user.GetPrivilege().String())
 
 	fmt.Println("Getting bob's record from database")
 	user, err = tx.GetUser("bob")
@@ -171,7 +172,7 @@ func main() {
 		fmt.Printf("Getting user's record from database failed, reason: %s\n", err.Error())
 		return
 	}
-	fmt.Printf("bob information: id: %s, privilege: %s\n",user.GetId(), user.GetPrivilege().String())
+	fmt.Printf("bob information: id: %s, privilege: %s\n", user.GetId(), user.GetPrivilege().String())
 
 	fmt.Println("Committing transaction")
 	txID, _, err = tx.Commit(true)
