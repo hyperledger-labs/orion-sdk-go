@@ -108,6 +108,31 @@ func TestTxCommit(t *testing.T) {
 			wantErr:    false,
 		},
 		{
+			name: "dataTx sync invalid mvcc-conflict",
+			txCtx: &dataTxContext{
+				commonTxContext: &commonTxContext{
+					userID:   "testUser",
+					signer:   emptySigner,
+					userCert: []byte{1, 2, 3},
+					replicaSet: map[string]*url.URL{
+						"node1": {
+							Path: "http://localhost:8888",
+						},
+					},
+					verifier: verifier,
+					restClient: NewRestClient("testUser", &mockHttpClient{
+						process: syncSubmit,
+						resp:    mvccResponse(),
+					}, emptySigner),
+					commitTimeout: time.Second * 2,
+					logger:        logger,
+				},
+			},
+			syncCommit: true,
+			wantErr:    true,
+			errMsg: "INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE",
+		},
+		{
 			name: "dataTx sync server commitTimeout",
 			txCtx: &dataTxContext{
 				commonTxContext: &commonTxContext{
@@ -605,6 +630,16 @@ func okResponse() *http.Response {
 					BaseHeader: &types.BlockHeaderBase{
 						Number: 1,
 					},
+					ValidationInfo:          []*types.ValidationInfo{
+						{
+							Flag:                 types.Flag_VALID,
+							ReasonIfInvalid:      "",
+						},
+						{
+							Flag:                 types.Flag_VALID,
+							ReasonIfInvalid:      "",
+						},
+					},
 				},
 				TxIndex: 1,
 			},
@@ -632,6 +667,37 @@ func okResponseAsync() *http.Response {
 					},
 				},
 				TxIndex: 1,
+			},
+		},
+	}
+	okPbJson, _ := json.Marshal(okResp)
+	okRespReader := ioutil.NopCloser(bytes.NewReader([]byte(okPbJson)))
+	return &http.Response{
+		StatusCode: 200,
+		Status:     http.StatusText(200),
+		Body:       okRespReader,
+	}
+}
+
+func mvccResponse() *http.Response {
+	okResp := &types.TxReceiptResponseEnvelope{
+		Response: &types.TxReceiptResponse{
+			Header: &types.ResponseHeader{
+				NodeId: "node1",
+			},
+			Receipt: &types.TxReceipt{
+				Header: &types.BlockHeader{
+					BaseHeader: &types.BlockHeaderBase{
+						Number: 1,
+					},
+					ValidationInfo:          []*types.ValidationInfo{
+						{
+							Flag:                 types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE,
+							ReasonIfInvalid:      "oops",
+						},
+					},
+				},
+				TxIndex: 0,
 			},
 		},
 	}

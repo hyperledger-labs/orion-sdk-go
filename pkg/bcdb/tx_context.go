@@ -115,7 +115,22 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 
 	t.txSpent = true
 	tx.cleanCtx()
-	return txID, txResponseEnvelope.GetResponse().GetReceipt(), nil
+
+	receipt := txResponseEnvelope.GetResponse().GetReceipt()
+
+	if sync {
+		validationInfo := receipt.GetHeader().GetValidationInfo()
+		if validationInfo == nil {
+			return txID, receipt, errors.Errorf("server error: validation info is nil")
+		} else {
+			validFlag := validationInfo[receipt.TxIndex].GetFlag()
+			if validFlag != types.Flag_VALID {
+				return txID, receipt, &ErrorTxValidation{TxID: txID, Flag: validFlag.String(), Reason: validationInfo[receipt.TxIndex].ReasonIfInvalid}
+			}
+		}
+	}
+
+	return txID, receipt, nil
 }
 
 func (t *commonTxContext) abort(tx txContext) error {
@@ -192,4 +207,14 @@ type ServerTimeout struct {
 
 func (e *ServerTimeout) Error() string {
 	return "timeout occurred on server side while submitting transaction, converted to asynchronous completion, TxID: " + e.TxID
+}
+
+type ErrorTxValidation struct {
+	TxID string
+	Flag string
+	Reason string
+}
+
+func (e *ErrorTxValidation) Error() string {
+	return "transaction txID = " + e.TxID + " is not valid, flag: " + e.Flag + ", reason: " + e.Reason
 }

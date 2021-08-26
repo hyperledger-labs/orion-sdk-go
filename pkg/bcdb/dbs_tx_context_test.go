@@ -305,8 +305,13 @@ func TestDBsContext_AttemptDeleteSystemDatabase(t *testing.T) {
 	err = tx.DeleteDB("bdb")
 	require.NoError(t, err)
 
-	_, _, err = tx.Commit(true)
-	require.NoError(t, err)
+	txID, receipt, err := tx.Commit(true)
+	require.Error(t, err)
+	require.NotNil(t, receipt)
+	require.Equal(t, types.Flag_INVALID_INCORRECT_ENTRIES, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
+	require.Equal(t, "the database [bdb] is the system created default database to store states and it cannot be deleted", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
+	require.Equal(t,"transaction txID = " + txID + " is not valid, flag: INVALID_INCORRECT_ENTRIES," +
+		" reason: the database [bdb] is the system created default database to store states and it cannot be deleted",  err.Error())
 
 	// Check database status, whenever created or not
 	tx, err = session.DBsTx()
