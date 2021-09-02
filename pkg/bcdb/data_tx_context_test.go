@@ -255,10 +255,13 @@ func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 	require.Equal(t, meta, storedRead.GetMetadata())
 	require.Equal(t, storedReadUpdated, storedRead)
 	require.NoError(t, err)
-	_, receipt, err := tx.Commit(true)
-	require.NoError(t, err)
+	txID, receipt, err := tx.Commit(true)
+	require.Error(t, err)
 	require.NotNil(t, receipt)
-	require.Equal(t, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag(), types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE)
+	require.Equal(t, types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
+	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
+	require.Equal(t,"transaction txID = " + txID + " is not valid, flag: INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE," +
+	" reason: mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed",  err.Error())
 }
 
 func TestDataContext_GetUserPermissions(t *testing.T) {
