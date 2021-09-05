@@ -14,6 +14,68 @@ import (
 	Example of using async commit
 */
 func main() {
+	session, err := prepareData()
+	if session == nil || err != nil {
+		return
+	}
+
+	fmt.Println("Opening data transaction")
+	tx, err := session.DataTx()
+	if err != nil {
+		fmt.Printf("Data transaction creating failed, reason: %s\n", err.Error())
+		return
+	}
+
+	fmt.Println("Adding key, value: key1, val1 to the database")
+	err = tx.Put("bdb", "key1", []byte("val1"), nil)
+	if err != nil {
+		fmt.Printf("Adding new key to database failed, reason: %s\n", err.Error())
+		return
+	}
+
+	fmt.Println("Committing transaction")
+	txID, txReceipt, err := tx.Commit(false)
+	if err != nil {
+		fmt.Printf("Commit failed, reason: %s\n", err.Error())
+		return
+	}
+	//async commit always return receipt = nil
+	fmt.Printf("Transaction receipt = %s\n", txReceipt)
+
+	l, err := session.Ledger()
+	if err != nil {
+		fmt.Printf(err.Error())
+		return
+	}
+
+	fmt.Println("Getting transaction receipt")
+LOOP:
+	for {
+		timeout := time.After(5 * time.Second)
+		select {
+		case <-time.After(10 * time.Millisecond):
+			txReceipt, err = l.GetTransactionReceipt(txID)
+			if err != nil {
+				fmt.Printf("Getting transaction receipt failed, reason: %s\n", err.Error())
+				return
+			}
+			if txReceipt == nil {
+				continue
+			} else {
+				break LOOP
+			}
+		case <-timeout:
+			fmt.Println("Getting transaction receipt failed")
+			return
+		}
+	}
+
+	fmt.Printf("The transaction is stored on block header number %d, index %d, with validiation flag %s\n", txReceipt.Header.GetBaseHeader().GetNumber(),
+		txReceipt.GetTxIndex(), txReceipt.Header.ValidationInfo[txReceipt.TxIndex].GetFlag())
+	fmt.Printf("Transaction number %s committed successfully\n", txID)
+}
+
+func prepareData() (bcdb.DBSession, error) {
 	c, err := util.ReadConfig("../../util/config.yml")
 	if err != nil {
 		fmt.Printf(err.Error())
@@ -39,7 +101,7 @@ func main() {
 	db, err := bcdb.Create(conConf)
 	if err != nil {
 		fmt.Printf("Database connection creating failed, reason: %s\n", err.Error())
-		return
+		return nil, err
 	}
 
 	sessionConf := &config.SessionConfig{
@@ -51,39 +113,8 @@ func main() {
 	session, err := db.Session(sessionConf)
 	if err != nil {
 		fmt.Printf("Database session creating failed, reason: %s\n", err.Error())
-		return
+		return nil, err
 	}
 
-	fmt.Println("Opening data transaction")
-	tx, err := session.DataTx()
-	if err != nil {
-		fmt.Printf("Data transaction creating failed, reason: %s\n", err.Error())
-		return
-	}
-
-	fmt.Println("Adding key, value: key1, val1 to the database")
-	err = tx.Put("bdb", "key1", []byte("val1"), nil)
-	if err != nil {
-		fmt.Printf("Adding new key to database failed, reason: %s\n", err.Error())
-		return
-	}
-
-	fmt.Println("Committing transaction")
-	txID, txReceipt, err := tx.Commit(false)
-	if err != nil {
-		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
-	}
-	l, err := session.Ledger()
-	if err != nil {
-		fmt.Printf(err.Error())
-		return
-	}
-	fmt.Println("Getting transaction receipt")
-	for txReceipt == nil {
-		time.Sleep(200 * time.Millisecond)
-		txReceipt, _ = l.GetTransactionReceipt(txID)
-	}
-	fmt.Printf("The transaction is stored on block header number %d, index %d\n", txReceipt.Header.BaseHeader.Number, txReceipt.TxIndex)
-	fmt.Printf("Transaction number %s committed successfully\n", txID)
+	return session, err
 }
