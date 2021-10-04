@@ -7,6 +7,7 @@ import (
 	"github.com/IBM-Blockchain/bcdb-server/pkg/cryptoservice"
 	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 )
 
 type DataTxContext interface {
@@ -18,6 +19,8 @@ type DataTxContext interface {
 	Get(dbName, key string) ([]byte, *types.Metadata, error)
 	// Delete value for key
 	Delete(dbName, key string) error
+	// AssertRead insert a key-version to the transaction assert map
+	AssertRead(dbName string, key string, version *types.Version) error
 }
 
 type dataTxContext struct {
@@ -68,6 +71,9 @@ func (d *dataTxContext) Get(dbName, key string) ([]byte, *types.Metadata, error)
 	// Is key already read?
 	ops, ok := d.operations[dbName]
 	if ok {
+		if _, ok := ops.dataAsserts[key]; ok {
+			return nil, nil, errors.Errorf("can not execute Get and AssertRead for the same key '" + key + "' in the same transaction")
+		}
 		if storedValue, ok := ops.dataReads[key]; ok {
 			return storedValue.GetValue(), storedValue.GetMetadata(), nil
 		}
@@ -119,6 +125,34 @@ func (d *dataTxContext) Delete(dbName, key string) error {
 	return nil
 }
 
+// AssertRead insert a key-version to the transaction assert map
+func (d *dataTxContext) AssertRead(dbName string, key string, version *types.Version) error {
+	if d.txSpent {
+		return ErrTxSpent
+	}
+
+	ops, ok := d.operations[dbName]
+	if ok {
+		if _, ok := ops.dataReads[key]; ok {
+			return errors.Errorf("can not execute Get and AssertRead for the same key '" + key + "' in the same transaction")
+		}
+		if currentVersion, ok := ops.dataAsserts[key]; ok {
+			if currentVersion != version {
+				return errors.Errorf("the received version is different from the existing version")
+			}
+			return nil
+		}
+	}
+
+	if !ok {
+		ops = newDBOperations()
+		d.operations[dbName] = ops
+	}
+	ops.dataAsserts[key] = version
+
+	return nil
+}
+
 func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	var dbOperations []*types.DBOperation
 
@@ -139,6 +173,13 @@ func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 			dbOp.DataReads = append(dbOp.DataReads, &types.DataRead{
 				Key:     k,
 				Version: v.GetMetadata().GetVersion(),
+			})
+		}
+
+		for k, v := range ops.dataAsserts {
+			dbOp.DataReads = append(dbOp.DataReads, &types.DataRead{
+				Key:     k,
+				Version: v,
 			})
 		}
 
@@ -172,6 +213,7 @@ type dbOperations struct {
 	dataReads   map[string]*types.GetDataResponse
 	dataWrites  map[string]*types.DataWrite
 	dataDeletes map[string]*types.DataDelete
+	dataAsserts map[string]*types.Version
 }
 
 func newDBOperations() *dbOperations {
@@ -179,5 +221,6 @@ func newDBOperations() *dbOperations {
 		dataReads:   map[string]*types.GetDataResponse{},
 		dataWrites:  map[string]*types.DataWrite{},
 		dataDeletes: map[string]*types.DataDelete{},
+		dataAsserts: map[string]*types.Version{},
 	}
 }

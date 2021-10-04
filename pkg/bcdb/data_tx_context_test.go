@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"strconv"
 	"testing"
 	"time"
 
@@ -260,8 +261,8 @@ func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 	require.NotNil(t, receipt)
 	require.Equal(t, types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
 	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
-	require.Equal(t,"transaction txID = " + txID + " is not valid, flag: INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE," +
-	" reason: mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed",  err.Error())
+	require.Equal(t, "transaction txID = "+txID+" is not valid, flag: INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE,"+
+		" reason: mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", err.Error())
 }
 
 func TestDataContext_GetUserPermissions(t *testing.T) {
@@ -350,6 +351,174 @@ func TestDataContext_GetTimeout(t *testing.T) {
 	val, _, err = tx2.Get("bdb", "key1")
 	require.NoError(t, err)
 	require.EqualValues(t, []byte("value1"), val)
+}
+
+func TestDataContext_AssertRead(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+	_, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+
+	tx1, err := adminSession.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+
+	err = tx1.Put("bdb", "interestRate", []byte("0.01"), nil)
+	require.NoError(t, err)
+	for i := 0; i < 1000; i++ {
+		key := "account" + strconv.Itoa(i)
+		err = tx1.Put("bdb", key, []byte(strconv.Itoa(i)), nil)
+		require.NoError(t, err)
+	}
+	_, _, err = tx1.Commit(true)
+	require.NoError(t, err)
+
+	tx2, err := adminSession.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx2)
+
+	interestRateVal, metaData, err := tx2.Get("bdb", "interestRate")
+	require.NoError(t, err)
+	require.NotNil(t, metaData)
+	version := metaData.GetVersion()
+
+	_, _, err = tx2.Commit(true)
+	require.NoError(t, err)
+
+	for i := 0; i < 1000; i++ {
+		tx3, err := adminSession.DataTx()
+		require.NoError(t, err)
+		require.NotNil(t, tx3)
+
+		err = tx3.AssertRead("bdb", "interestRate", version)
+		require.NoError(t, err)
+
+		key := "account" + strconv.Itoa(i)
+		accountVal, _, err := tx3.Get("bdb", key)
+		require.NoError(t, err)
+		accountValInt, _ := strconv.Atoi(string(accountVal))
+		interestRateValInt, _ := strconv.Atoi(string(interestRateVal))
+		err = tx3.Put("bdb", key, []byte(strconv.Itoa(accountValInt*(1+interestRateValInt))), nil)
+		require.NoError(t, err)
+
+		_, _, err = tx3.Commit(true)
+		require.NoError(t, err)
+	}
+}
+
+func TestDataContext_AssertReadOnZeroVersion(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+	_, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+
+	tx1, err := adminSession.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+
+	err = tx1.AssertRead("bdb", "key1", nil)
+	require.NoError(t, err)
+
+	_, _, err = tx1.Commit(true)
+	require.NoError(t, err) // committed successfully because 'key1' doesn't exist in the database => 'key1' version is nil
+
+	tx2, err := adminSession.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx2)
+
+	err = tx2.Put("bdb", "key1", []byte("val1"), nil)
+	require.NoError(t, err)
+
+	_, _, err = tx2.Commit(true)
+	require.NoError(t, err)
+
+	tx3, err := adminSession.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx3)
+
+	err = tx3.AssertRead("bdb", "key1", nil)
+	require.NoError(t, err)
+
+	txID, receipt, err := tx3.Commit(true)
+	require.Error(t, err) // commit failed because 'key1' exists in the database => 'key1' version is not nil
+	require.NotNil(t, receipt)
+	require.Equal(t, types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
+	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
+	require.Equal(t, "transaction txID = "+txID+" is not valid, flag: INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE,"+
+		" reason: mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", err.Error())
+}
+
+func TestDataContext_AssertReadIncorrectVersionAndMVCCConflict(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+	_, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+
+	tx1, err := adminSession.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+
+	err = tx1.Put("bdb", "key1", []byte("val1"), nil)
+	require.NoError(t, err)
+
+	_, _, err = tx1.Commit(true)
+	require.NoError(t, err)
+
+	tx2, err := adminSession.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx2)
+
+	_, metaData, err := tx2.Get("bdb", "key1")
+	require.NoError(t, err)
+	require.NotNil(t, metaData)
+	version := metaData.GetVersion()
+
+	_, _, err = tx2.Commit(true)
+	require.NoError(t, err)
+
+	tx3, err := adminSession.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx3)
+
+	incorrectVersion := types.Version{BlockNum: version.GetBlockNum() + 1, TxNum: version.GetTxNum() + 1}
+	err = tx3.AssertRead("bdb", "key1", &incorrectVersion)
+	require.NoError(t, err)
+
+	txID, receipt, err := tx3.Commit(true)
+	require.Error(t, err)
+	require.NotNil(t, receipt)
+	require.Equal(t, types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
+	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
+	require.Equal(t, "transaction txID = "+txID+" is not valid, flag: INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE,"+
+		" reason: mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", err.Error())
+}
+
+func TestDataContext_GetAndAssertReadForTheSameKeyInTx(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+	_, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+
+	tx1, err := adminSession.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+
+	_, _, err = tx1.Get("bdb", "key1")
+	require.NoError(t, err)
+	err = tx1.AssertRead("bdb", "key1", nil)
+	require.NotNil(t, err)
+	require.Equal(t, "can not execute Get and AssertRead for the same key 'key1' in the same transaction", err.Error())
+
+	_, _, err = tx1.Commit(true)
+	require.NoError(t, err)
 }
 
 func connectAndOpenAdminSession(t *testing.T, testServer *server.BCDBHTTPServer, cryptoDir string) (BCDB, DBSession) {
