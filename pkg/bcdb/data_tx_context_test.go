@@ -386,6 +386,7 @@ func TestDataContext_AssertRead(t *testing.T) {
 
 	_, _, err = tx2.Commit(true)
 	require.NoError(t, err)
+
 	for i := 0; i < 1000; i++ {
 		tx3, err := adminSession.DataTx()
 		require.NoError(t, err)
@@ -423,7 +424,7 @@ func TestDataContext_AssertReadOnZeroVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = tx1.Commit(true)
-	require.NoError(t, err) //committed successfully because "key1" doesn't exist in the database => 'key1' version is nil
+	require.NoError(t, err) // committed successfully because 'key1' doesn't exist in the database => 'key1' version is nil
 
 	tx2, err := adminSession.DataTx()
 	require.NoError(t, err)
@@ -443,7 +444,7 @@ func TestDataContext_AssertReadOnZeroVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	txID, receipt, err := tx3.Commit(true)
-	require.Error(t, err) //commit failed because "key1" exists in the database => 'key1' version is not nil
+	require.Error(t, err) // commit failed because 'key1' exists in the database => 'key1' version is not nil
 	require.NotNil(t, receipt)
 	require.Equal(t, types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
 	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
