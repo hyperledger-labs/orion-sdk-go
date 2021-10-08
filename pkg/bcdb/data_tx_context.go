@@ -21,11 +21,30 @@ type DataTxContext interface {
 	Delete(dbName, key string) error
 	// AssertRead insert a key-version to the transaction assert map
 	AssertRead(dbName string, key string, version *types.Version) error
+	// AddMustSignUser adds userID to the multi-sign data transaction's
+	// MustSignUserIDs set. All users in the MustSignUserIDs set must co-sign
+	// the transaction for it to be valid. Note that, in addition, when a
+	// transaction modifies keys which have multiple users in the write ACL,
+	// or when a transaction modifies keys where each key has different user
+	// in the write ACL, the signature of additional users may be required.
+	// AddMustSignUser can be used to add users whose signatures is required,
+	// on top of those mandates by the ACLs of the keys in the write-set of
+	// the transaction. The userID of the initiating client is always in
+	// the MustSignUserIDs set."
+	AddMustSignUser(userID string)
+	// SignConstructedTxEnvelopeAndCloseTx returns a signed transaction envelope and
+	// also closes the transaction context. When a transaction requires
+	// signatures from multiple users, an initiating user prepares the
+	// transaction and calls SignConstructedTxEnvelopeAndCloseTx in order to
+	// sign it and construct the envelope. The envelope must then be
+	// circulated among all the users that need to co-sign it."
+	SignConstructedTxEnvelopeAndCloseTx() (proto.Message, error)
 }
 
 type dataTxContext struct {
 	*commonTxContext
 	operations map[string]*dbOperations
+	txUsers    map[string]bool
 }
 
 func (d *dataTxContext) Commit(sync bool) (string, *types.TxReceipt, error) {
@@ -153,6 +172,30 @@ func (d *dataTxContext) AssertRead(dbName string, key string, version *types.Ver
 	return nil
 }
 
+func (d *dataTxContext) AddMustSignUser(userID string) {
+	d.txUsers[userID] = true
+}
+
+// SignConstructedTxEnvelopeAndCloseTx returns a signed transaction envelope and
+// also closes the transaction context. When the transaction requires signature from
+// multiple users, SignConstructedTxEnvelopeAndCloseTx can be used by
+// any one of the participating users after adding userID of each of the
+// participating users in the multi-sign transaction and executing the transaction.
+func (d *dataTxContext) SignConstructedTxEnvelopeAndCloseTx() (proto.Message, error) {
+	d.logger.Debugf("compose transaction enveloped with txID = %s", d.txID)
+
+	var err error
+	d.txEnvelope, err = d.composeEnvelope(d.txID)
+	if err != nil {
+		d.logger.Errorf("failed to compose transaction envelope, due to %s", err)
+		return nil, err
+	}
+
+	d.txSpent = true
+	d.cleanCtx()
+	return d.txEnvelope, nil
+}
+
 func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 	var dbOperations []*types.DBOperation
 
@@ -186,8 +229,13 @@ func (d *dataTxContext) composeEnvelope(txID string) (proto.Message, error) {
 		dbOperations = append(dbOperations, dbOp)
 	}
 
+	var mustSignUserIDs []string
+	for user := range d.txUsers {
+		mustSignUserIDs = append(mustSignUserIDs, user)
+	}
+
 	payload := &types.DataTx{
-		MustSignUserIds: []string{d.userID},
+		MustSignUserIds: mustSignUserIDs,
 		TxId:            txID,
 		DbOperations:    dbOperations,
 	}

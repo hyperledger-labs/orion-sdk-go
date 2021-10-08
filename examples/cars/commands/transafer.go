@@ -74,7 +74,7 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	txEnv, err := dataTx.TxEnvelope()
+	txEnv, err := dataTx.CommittedTxEnvelope()
 	if err != nil {
 		return "", errors.New("error getting transaction envelope")
 	}
@@ -163,7 +163,7 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	txEnv, err := dataTx.TxEnvelope()
+	txEnv, err := dataTx.CommittedTxEnvelope()
 	if err != nil {
 		return "", errors.New("error getting transaction envelope")
 	}
@@ -259,7 +259,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	txEnv, err := dataTx.TxEnvelope()
+	txEnv, err := dataTx.CommittedTxEnvelope()
 	if err != nil {
 		return "", errors.New("error getting transaction envelope")
 	}

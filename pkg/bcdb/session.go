@@ -66,9 +66,41 @@ func (d *dbSession) DataTx() (DataTxContext, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	dataTx := &dataTxContext{
 		commonTxContext: commonCtx,
 		operations:      make(map[string]*dbOperations),
+		txUsers: map[string]bool{
+			commonCtx.userID: true,
+		},
+	}
+	return dataTx, nil
+}
+
+// LoadDataTx loads a given data transaction envelope for inspection, co-signing, and commit
+func (d *dbSession) LoadDataTx(txEnv *types.DataTxEnvelope) (LoadedDataTxContext, error) {
+	switch {
+	case txEnv == nil:
+		return nil, errors.New("transaction envelope is nil")
+	case txEnv.GetPayload() == nil:
+		return nil, errors.New("payload in the transaction envelope is nil")
+	case txEnv.GetSignatures() == nil || len(txEnv.GetSignatures()) == 0:
+		return nil, errors.New("transaction envelope does not have a signature")
+	case txEnv.GetPayload().GetTxId() == "":
+		return nil, errors.New("transaction ID in the transaction envelope is empty")
+	case len(txEnv.GetPayload().GetMustSignUserIds()) == 0:
+		return nil, errors.New("no user ID in the transaction envelope")
+	}
+
+	commonCtx, err := d.newCommonTxContext()
+	if err != nil {
+		return nil, err
+	}
+
+	commonCtx.txID = txEnv.Payload.TxId
+	dataTx := &loadedDataTxContext{
+		commonTxContext: commonCtx,
+		txEnv:           txEnv,
 	}
 	return dataTx, nil
 }
@@ -118,8 +150,14 @@ func (d *dbSession) Ledger() (Ledger, error) {
 func (d *dbSession) newCommonTxContext() (*commonTxContext, error) {
 	httpClient := newHTTPClient()
 
+	txID, err := computeTxID(d.userCert)
+	if err != nil {
+		return nil, err
+	}
+
 	commonTxContext := &commonTxContext{
 		userID:        d.userID,
+		txID:          txID,
 		signer:        d.signer,
 		userCert:      d.userCert,
 		replicaSet:    d.replicaSet,

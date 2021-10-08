@@ -66,7 +66,7 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	txEnv, err := dataTx.TxEnvelope()
+	txEnv, err := dataTx.CommittedTxEnvelope()
 	if err != nil {
 		return "", errors.New("error getting transaction envelope")
 	}
@@ -158,7 +158,7 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	txEnv, err := dataTx.TxEnvelope()
+	txEnv, err := dataTx.CommittedTxEnvelope()
 	if err != nil {
 		return "", errors.New("error getting transaction envelope")
 	}

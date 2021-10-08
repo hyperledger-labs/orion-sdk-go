@@ -21,6 +21,7 @@ const (
 
 type commonTxContext struct {
 	userID        string
+	txID          string
 	signer        Signer
 	userCert      []byte
 	replicaSet    map[string]*url.URL
@@ -47,16 +48,12 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 	replica := t.selectReplica()
 	postEndpointResolved := replica.ResolveReference(&url.URL{Path: postEndpoint})
 
-	txID, err := computeTxID(t.userCert)
-	if err != nil {
-		return "", nil, err
-	}
-
-	t.logger.Debugf("compose transaction enveloped with txID = %s", txID)
-	t.txEnvelope, err = tx.composeEnvelope(txID)
+	t.logger.Debugf("compose transaction enveloped with txID = %s", t.txID)
+	var err error
+	t.txEnvelope, err = tx.composeEnvelope(t.txID)
 	if err != nil {
 		t.logger.Errorf("failed to compose transaction envelope, due to %s", err)
-		return txID, nil, err
+		return t.txID, nil, err
 	}
 	ctx := context.Background()
 	serverTimeout := time.Duration(0)
@@ -71,14 +68,14 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 
 	response, err := t.restClient.Submit(ctx, postEndpointResolved.String(), t.txEnvelope, serverTimeout)
 	if err != nil {
-		t.logger.Errorf("failed to submit transaction txID = %s, due to %s", txID, err)
-		return txID, nil, err
+		t.logger.Errorf("failed to submit transaction txID = %s, due to %s", t.txID, err)
+		return t.txID, nil, err
 	}
 
 	if response.StatusCode != http.StatusOK {
 		var errMsg string
 		if response.StatusCode == http.StatusAccepted {
-			return txID, nil, &ServerTimeout{TxID: txID}
+			return t.txID, nil, &ServerTimeout{TxID: t.txID}
 		}
 		if response.Body != nil {
 			errRes := &types.HttpResponseErr{}
@@ -90,21 +87,21 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 			}
 		}
 
-		return txID, nil, errors.Errorf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg)
+		return t.txID, nil, errors.Errorf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg)
 	}
 
 	txResponseEnvelope := &types.TxReceiptResponseEnvelope{}
 	err = json.NewDecoder(response.Body).Decode(txResponseEnvelope)
 	if err != nil {
 		t.logger.Errorf("failed to decode json response, due to %s", err)
-		return txID, nil, err
+		return t.txID, nil, err
 	}
 
 	nodeID := txResponseEnvelope.GetResponse().GetHeader().GetNodeId()
 	respBytes, err := json.Marshal(txResponseEnvelope.GetResponse())
 	if err != nil {
 		t.logger.Errorf("failed to marshal the response")
-		return txID, nil, err
+		return t.txID, nil, err
 	}
 
 	err = t.verifier.Verify(nodeID, respBytes, txResponseEnvelope.GetSignature())
@@ -121,16 +118,16 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 	if sync {
 		validationInfo := receipt.GetHeader().GetValidationInfo()
 		if validationInfo == nil {
-			return txID, receipt, errors.Errorf("server error: validation info is nil")
+			return t.txID, receipt, errors.Errorf("server error: validation info is nil")
 		} else {
 			validFlag := validationInfo[receipt.TxIndex].GetFlag()
 			if validFlag != types.Flag_VALID {
-				return txID, receipt, &ErrorTxValidation{TxID: txID, Flag: validFlag.String(), Reason: validationInfo[receipt.TxIndex].ReasonIfInvalid}
+				return t.txID, receipt, &ErrorTxValidation{TxID: t.txID, Flag: validFlag.String(), Reason: validationInfo[receipt.TxIndex].ReasonIfInvalid}
 			}
 		}
 	}
 
-	return txID, receipt, nil
+	return t.txID, receipt, nil
 }
 
 func (t *commonTxContext) abort(tx txContext) error {
@@ -192,7 +189,7 @@ func (t *commonTxContext) handleRequest(rawurl string, query, res proto.Message)
 	return nil
 }
 
-func (t *commonTxContext) TxEnvelope() (proto.Message, error) {
+func (t *commonTxContext) CommittedTxEnvelope() (proto.Message, error) {
 	if t.txEnvelope == nil {
 		return nil, ErrTxNotFinalized
 	}
@@ -210,8 +207,8 @@ func (e *ServerTimeout) Error() string {
 }
 
 type ErrorTxValidation struct {
-	TxID string
-	Flag string
+	TxID   string
+	Flag   string
 	Reason string
 }
 

@@ -492,7 +492,7 @@ func TestTxCommit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, err := tt.txCtx.TxEnvelope()
+			env, err := tt.txCtx.CommittedTxEnvelope()
 			require.Error(t, err)
 			require.Contains(t, "can't access tx envelope, transaction not finalized", err.Error())
 			require.Nil(t, env)
@@ -503,7 +503,7 @@ func TestTxCommit(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			env, err = tt.txCtx.TxEnvelope()
+			env, err = tt.txCtx.CommittedTxEnvelope()
 			require.NoError(t, err)
 			require.NotNil(t, env)
 			if tt.syncCommit {
@@ -597,7 +597,7 @@ func TestTxQuery(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, err := tt.txCtx.TxEnvelope()
+			env, err := tt.txCtx.CommittedTxEnvelope()
 			require.Error(t, err)
 			require.Contains(t, "can't access tx envelope, transaction not finalized", err.Error())
 			require.Nil(t, env)

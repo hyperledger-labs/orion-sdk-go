@@ -521,6 +521,122 @@ func TestDataContext_GetAndAssertReadForTheSameKeyInTx(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestDataContext_ConstructEnvelopeForMultiSign(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
+	require.NoError(t, err)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
+	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
+
+	putKeySync(t, "bdb", "key1", "value1", "alice", userSession)
+
+	tx, err := userSession.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+
+	val, meta, err := tx.Get("bdb", "key1")
+	require.EqualValues(t, []byte("value1"), val)
+	require.NoError(t, err)
+
+	val, meta, err = tx.Get("bdb", "key2")
+	require.NoError(t, err)
+	require.Nil(t, meta)
+	require.Nil(t, val)
+
+	require.NoError(t, tx.Put("bdb", "key2", []byte("value2"), nil))
+	require.NoError(t, tx.Put("bdb", "key3", []byte("value3"), nil))
+	require.NoError(t, tx.Delete("bdb", "key4"))
+	require.NoError(t, tx.Put("cde", "key1", []byte("value1"), nil))
+	require.NoError(t, tx.Put("cde", "key2", []byte("value2"), nil))
+	require.NoError(t, tx.Delete("cde", "key3"))
+
+	tx.AddMustSignUser("user1")
+	tx.AddMustSignUser("user2")
+
+	txEnv, err := tx.SignConstructedTxEnvelopeAndCloseTx()
+	require.NoError(t, err)
+	require.NotNil(t, txEnv)
+	require.Error(t, tx.Delete("fgh", "key1"))
+	dataTxEnv := txEnv.(*types.DataTxEnvelope)
+
+	require.ElementsMatch(t, []string{"alice", "user1", "user2"}, dataTxEnv.Payload.MustSignUserIds)
+	require.NotEmpty(t, dataTxEnv.Payload.TxId)
+	require.NotEmpty(t, dataTxEnv.Payload.DbOperations)
+	expectedOps := []*types.DBOperation{
+		{
+			DbName: "bdb",
+			DataReads: []*types.DataRead{
+				{
+					Key: "key1",
+					Version: &types.Version{
+						BlockNum: 3,
+						TxNum:    0,
+					},
+				},
+				{
+					Key:     "key2",
+					Version: nil,
+				},
+			},
+			DataWrites: []*types.DataWrite{
+				{
+					Key:   "key2",
+					Value: []byte("value2"),
+				},
+				{
+					Key:   "key3",
+					Value: []byte("value3"),
+				},
+			},
+			DataDeletes: []*types.DataDelete{
+				{
+					Key: "key4",
+				},
+			},
+		},
+		{
+			DbName: "cde",
+			DataWrites: []*types.DataWrite{
+				{
+					Key:   "key1",
+					Value: []byte("value1"),
+				},
+				{
+					Key:   "key2",
+					Value: []byte("value2"),
+				},
+			},
+			DataDeletes: []*types.DataDelete{
+				{
+					Key: "key3",
+				},
+			},
+		},
+	}
+
+	require.Len(t, dataTxEnv.Payload.DbOperations, len(expectedOps))
+	for _, expectedDBOps := range expectedOps {
+		for _, actualDBOps := range dataTxEnv.Payload.DbOperations {
+			if actualDBOps.DbName == expectedDBOps.DbName {
+				require.ElementsMatch(t, expectedDBOps.DataReads, actualDBOps.DataReads)
+				require.ElementsMatch(t, expectedDBOps.DataWrites, actualDBOps.DataWrites)
+				require.ElementsMatch(t, expectedDBOps.DataDeletes, actualDBOps.DataDeletes)
+			}
+		}
+	}
+	require.Len(t, dataTxEnv.Signatures, 1)
+	require.NotNil(t, dataTxEnv.Signatures["alice"])
+}
+
 func connectAndOpenAdminSession(t *testing.T, testServer *server.BCDBHTTPServer, cryptoDir string) (BCDB, DBSession) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
@@ -554,6 +670,28 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 	user, err := tx.GetUser(userName)
 	require.NoError(t, err)
 	require.Equal(t, userName, user.GetId())
+}
+
+func createDB(t *testing.T, dbName string, session DBSession) {
+	tx, err := session.DBsTx()
+	require.NoError(t, err)
+
+	err = tx.CreateDB(dbName)
+	require.NoError(t, err)
+
+	txId, receipt, err := tx.Commit(true)
+	require.NoError(t, err)
+	require.True(t, len(txId) > 0)
+	require.NotNil(t, receipt)
+	require.True(t, len(receipt.GetHeader().GetValidationInfo()) > 0)
+	require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_VALID)
+
+	// Check database status, whenever created or not
+	tx, err = session.DBsTx()
+	require.NoError(t, err)
+	exist, err := tx.Exists(dbName)
+	require.NoError(t, err)
+	require.True(t, exist)
 }
 
 func putKeySync(t *testing.T, dbName, key string, value string, user string, session DBSession) {
@@ -603,7 +741,7 @@ func putMultipleKeysAndValidateMultipleUsers(t *testing.T, key []string, value [
 
 		txId, _, err = tx.Commit(false)
 		require.NoError(t, err, fmt.Sprintf("Key = %s, value = %s", key[i], value[i]))
-		txEnv, err := tx.TxEnvelope()
+		txEnv, err := tx.CommittedTxEnvelope()
 		require.NoError(t, err)
 		txEnvelopes = append(txEnvelopes, txEnv)
 	}
