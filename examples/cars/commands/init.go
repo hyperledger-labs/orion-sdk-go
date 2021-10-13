@@ -10,10 +10,10 @@ import (
 	"path"
 	"time"
 
-	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb"
-	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
+	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
 

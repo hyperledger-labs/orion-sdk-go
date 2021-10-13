@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	sdkConfig "github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	sdkConfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
+	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -98,7 +98,7 @@ func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
 }
 
 func TestConfigTxContext_AddAdmin(t *testing.T) {
-	t.Skip("Add admin is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/148")
+	t.Skip("Add admin is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/148")
 
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
@@ -167,7 +167,7 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_DeleteAdmin(t *testing.T) {
-	t.Skip("Delete admin is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/148")
+	t.Skip("Delete admin is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/148")
 
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "admin3", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
@@ -253,7 +253,7 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_UpdateAdmin(t *testing.T) {
-	t.Skip("Update admin is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/148")
+	t.Skip("Update admin is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/148")
 
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "adminUpdated", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
@@ -334,7 +334,7 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 
 //TODO this test will stop working once we implement quorum rules
 func TestConfigTxContext_AddClusterNode(t *testing.T) {
-	t.Skip("Add node is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/40")
+	t.Skip("Add node is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/40")
 
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
@@ -391,7 +391,7 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 
 //TODO this test will stop working once we implement quorum rules
 func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
-	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/40")
+	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/40")
 
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
@@ -477,7 +477,7 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 
 //TODO this test will stop working once we implement quorum rules
 func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
-	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/40")
+	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/40")
 
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
@@ -525,7 +525,7 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 }
 
 func TestConfigTx_CommitAbortFinality(t *testing.T) {
-	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/IBM-Blockchain/bcdb-server/issues/40")
+	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/40")
 
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)

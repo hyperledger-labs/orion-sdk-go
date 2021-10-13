@@ -1,7 +1,7 @@
 package util
 
 import (
-	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )

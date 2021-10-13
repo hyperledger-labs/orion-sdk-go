@@ -21,10 +21,10 @@ cd github.com/IBM-Blockchain
 ```
 #### Clone server and sdk repositories
 ```
-git clone https://github.com/IBM-Blockchain/bcdb-server
+git clone https://github.com/hyperledger-labs/orion-server
 ```
 ```
-git clone https://github.com/IBM-Blockchain/bcdb-sdk
+git clone https://github.com/hyperledger-labs/orion-sdk-go
 ```
 Change the current working directory to the server root directory
 ```

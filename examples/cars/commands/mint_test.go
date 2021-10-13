@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/logger"
 	"github.com/stretchr/testify/require"
 )
 

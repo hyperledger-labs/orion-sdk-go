@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb/mocks"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
+	"github.com/hyperledger-labs/orion-server/pkg/constants"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

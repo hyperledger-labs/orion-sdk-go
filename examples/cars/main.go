@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/IBM-Blockchain/bcdb-sdk/examples/cars/commands"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-sdk-go/examples/cars/commands"
+	"github.com/hyperledger-labs/orion-server/pkg/logger"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 

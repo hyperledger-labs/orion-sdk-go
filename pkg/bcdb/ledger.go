@@ -3,8 +3,8 @@
 package bcdb
 
 import (
-	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/hyperledger-labs/orion-server/pkg/constants"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 )
 
 type ledger struct {

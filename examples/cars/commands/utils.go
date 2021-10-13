@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 )

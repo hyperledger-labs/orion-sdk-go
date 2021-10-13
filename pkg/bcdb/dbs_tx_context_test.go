@@ -5,16 +5,16 @@ package bcdb
 import (
 	"errors"
 	"fmt"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"net/http"
 	"net/url"
 	"path"
 	"testing"
 	"time"
 
-	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb/mocks"
-	sdkConfig "github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
+	sdkConfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
+	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

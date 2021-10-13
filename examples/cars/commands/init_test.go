@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/IBM-Blockchain/bcdb-sdk/internal/test"
-	"github.com/IBM-Blockchain/bcdb-server/config"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/server"
+	"github.com/hyperledger-labs/orion-sdk-go/internal/test"
+	"github.com/hyperledger-labs/orion-server/config"
+	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/server"
 	"github.com/stretchr/testify/require"
 )
 

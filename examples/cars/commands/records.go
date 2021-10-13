@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/IBM-Blockchain/bcdb-server/pkg/crypto"
+	"github.com/hyperledger-labs/orion-server/pkg/crypto"
 )
 
 const (

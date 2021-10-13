@@ -5,8 +5,6 @@ github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9/go.mod h1:bOv
 github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78/go.mod h1:LmzpDX56iTiv29bbRTIsUNlaFfuhWRQBWjQdVyAevI8=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/IBM-Blockchain/bcdb-server v0.1.1-0.20210805083946-6591ec3ad678 h1:qbPJbmLV8fV4J7yfXTZIrRcDY+9aAhjixiAmb0SZp4w=
-github.com/IBM-Blockchain/bcdb-server v0.1.1-0.20210805083946-6591ec3ad678/go.mod h1:fSdravhUB+7yGWWdACO2nCWqvyfSouoq2WcxktNV5o8=
 github.com/Microsoft/go-winio v0.4.12/go.mod h1:VhR8bwka0BXejwEJY73c50VrPtXAaKcyvVC4A4RozmA=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
@@ -181,6 +179,8 @@ github.com/hidal-go/hidalgo v0.0.0-20201109092204-05749a6d73df h1:bvz3e467dv98bV
 github.com/hidal-go/hidalgo v0.0.0-20201109092204-05749a6d73df/go.mod h1:bPkrxDlroXxigw8BMWTEPTv4W5/rQwNgg2BECXsgyX0=
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
+github.com/hyperledger-labs/orion-server v0.1.1-0.20211013183033-9b938c1c8d89 h1:mPKhwCYlDZ8gQ/l/yCma/5JzvwDP4GhPkl3Qp4TwD/s=
+github.com/hyperledger-labs/orion-server v0.1.1-0.20211013183033-9b938c1c8d89/go.mod h1:yAYkKbiRFlJmijAoyZWsKqbE6E56N039ptCN5FiufgI=
 github.com/imdario/mergo v0.3.7/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
