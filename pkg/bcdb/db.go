@@ -7,11 +7,11 @@ import (
 	"io/ioutil"
 	"net/url"
 
-	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/certificateauthority"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/crypto"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
+	"github.com/hyperledger-labs/orion-server/pkg/certificateauthority"
+	"github.com/hyperledger-labs/orion-server/pkg/crypto"
+	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 )

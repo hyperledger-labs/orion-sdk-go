@@ -12,12 +12,12 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/IBM-Blockchain/bcdb-server/pkg/certificateauthority"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/constants"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/crypto"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/cryptoservice"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/hyperledger-labs/orion-server/pkg/certificateauthority"
+	"github.com/hyperledger-labs/orion-server/pkg/constants"
+	"github.com/hyperledger-labs/orion-server/pkg/crypto"
+	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
+	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
 
@@ -175,7 +175,7 @@ func (d *dbSession) sigVerifier(httpClient *http.Client) (SignatureVerifier, err
 	var err error
 	for _, replica := range d.replicaSet {
 		//TODO choose the cert-set from the best replica - the one  with the highest config version. See:
-		// https://github.com/IBM-Blockchain/bcdb-sdk/issues/27
+		// https://github.com/hyperledger-labs/orion-sdk-go/issues/27
 		verifier, err = d.getNodesCerts(replica, httpClient)
 		if err == nil {
 			break
@@ -264,7 +264,7 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 }
 
 //TODO expose HTTP parameters, make client configurable, with good defaults. See:
-// https://github.com/IBM-Blockchain/bcdb-sdk/issues/28
+// https://github.com/hyperledger-labs/orion-sdk-go/issues/28
 func newHTTPClient() *http.Client {
 	httpClient := &http.Client{
 		Transport: &http.Transport{

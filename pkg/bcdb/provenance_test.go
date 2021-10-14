@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/IBM-Blockchain/bcdb-server/pkg/server/testutils"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/types"
+	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 )

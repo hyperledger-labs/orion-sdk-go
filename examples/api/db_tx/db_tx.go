@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 
-	"github.com/IBM-Blockchain/bcdb-sdk/examples/util"
-	"github.com/IBM-Blockchain/bcdb-sdk/pkg/bcdb"
-	"github.com/IBM-Blockchain/bcdb-sdk/pkg/config"
-	"github.com/IBM-Blockchain/bcdb-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
+	"github.com/hyperledger-labs/orion-server/pkg/logger"
 )
 
 /*
