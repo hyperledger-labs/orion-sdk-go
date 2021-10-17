@@ -28,11 +28,11 @@ git clone https://github.com/hyperledger-labs/orion-sdk-go
 ```
 Change the current working directory to the server root directory
 ```
-cd bcdb-server
+cd orion-server
 ```
-View bcdb-sdk/go.mod and copy the server <commit-hash> 
+View orion-sdk-go/go.mod and copy the server <commit-hash> 
 ```
-cat ../bcdb-sdk/go.mod 
+cat ../orion-sdk-go/go.mod 
 ```
 Switch to the right version of the server that runs with the sdk
 ```
@@ -44,7 +44,7 @@ git checkout <commit-hash>
    
 Generate crypto materials for users used in the examples
 ```
-./scripts/cryptoGen.sh sampleconfig alice bob 
+./scripts/cryptoGen.sh sampleconfig alice bob charlie
 ```
 
 #### Generate docker image
@@ -54,7 +54,7 @@ make docker
 #### Start the server inside a docker container
 
 ```
-docker run -it --rm -v $(pwd)/sampleconfig/:/etc/bcdb-server -p 6001:6001 -p 7050:7050 bcdb-server
+docker run -it --rm -v $(pwd)/sampleconfig/:/etc/orion-server -p 6001:6001 -p 7050:7050 orion-server
 ``` 
 #### After this step, you can run multiple examples one after another without repeating the build process
 
@@ -63,7 +63,7 @@ docker run -it --rm -v $(pwd)/sampleconfig/:/etc/bcdb-server -p 6001:6001 -p 705
 Go to the example directory 
 
 ``` 
-cd ../bcdb-sdk/examples/api/<example-dir>
+cd ../orion-sdk-go/examples/api/<example-dir>
 ``` 
 Build and run  
 ``` 
@@ -77,7 +77,7 @@ go build
 
 Delete directories after running the examples 
 ```
-cd ../../../../bcdb-server/sampleconfig
+cd ../../../../orion-server/sampleconfig
 ``` 
 ```
 rm -r txs ledger

@@ -53,6 +53,11 @@ func main() {
 		return
 	}
 
+	err = clearData(session)
+	if err != nil {
+		return
+	}
+
 	//creating db1, db2
 	fmt.Println("Opening database transaction")
 	dbTx, err := session.DBsTx()
@@ -262,4 +267,83 @@ func main() {
 		return
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
+}
+
+func clearData(session bcdb.DBSession) error {
+	fmt.Println("Opening database transaction")
+	dbTx, err := session.DBsTx()
+	if err != nil {
+		fmt.Printf("Database transaction creating failed, reason: %s\n", err.Error())
+		return err
+	}
+
+	fmt.Println("Checking whenever database db1 already exists")
+	exist, err := dbTx.Exists("db1")
+	if err != nil {
+		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
+		return err
+	}
+	if exist {
+		fmt.Println("Deleting db1")
+		err = dbTx.DeleteDB("db1")
+		if err != nil {
+			fmt.Printf("Deleting db1 failed, reason: %s\n", err.Error())
+			return err
+		}
+	}
+
+	fmt.Println("Checking whenever database db2 already exists")
+	exist, err = dbTx.Exists("db2")
+	if err != nil {
+		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
+		return err
+	}
+	if exist {
+		fmt.Println("Deleting db2")
+		err = dbTx.DeleteDB("db2")
+		if err != nil {
+			fmt.Printf("Deleting db2 failed, reason: %s\n", err.Error())
+			return err
+		}
+	}
+
+	fmt.Println("Checking whenever database db3 already exists")
+	exist, err = dbTx.Exists("db3")
+	if err != nil {
+		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
+		return err
+	}
+	if exist {
+		fmt.Println("Deleting db3")
+		err = dbTx.DeleteDB("db3")
+		if err != nil {
+			fmt.Printf("Deleting db3 failed, reason: %s\n", err.Error())
+			return err
+		}
+	}
+
+	fmt.Println("Checking whenever database db4 already exists")
+	exist, err = dbTx.Exists("db4")
+	if err != nil {
+		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
+		return err
+	}
+	if exist {
+		fmt.Println("Deleting db4")
+		err = dbTx.DeleteDB("db4")
+		if err != nil {
+			fmt.Printf("Deleting db4 failed, reason: %s\n", err.Error())
+			return err
+		}
+	}
+
+	fmt.Println("Committing transaction")
+	txID, _, err := dbTx.Commit(true)
+	if err != nil {
+		fmt.Printf("Commit failed, reason: %s\n", err.Error())
+		return err
+	}
+	fmt.Printf("Transaction number %s committed successfully\n", txID)
+
+	return nil
 }
