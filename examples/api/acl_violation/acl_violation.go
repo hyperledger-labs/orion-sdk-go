@@ -24,14 +24,14 @@ func main() {
 		return
 	}
 
-	err = addUser(session, "alice", "../../../../bcdb-server/sampleconfig/crypto/alice/alice.pem",
+	err = addUser(session, "alice", "../../../../orion-server/sampleconfig/crypto/alice/alice.pem",
 		nil, []string{"db"})
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
 		return
 	}
 
-	err = addUser(session, "bob", "../../../../bcdb-server/sampleconfig/crypto/bob/bob.pem",
+	err = addUser(session, "bob", "../../../../orion-server/sampleconfig/crypto/bob/bob.pem",
 		[]string{"db"}, nil)
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
@@ -42,8 +42,8 @@ func main() {
 	aliceConfig := config.SessionConfig{
 		UserConfig: &config.UserConfig{
 			UserID:         "alice",
-			CertPath:       "../../../../bcdb-server/sampleconfig/crypto/alice/alice.pem",
-			PrivateKeyPath: "../../../../bcdb-server/sampleconfig/crypto/alice/alice.key",
+			CertPath:       "../../../../orion-server/sampleconfig/crypto/alice/alice.pem",
+			PrivateKeyPath: "../../../../orion-server/sampleconfig/crypto/alice/alice.key",
 		},
 		TxTimeout: time.Second * 5,
 	}
@@ -83,8 +83,8 @@ func main() {
 	bobConfig := config.SessionConfig{
 		UserConfig: &config.UserConfig{
 			UserID:         "bob",
-			CertPath:       "../../../../bcdb-server/sampleconfig/crypto/bob/bob.pem",
-			PrivateKeyPath: "../../../../bcdb-server/sampleconfig/crypto/bob/bob.key",
+			CertPath:       "../../../../orion-server/sampleconfig/crypto/bob/bob.pem",
+			PrivateKeyPath: "../../../../orion-server/sampleconfig/crypto/bob/bob.key",
 		},
 		TxTimeout: time.Second * 5,
 	}

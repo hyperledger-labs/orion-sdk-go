@@ -63,6 +63,51 @@ func main() {
 		return
 	}
 
+	fmt.Println("Checking whenever database db1 already exists")
+	exist, err := dbTx.Exists("db1")
+	if err != nil {
+		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
+		return
+	}
+	if exist {
+		fmt.Println("Deleting db1")
+		err = dbTx.DeleteDB("db1")
+		if err != nil {
+			fmt.Printf("Deleting db1 failed, reason: %s\n", err.Error())
+			return
+		}
+	}
+
+	fmt.Println("Checking whenever database db2 already exists")
+	exist, err = dbTx.Exists("db2")
+	if err != nil {
+		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
+		return
+	}
+	if exist {
+		fmt.Println("Deleting db2")
+		err = dbTx.DeleteDB("db2")
+		if err != nil {
+			fmt.Printf("Deleting db2 failed, reason: %s\n", err.Error())
+			return
+		}
+	}
+
+	fmt.Println("Committing transaction")
+	txID, _, err := dbTx.Commit(true)
+	if err != nil {
+		fmt.Printf("Commit failed, reason: %s\n", err.Error())
+		return
+	}
+	fmt.Printf("Transaction number %s committed successfully\n", txID)
+
+	fmt.Println("Opening database transaction")
+	dbTx, err = session.DBsTx()
+	if err != nil {
+		fmt.Printf("Database transaction creating failed, reason: %s\n", err.Error())
+		return
+	}
+
 	fmt.Println("Creating new database db1")
 	err = dbTx.CreateDB("db1")
 	if err != nil {
@@ -77,7 +122,7 @@ func main() {
 	}
 
 	fmt.Println("Committing transaction")
-	txID, _, err := dbTx.Commit(true)
+	txID, _, err = dbTx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
 		return
@@ -96,7 +141,7 @@ func main() {
 		"db2": types.Privilege_ReadWrite,
 	}
 	//reading and decoding alice's certificate
-	alicePemUserCert, err := ioutil.ReadFile("../../../../bcdb-server/sampleconfig/crypto/alice/alice.pem")
+	alicePemUserCert, err := ioutil.ReadFile("../../../../orion-server/sampleconfig/crypto/alice/alice.pem")
 	if err != nil {
 		fmt.Printf(err.Error())
 		return
@@ -122,7 +167,7 @@ func main() {
 		"db2": types.Privilege_Read,
 	}
 	//reading and decoding bob's certificate
-	bobPemUserCert, err := ioutil.ReadFile("../../../../bcdb-server/sampleconfig/crypto/bob/bob.pem")
+	bobPemUserCert, err := ioutil.ReadFile("../../../../orion-server/sampleconfig/crypto/bob/bob.pem")
 	if err != nil {
 		fmt.Printf(err.Error())
 		return
