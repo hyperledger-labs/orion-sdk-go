@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/url"
 	"os"
 	"path"
@@ -166,9 +167,11 @@ func writeConfigFile(demoDir string) error {
 				},
 			},
 			RaftConfig: &config.RaftConf{
-				TickInterval:   "100ms",
-				ElectionTicks:  100,
-				HeartbeatTicks: 10,
+				TickInterval:         "100ms",
+				ElectionTicks:        100,
+				HeartbeatTicks:       10,
+				MaxInflightBlocks:    50,
+				SnapshotIntervalSize: math.MaxInt64,
 			},
 		},
 		CAConfig: config.CAConfiguration{
