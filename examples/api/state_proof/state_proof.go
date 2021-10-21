@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -13,7 +14,9 @@ import (
 )
 
 func main() {
-	ExcecuteStateTrieExample()
+	if err := ExcecuteStateTrieExample(); err != nil {
+		os.Exit(1)
+	}
 }
 
 func ExcecuteStateTrieExample() error {
@@ -139,21 +142,21 @@ func ExcecuteStateTrieExample() error {
 	stateProof, err = ledger.GetDataProof(receipt2.GetHeader().GetBaseHeader().GetNumber(), dbName, key, deleted)
 	if err != nil {
 		fmt.Printf("Can't get state proof ledger, reason: %s\n", err.Error())
-		return nil
+		return err
 	}
 
 	fmt.Printf("Calculate value hash in Merkle-Patricia trie (stored as field in Branch or Value nodes) for db %s, key %s, value %s in state trie, by concatinating db, key and value hashes\n", dbName, key, value)
 	valueHash, err = bcdb.CalculateValueHash(dbName, key, []byte(value))
 	if err != nil {
 		fmt.Printf("Failed to calculate value hash in Merkle-Patricia trie , reason: %s\n", err.Error())
-		return nil
+		return err
 	}
 
 	fmt.Println("Verify proof using value hash and Merkle-Patricia trie root stored in block header")
 	isCorrect, err = stateProof.Verify(valueHash, receipt2.GetHeader().GetStateMerkelTreeRootHash(), deleted)
 	if err != nil {
 		fmt.Printf("Can't verify value in state trie, reason: %s\n", err.Error())
-		return nil
+		return err
 	}
 
 	if isCorrect {

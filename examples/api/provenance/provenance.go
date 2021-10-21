@@ -4,6 +4,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
@@ -21,16 +22,22 @@ import (
 	   - history of user transactions
 */
 func main() {
+	if err := executeProvenanceExample(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func executeProvenanceExample() error {
 	session, err := prepareData()
 	if session == nil || err != nil {
-		return
+		return err
 	}
 
 	fmt.Println("Getting provenance access object")
 	provenance, err := session.Provenance()
 	if err != nil {
 		fmt.Printf("Getting provenance access object failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	//Getting full history of changes in value of key in database.
@@ -38,7 +45,7 @@ func main() {
 	res1, err := provenance.GetHistoricalData("db2", "key1")
 	if err != nil {
 		fmt.Printf("Getting all historical values failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("historical values for database db2 and key key1 are:")
 	for i := 0; i < len(res1); i++ {
@@ -51,7 +58,7 @@ func main() {
 	res1, err = provenance.GetHistoricalData("db2", "key3")
 	if err != nil {
 		fmt.Printf("Getting all historical values failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("historical values for database db2 and key key3 are:")
 	for i := 0; i < len(res1); i++ {
@@ -68,7 +75,7 @@ func main() {
 	})
 	if err != nil {
 		fmt.Printf("Getting all historical values failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("historical values for database db2 and key key2 starting from block 6 are:")
 	for i := 0; i < len(res2); i++ {
@@ -84,7 +91,7 @@ func main() {
 	})
 	if err != nil {
 		fmt.Printf("Getting all historical values failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("historical values for database db2 and key key3 going down from block 5 are:")
 	for i := 0; i < len(res2); i++ {
@@ -100,7 +107,7 @@ func main() {
 	})
 	if err != nil {
 		fmt.Printf("Getting all historical values failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("historical values for database db2 and key key1 at block 6 are:")
 	fmt.Printf("value: %s, version: %s, read users: %v, read-write users: %v\n", res3.GetValue(),
@@ -112,7 +119,7 @@ func main() {
 	res4, err := provenance.GetTxIDsSubmittedByUser("alice")
 	if err != nil {
 		fmt.Printf("Getting IDs of all tx submitted by user alice failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("IDs of all tx submitted by user alice are:")
 	for i := 0; i < len(res4); i++ {
@@ -123,7 +130,7 @@ func main() {
 	res5, err := provenance.GetDataReadByUser("alice")
 	if err != nil {
 		fmt.Printf("Getting all user reads for user alice failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("All user reads for user alice are:")
 	for i := 0; i < len(res5); i++ {
@@ -134,12 +141,14 @@ func main() {
 	res6, err := provenance.GetDataWrittenByUser("alice")
 	if err != nil {
 		fmt.Printf("Getting all user writes for user alice failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("All user writes for user alice are:")
 	for i := 0; i < len(res6); i++ {
 		fmt.Printf("value: %s, version: %s\n", res6[i].GetValue(), res6[i].GetMetadata().GetVersion())
 	}
+
+	return nil
 }
 
 /*
@@ -165,6 +174,10 @@ func prepareData() (bcdb.DBSession, error) {
 			Name:          "bcdb-client",
 		},
 	)
+	if err != nil {
+		fmt.Printf(err.Error())
+		return nil, err
+	}
 
 	conConf := &config.ConnectionConfig{
 		ReplicaSet: c.ConnectionConfig.ReplicaSet,

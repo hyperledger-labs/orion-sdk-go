@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
@@ -13,9 +14,16 @@ import (
 	Create and delete databases
 */
 func main() {
+	if err := executeDbTxExample(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func executeDbTxExample() error {
 	c, err := util.ReadConfig("../../util/config.yml")
 	if err != nil {
 		fmt.Printf(err.Error())
+		return err
 	}
 
 	logger, err := logger.New(
@@ -27,6 +35,10 @@ func main() {
 			Name:          "bcdb-client",
 		},
 	)
+	if err != nil {
+		fmt.Printf(err.Error())
+		return err
+	}
 
 	conConf := &config.ConnectionConfig{
 		ReplicaSet: c.ConnectionConfig.ReplicaSet,
@@ -38,7 +50,7 @@ func main() {
 	db, err := bcdb.Create(conConf)
 	if err != nil {
 		fmt.Printf("Database connection creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	sessionConf := &config.SessionConfig{
@@ -50,12 +62,12 @@ func main() {
 	session, err := db.Session(sessionConf)
 	if err != nil {
 		fmt.Printf("Database session creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	err = clearData(session)
 	if err != nil {
-		return
+		return err
 	}
 
 	//creating db1, db2
@@ -63,27 +75,27 @@ func main() {
 	dbTx, err := session.DBsTx()
 	if err != nil {
 		fmt.Printf("Database transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Creating new database db1")
 	err = dbTx.CreateDB("db1", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("Creating new database db2")
 	err = dbTx.CreateDB("db2", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction")
 	txID, _, err := dbTx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -92,14 +104,14 @@ func main() {
 	dbTx, err = session.DBsTx()
 	if err != nil {
 		fmt.Printf("Database transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Checking the existence of db1")
 	exist, err := dbTx.Exists("db1")
 	if err != nil {
 		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	if exist {
 		fmt.Println("Database db1 exists")
@@ -111,7 +123,7 @@ func main() {
 	exist, err = dbTx.Exists("db2")
 	if err != nil {
 		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	if exist {
 		fmt.Println("Database db2 exists")
@@ -123,7 +135,7 @@ func main() {
 	txID, _, err = dbTx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -132,27 +144,27 @@ func main() {
 	dbTx, err = session.DBsTx()
 	if err != nil {
 		fmt.Printf("Database transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Deleting db1")
 	err = dbTx.DeleteDB("db1")
 	if err != nil {
 		fmt.Printf("Deleting database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("Deleting db2")
 	err = dbTx.DeleteDB("db2")
 	if err != nil {
 		fmt.Printf("Deleting database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction")
 	txID, _, err = dbTx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -161,14 +173,14 @@ func main() {
 	dbTx, err = session.DBsTx()
 	if err != nil {
 		fmt.Printf("Database transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Checking the existence of db1")
 	exist, err = dbTx.Exists("db1")
 	if err != nil {
 		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	if exist {
 		fmt.Println("Database db1 exists")
@@ -180,7 +192,7 @@ func main() {
 	exist, err = dbTx.Exists("db2")
 	if err != nil {
 		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	if exist {
 		fmt.Println("Database db2 exists")
@@ -192,7 +204,7 @@ func main() {
 	txID, _, err = dbTx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -201,27 +213,27 @@ func main() {
 	dbTx, err = session.DBsTx()
 	if err != nil {
 		fmt.Printf("Database transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Creating new database db1")
 	err = dbTx.CreateDB("db1", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("Creating new database db2")
 	err = dbTx.CreateDB("db2", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction")
 	txID, _, err = dbTx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -230,43 +242,45 @@ func main() {
 	dbTx, err = session.DBsTx()
 	if err != nil {
 		fmt.Printf("Database transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Creating new database db3")
 	err = dbTx.CreateDB("db3", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("Creating new database db4")
 	err = dbTx.CreateDB("db4", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Deleting db1")
 	err = dbTx.DeleteDB("db1")
 	if err != nil {
 		fmt.Printf("Deleting database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Deleting db2")
 	err = dbTx.DeleteDB("db2")
 	if err != nil {
 		fmt.Printf("Deleting database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction")
 	txID, _, err = dbTx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
+
+	return nil
 }
 
 func clearData(session bcdb.DBSession) error {

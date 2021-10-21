@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
+	"os"
 	"strconv"
 	"time"
 
@@ -18,72 +20,43 @@ import (
 	In the case of async-commit, it's not possible to know in advance which one of the transactions will be valid, as the server may reorder them.
 */
 func main() {
-	c, err := util.ReadConfig("../../util/config.yml")
-	if err != nil {
-		fmt.Printf(err.Error())
+	if err := executeTxValidityExample(); err != nil {
+		os.Exit(1)
 	}
+}
 
-	logger, err := logger.New(
-		&logger.Config{
-			Level:         "debug",
-			OutputPath:    []string{"stdout"},
-			ErrOutputPath: []string{"stderr"},
-			Encoding:      "console",
-			Name:          "bcdb-client",
-		},
-	)
-
-	conConf := &config.ConnectionConfig{
-		ReplicaSet: c.ConnectionConfig.ReplicaSet,
-		RootCAs:    c.ConnectionConfig.RootCAs,
-		Logger:     logger,
-	}
-
-	fmt.Println("Opening connection to database, configuration: ", c.ConnectionConfig)
-	db, err := bcdb.Create(conConf)
-	if err != nil {
-		fmt.Printf("Database connection creation failed, reason: %s\n", err.Error())
-		return
-	}
-
-	sessionConf := &config.SessionConfig{
-		UserConfig:   c.SessionConfig.UserConfig,
-		TxTimeout:    c.SessionConfig.TxTimeout,
-		QueryTimeout: c.SessionConfig.QueryTimeout}
-
-	fmt.Println("Opening session to database, configuration: ", c.SessionConfig)
-	session, err := db.Session(sessionConf)
-	if err != nil {
-		fmt.Printf("Database session creation failed, reason: %s\n", err.Error())
-		return
+func executeTxValidityExample() error {
+	session, err := prepareData()
+	if session == nil || err != nil {
+		return err
 	}
 
 	fmt.Println("Opening initialization data transaction")
 	tx, err := session.DataTx()
 	if err != nil {
 		fmt.Printf("Data transaction creation failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Adding key, value: key1, 1 to the database")
 	err = tx.Put("bdb", "key1", []byte("1"), nil)
 	if err != nil {
 		fmt.Printf("Adding new key to database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Adding key, value: key2, 2 to the database")
 	err = tx.Put("bdb", "key2", []byte("2"), nil)
 	if err != nil {
 		fmt.Printf("Adding new key to database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction")
 	txID, _, err := tx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -91,21 +64,21 @@ func main() {
 	tx1, err := session.DataTx()
 	if err != nil {
 		fmt.Printf("Data transaction creation failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Opening data transaction tx2")
 	tx2, err := session.DataTx()
 	if err != nil {
 		fmt.Printf("Data transaction creation failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("tx1 - Getting key1 value")
 	val1, metaData1, err := tx1.Get("bdb", "key1")
 	if err != nil {
 		fmt.Printf("Getting existing key value failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("key1 value is %s, version is %s\n", string(val1), metaData1.Version)
 	newVal1, _ := strconv.Atoi(string(val1))
@@ -115,7 +88,7 @@ func main() {
 	val2, metaData2, err := tx2.Get("bdb", "key1")
 	if err != nil {
 		fmt.Printf("Getting existing key value failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("key1 value is %s, version is %s\n", string(val1), metaData2.Version)
 	newVal2, _ := strconv.Atoi(string(val2))
@@ -127,14 +100,14 @@ func main() {
 	err = tx1.Put("bdb", "key1", []byte(strconv.Itoa(newVal1)), nil)
 	if err != nil {
 		fmt.Printf("Updating value failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Printf("tx2 - Updating key1 value to %s\n", strconv.Itoa(newVal2))
 	err = tx2.Put("bdb", "key1", []byte(strconv.Itoa(newVal2)), nil)
 	if err != nil {
 		fmt.Printf("Updating value failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction tx1")
@@ -142,8 +115,10 @@ func main() {
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
 		if tx1Receipt == nil {
-			return
+			return err
 		}
+	} else {
+		fmt.Printf("Transaction number %s committed successfully\n", tx1Id)
 	}
 
 	tx1Flag := tx1Receipt.Header.ValidationInfo[tx1Receipt.TxIndex].Flag
@@ -157,8 +132,10 @@ func main() {
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
 		if tx2Receipt == nil {
-			return
+			return err
 		}
+	} else {
+		fmt.Printf("Transaction number %s committed successfully\n", tx2Id)
 	}
 
 	var tx2Flag types.Flag
@@ -167,34 +144,35 @@ func main() {
 		fmt.Printf("Transaction number %s validation flag is %s, reason: %s\n", tx2Id, tx2Flag,
 			tx2Receipt.Header.ValidationInfo[tx2Receipt.TxIndex].ReasonIfInvalid)
 	}
-	fmt.Printf("Transaction number %s committed successfully\n", tx2Id)
 
 	if tx1Flag == types.Flag_VALID && tx2Flag == types.Flag_VALID {
 		println("Error - both tx1 and tx2 are valid")
+		return errors.New("both tx1 and tx2 are valid")
 	}
 	if tx1Flag != types.Flag_VALID && tx2Flag != types.Flag_VALID {
 		println("Error - both tx1 and tx2 are invalid")
+		return errors.New("both tx1 and tx2 are invalid")
 	}
 
 	fmt.Println("Opening data transaction tx3")
 	tx3, err := session.DataTx()
 	if err != nil {
 		fmt.Printf("Data transaction creation failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Opening data transaction tx4")
 	tx4, err := session.DataTx()
 	if err != nil {
 		fmt.Printf("Data transaction creation failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("tx3 - Getting key2 value")
 	val3, metaData3, err := tx3.Get("bdb", "key2")
 	if err != nil {
 		fmt.Printf("Getting existing key value failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("key2 value is %s, version is %s\n", string(val3), metaData3.Version)
 	newVal3, _ := strconv.Atoi(string(val3))
@@ -204,7 +182,7 @@ func main() {
 	val4, metaData4, err := tx4.Get("bdb", "key2")
 	if err != nil {
 		fmt.Printf("Getting existing key value failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("key2 value is %s, version is %s\n", string(val4), metaData4.Version)
 	newVal4, _ := strconv.Atoi(string(val4))
@@ -216,14 +194,14 @@ func main() {
 	err = tx3.Put("bdb", "key2", []byte(strconv.Itoa(newVal3)), nil)
 	if err != nil {
 		fmt.Printf("Updating value failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Printf("tx4 - Updating key2 value to %s\n", strconv.Itoa(newVal4))
 	err = tx4.Put("bdb", "key2", []byte(strconv.Itoa(newVal4)), nil)
 	if err != nil {
 		fmt.Printf("Updating value failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction tx3")
@@ -241,7 +219,7 @@ func main() {
 	l, err := session.Ledger()
 	if err != nil {
 		fmt.Printf(err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Getting transaction tx3 receipt")
@@ -253,7 +231,7 @@ LOOP:
 			tx3Receipt, err = l.GetTransactionReceipt(tx3Id)
 			if err != nil {
 				fmt.Printf("Getting transaction receipt failed, reason: %s\n", err.Error())
-				return
+				return err
 			}
 			if tx3Receipt == nil {
 				continue
@@ -262,7 +240,7 @@ LOOP:
 			}
 		case <-timeout:
 			fmt.Println("Getting transaction receipt failed")
-			return
+			return errors.New("tx timeout")
 		}
 	}
 
@@ -270,14 +248,14 @@ LOOP:
 	fmt.Printf("Transaction number %s validation flag is %s\n", tx3Id, tx3Flag)
 	if tx3Flag != types.Flag_VALID {
 		fmt.Printf("Transaction number %s is invalid, reason: %s\n", tx3Id, tx3Receipt.Header.ValidationInfo[tx3Receipt.TxIndex].ReasonIfInvalid)
+	} else {
+		fmt.Printf("Transaction number %s committed successfully\n", tx3Id)
 	}
-
-	fmt.Printf("Transaction number %s committed successfully\n", tx3Id)
 
 	l, err = session.Ledger()
 	if err != nil {
 		fmt.Printf(err.Error())
-		return
+		return err
 	}
 	fmt.Println("Getting transaction tx4 receipt")
 LOOP2:
@@ -288,7 +266,7 @@ LOOP2:
 			tx4Receipt, err = l.GetTransactionReceipt(tx4Id)
 			if err != nil {
 				fmt.Printf("Getting transaction receipt failed, reason: %s\n", err.Error())
-				return
+				return err
 			}
 			if tx4Receipt == nil {
 				continue
@@ -297,7 +275,7 @@ LOOP2:
 			}
 		case <-timeout:
 			fmt.Println("Getting transaction receipt failed")
-			return
+			return errors.New("tx timeout")
 		}
 	}
 
@@ -305,14 +283,67 @@ LOOP2:
 	fmt.Printf("Transaction number %s validation flag is %s\n", tx4Id, tx4Flag)
 	if tx4Flag != types.Flag_VALID {
 		fmt.Printf("Transaction number %s is invalid, reason: %s\n", tx4Id, tx4Receipt.Header.ValidationInfo[tx4Receipt.TxIndex].ReasonIfInvalid)
+	} else {
+		fmt.Printf("Transaction number %s committed successfully\n", tx4Id)
 	}
-
-	fmt.Printf("Transaction number %s committed successfully\n", tx4Id)
 
 	if tx3Flag == types.Flag_VALID && tx4Flag == types.Flag_VALID {
 		println("Error - both tx3 and tx4 are valid")
+		return errors.New("both tx3 and tx4 are valid")
 	}
 	if tx3Flag != types.Flag_VALID && tx4Flag != types.Flag_VALID {
 		println("Error - both tx3 and tx4 are invalid")
+		return errors.New("both tx3 and tx4 are invalid")
 	}
+
+	return nil
+}
+
+func prepareData() (bcdb.DBSession, error) {
+	c, err := util.ReadConfig("../../util/config.yml")
+	if err != nil {
+		fmt.Printf(err.Error())
+		return nil, err
+	}
+
+	logger, err := logger.New(
+		&logger.Config{
+			Level:         "debug",
+			OutputPath:    []string{"stdout"},
+			ErrOutputPath: []string{"stderr"},
+			Encoding:      "console",
+			Name:          "bcdb-client",
+		},
+	)
+	if err != nil {
+		fmt.Printf(err.Error())
+		return nil, err
+	}
+
+	conConf := &config.ConnectionConfig{
+		ReplicaSet: c.ConnectionConfig.ReplicaSet,
+		RootCAs:    c.ConnectionConfig.RootCAs,
+		Logger:     logger,
+	}
+
+	fmt.Println("Opening connection to database, configuration: ", c.ConnectionConfig)
+	db, err := bcdb.Create(conConf)
+	if err != nil {
+		fmt.Printf("Database connection creation failed, reason: %s\n", err.Error())
+		return nil, err
+	}
+
+	sessionConf := &config.SessionConfig{
+		UserConfig:   c.SessionConfig.UserConfig,
+		TxTimeout:    c.SessionConfig.TxTimeout,
+		QueryTimeout: c.SessionConfig.QueryTimeout}
+
+	fmt.Println("Opening session to database, configuration: ", c.SessionConfig)
+	session, err := db.Session(sessionConf)
+	if err != nil {
+		fmt.Printf("Database session creation failed, reason: %s\n", err.Error())
+		return nil, err
+	}
+
+	return session, err
 }

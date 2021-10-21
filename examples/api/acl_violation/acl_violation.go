@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/pem"
 	"fmt"
+	"github.com/pkg/errors"
 	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
@@ -19,23 +21,29 @@ import (
 	each user opens a transaction that writes to the database, alice tx is valid and bob tx is non-valid
 */
 func main() {
+	if err := executeAclViolationExample(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func executeAclViolationExample() error {
 	session, db, err := openSessionAndCreateDB()
 	if session == nil || db == nil || err != nil {
-		return
+		return err
 	}
 
 	err = addUser(session, "alice", "../../../../orion-server/sampleconfig/crypto/alice/alice.pem",
 		nil, []string{"db"})
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	err = addUser(session, "bob", "../../../../orion-server/sampleconfig/crypto/bob/bob.pem",
 		[]string{"db"}, nil)
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	//alice tx
@@ -51,21 +59,21 @@ func main() {
 	aliceSession, err := db.Session(&aliceConfig)
 	if err != nil {
 		fmt.Printf("Session creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Opening alice data transaction")
 	aliceTx, err := aliceSession.DataTx()
 	if err != nil {
 		fmt.Printf("Data transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Alice - adding key, value: key1, val1 to the database")
 	err = aliceTx.Put("db", "key1", []byte("val1"), nil)
 	if err != nil {
 		fmt.Printf("Adding new key to database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing alice transaction")
@@ -75,7 +83,7 @@ func main() {
 			fmt.Printf("Alice transaction is invalid, reason: %s\n", aliceReceipt.Header.ValidationInfo[aliceReceipt.TxIndex].ReasonIfInvalid)
 		}
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -92,32 +100,32 @@ func main() {
 	bobSession, err := db.Session(&bobConfig)
 	if err != nil {
 		fmt.Printf("Session creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	bobTx, err := bobSession.DataTx()
 	if err != nil {
 		fmt.Printf("Data transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Bob - adding key, value: key2, val2 to the database")
 	err = bobTx.Put("db", "key2", []byte("val2"), nil)
 	if err != nil {
 		fmt.Printf("Adding new key to database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing bob transaction")
 	txID, bobReceipt, err := bobTx.Commit(true)
-	if err != nil {
-		if bobReceipt != nil && bobReceipt.Header.ValidationInfo[bobReceipt.TxIndex].Flag != types.Flag_VALID {
-			fmt.Printf("Bob transaction is invalid, reason: %s\n", bobReceipt.Header.ValidationInfo[bobReceipt.TxIndex].ReasonIfInvalid)
-		}
-		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+	if err == nil {
+		return errors.Errorf("Unexpectedly transaction number %s committed successfully\n", txID)
 	}
-	fmt.Printf("Transaction number %s committed successfully\n", txID)
+	if bobReceipt != nil && bobReceipt.Header.ValidationInfo[bobReceipt.TxIndex].Flag != types.Flag_VALID {
+		fmt.Printf("Bob transaction is invalid, reason: %s\n", bobReceipt.Header.ValidationInfo[bobReceipt.TxIndex].ReasonIfInvalid)
+	}
+	fmt.Printf("As expected, commit failed, reason: %s\n", err.Error())
+	return nil
 }
 
 func clearData(session bcdb.DBSession) error {
@@ -153,6 +161,7 @@ func openSessionAndCreateDB() (bcdb.DBSession, bcdb.BCDB, error) {
 	c, err := util.ReadConfig("../../util/config.yml")
 	if err != nil {
 		fmt.Printf(err.Error())
+		return nil, nil, err
 	}
 
 	logger, err := logger.New(
@@ -164,6 +173,10 @@ func openSessionAndCreateDB() (bcdb.DBSession, bcdb.BCDB, error) {
 			Name:          "bcdb-client",
 		},
 	)
+	if err != nil {
+		fmt.Printf(err.Error())
+		return nil, nil, err
+	}
 
 	conConf := &config.ConnectionConfig{
 		ReplicaSet: c.ConnectionConfig.ReplicaSet,
