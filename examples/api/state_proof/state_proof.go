@@ -14,13 +14,13 @@ import (
 )
 
 func main() {
-	if err := ExcecuteStateTrieExample(); err != nil {
+	if err := ExecuteStateTrieExample("../../util/config.yml"); err != nil {
 		os.Exit(1)
 	}
 }
 
-func ExcecuteStateTrieExample() error {
-	session, err := OpenSession()
+func ExecuteStateTrieExample(configLocation string) error {
+	session, err := OpenSession(configLocation)
 	if err != nil {
 		fmt.Printf("Database session creating failed, reason: %s\n", err.Error())
 		return err
@@ -167,8 +167,8 @@ func ExcecuteStateTrieExample() error {
 	return nil
 }
 
-func OpenSession() (bcdb.DBSession, error) {
-	c, err := util.ReadConfig("../../util/config.yml")
+func OpenSession(configLocation string) (bcdb.DBSession, error) {
+	c, err := util.ReadConfig(configLocation)
 	if err != nil {
 		return nil, err
 	}
