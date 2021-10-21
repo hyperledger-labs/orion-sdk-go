@@ -83,7 +83,7 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	txDB, err := adminSession.DBsTx()
 	require.NoError(t, err)
 
-	err = txDB.CreateDB("testDB")
+	err = txDB.CreateDB("testDB", nil)
 	require.NoError(t, err)
 
 	txId, receipt, err := txDB.Commit(true)
@@ -676,7 +676,7 @@ func createDB(t *testing.T, dbName string, session DBSession) {
 	tx, err := session.DBsTx()
 	require.NoError(t, err)
 
-	err = tx.CreateDB(dbName)
+	err = tx.CreateDB(dbName, nil)
 	require.NoError(t, err)
 
 	txId, receipt, err := tx.Commit(true)

@@ -118,7 +118,7 @@ func initDB(session bcdb.DBSession, lg *logger.SugarLogger) error {
 		return err
 	}
 
-	err = tx.CreateDB(CarDBName)
+	err = tx.CreateDB(CarDBName, nil)
 	if err != nil {
 		return err
 	}

@@ -33,6 +33,7 @@ type DBSession interface {
 	ConfigTx() (ConfigTxContext, error)
 	Provenance() (Provenance, error)
 	Ledger() (Ledger, error)
+	JSONQuery() (JSONQuery, error)
 }
 
 var ErrTxSpent = errors.New("transaction committed or aborted")
@@ -87,6 +88,32 @@ type Provenance interface {
 	GetWriters(dbName, key string) ([]string, error)
 	// GetTxIDsSubmittedByUser IDs of all tx submitted by user
 	GetTxIDsSubmittedByUser(userID string) ([]string, error)
+}
+
+// JSONQuery provides method to execute json query on a given user database
+// The query is a json string which must contain predicates under the field
+// selector. The first field in the selector can be a combinational operator
+// such as "$and" or "$or" followed by a list of attributes and a list of
+// conditions per attributes. A query example is shown below
+//
+// {
+//   "selector": {
+// 		"$and": {            -- top level combinational operator
+// 			"attr1": {          -- a field in the json document
+// 				"$gte": "a",    -- value criteria for the field
+// 				"$lt": "b"      -- value criteria for the field
+// 			},
+// 			"attr2": {          -- a field in the json document
+// 				"$eq": true     -- value criteria for the field
+// 			},
+// 			"attr3": {          -- a field in the json document
+// 				"$lt": "a2"     -- a field in the json document
+// 			}
+// 		}
+//   }
+// }
+type JSONQuery interface {
+	Execute(dbName, query string) ([]*types.KVWithMetadata, error)
 }
 
 //go:generate mockery --dir . --name Signer --case underscore --output mocks/

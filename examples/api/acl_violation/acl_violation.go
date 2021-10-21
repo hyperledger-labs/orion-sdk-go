@@ -203,7 +203,7 @@ func openSessionAndCreateDB() (bcdb.DBSession, bcdb.BCDB, error) {
 	}
 
 	fmt.Println("Creating new database 'db'")
-	err = dbTx.CreateDB("db")
+	err = dbTx.CreateDB("db", nil)
 	if err != nil {
 		fmt.Printf("New database creation failed, reason: %s\n", err.Error())
 		return nil, nil, err

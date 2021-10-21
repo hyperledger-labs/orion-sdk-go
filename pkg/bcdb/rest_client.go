@@ -12,9 +12,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
-	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
+	"github.com/pkg/errors"
 )
 
 //go:generate mockery --dir . --name RestClient --case underscore --output mocks/
@@ -26,7 +25,7 @@ type RestClient interface {
 	// Query sends REST request with query semantics.
 	// SDK will wait for `queryTimeout` for response from server and return error if no response received.
 	// If commitTimeout set to 0, sdk will wait for http commitTimeout.
-	Query(ctx context.Context, endpoint string, msg proto.Message) (*http.Response, error)
+	Query(ctx context.Context, endpoint, httpMethod string, postData, signature []byte) (*http.Response, error)
 
 	// Submit send REST request with transaction submission semantics and optional commitTimeout.
 	// If commitTimeout set to 0, server will return immediately, without waiting for transaction processing
@@ -43,27 +42,33 @@ type HttpClient interface {
 type restClient struct {
 	userID     string
 	httpClient HttpClient
-	signer     Signer
 }
 
 func NewRestClient(userID string, httpClient HttpClient, signer Signer) RestClient {
 	return &restClient{
 		userID:     userID,
 		httpClient: httpClient,
-		signer:     signer,
 	}
 }
 
 // Query sends REST request with query semantics
-func (r *restClient) Query(ctx context.Context, endpoint string, msg proto.Message) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return nil, err
-	}
+func (r *restClient) Query(ctx context.Context, endpoint, httpMethod string, postData, signature []byte) (*http.Response, error) {
+	var req *http.Request
+	var err error
 
-	signature, err := cryptoservice.SignQuery(r.signer, msg)
-	if err != nil {
-		return nil, err
+	switch httpMethod {
+	case http.MethodPost:
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(postData))
+		if err != nil {
+			return nil, err
+		}
+	case http.MethodGet:
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.New("unexpected http method [" + httpMethod + "]. Either pass [" + http.MethodGet + "] or [" + http.MethodPost + "]")
 	}
 
 	req.Header.Set("Accept", "application/json")

@@ -109,13 +109,13 @@ func main() {
 	}
 
 	fmt.Println("Creating new database db1")
-	err = dbTx.CreateDB("db1")
+	err = dbTx.CreateDB("db1", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
 		return
 	}
 	fmt.Println("Creating new database db2")
-	err = dbTx.CreateDB("db2")
+	err = dbTx.CreateDB("db2", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
 		return

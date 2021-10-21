@@ -22,7 +22,7 @@ import (
 */
 func main() {
 	session, err := prepareData()
-	if session == nil || err != nil{
+	if session == nil || err != nil {
 		return
 	}
 
@@ -104,8 +104,8 @@ func main() {
 	}
 	fmt.Println("historical values for database db2 and key key1 at block 6 are:")
 	fmt.Printf("value: %s, version: %s, read users: %v, read-write users: %v\n", res3.GetValue(),
-			res3.GetMetadata().GetVersion(), res3.GetMetadata().GetAccessControl().GetReadUsers(),
-			res3.GetMetadata().GetAccessControl().GetReadWriteUsers())
+		res3.GetMetadata().GetVersion(), res3.GetMetadata().GetAccessControl().GetReadUsers(),
+		res3.GetMetadata().GetAccessControl().GetReadWriteUsers())
 
 	//Getting history of user transactions
 	fmt.Println("Getting IDs of all tx submitted by user alice")
@@ -230,7 +230,7 @@ func prepareData() (bcdb.DBSession, error) {
 	}
 
 	fmt.Println("Creating new database db2")
-	err = dbTx.CreateDB("db2")
+	err = dbTx.CreateDB("db2", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
 		return nil, err
