@@ -7,12 +7,13 @@ import (
 	"io/ioutil"
 	"net/url"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/pkg/certificateauthority"
 	"github.com/hyperledger-labs/orion-server/pkg/crypto"
 	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/state"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 )
 
@@ -61,6 +62,9 @@ type Ledger interface {
 	GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, error)
 	// GetTransactionReceipt return block header where tx is stored and tx index inside block
 	GetTransactionReceipt(txId string) (*types.TxReceipt, error)
+	// GetDataProof returns proof of existence of value associated with key in block Merkle-Patricia Trie
+	// Proof itself is a path from node that contains value to root node in MPTrie
+	GetDataProof(blockNum uint64, dbName, key string, isDeleted bool) (*state.Proof, error)
 }
 
 type Provenance interface {
@@ -130,7 +134,7 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 		return nil, err
 	}
 
-	// Validate replica set URIs
+	// Verify replica set URIs
 	urls := map[string]*url.URL{}
 	for _, uri := range config.ReplicaSet {
 		replicaURL, err := url.Parse(uri.Endpoint)

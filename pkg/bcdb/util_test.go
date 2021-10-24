@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-sdk-go/internal/test"
 	sdkconfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/config"
@@ -19,7 +20,6 @@ import (
 	"github.com/hyperledger-labs/orion-server/pkg/server"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -147,7 +147,7 @@ func openUserSessionWithQueryTimeout(t *testing.T, bcdb BCDB, user string, tempD
 			CertPath:       path.Join(tempDir, user+".pem"),
 			PrivateKeyPath: path.Join(tempDir, user+".key"),
 		},
-		TxTimeout:    time.Second * 2,
+		TxTimeout:    time.Second * 20,
 		QueryTimeout: queryTimeout,
 	})
 	require.NoError(t, err)
