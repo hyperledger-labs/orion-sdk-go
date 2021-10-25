@@ -1,3 +1,6 @@
+// Copyright IBM Corp. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package bcdb
 
 import (
@@ -10,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/hyperledger-labs/orion-server/pkg/certificateauthority"
@@ -32,6 +36,31 @@ type dbSession struct {
 	txTimeout    time.Duration
 	queryTimeout time.Duration
 	logger       *logger.SugarLogger
+}
+
+// TxContextOption is a function that operates on a commonTxContext and applies a configuration option.
+type TxContextOption func(svc *commonTxContext) error
+
+// WithTxID provides an external transaction ID (txID) to the transaction context.
+// The given txID must be unique in the database cluster to which it is submitted.
+// The given txID must be safe to use as a URL segment (see segment-nz at: https://www.ietf.org/rfc/rfc3986.txt).
+//
+// Note that the database may reveal the transaction IDs it executed to other clients. Therefore, it is recommended
+// not to include any sensitive information in it. It is recommended to generate the txID by hashing some identifier
+// that includes enough entropy such that it reveals no information, e.g. `Hash(ID + Nonce)`, and convert the bytes to
+// a URL-safe string representation.
+func WithTxID(txID string) TxContextOption {
+	return func(txCtx *commonTxContext) error {
+		if len(txID) == 0 {
+			return errors.New("WithTxID: empty txID")
+		}
+		if err := SafeCharsForTxID(txID); err != nil {
+			return errors.WithMessage(err, "WithTxID")
+		}
+
+		txCtx.txID = txID
+		return nil
+	}
 }
 
 // UsersTx returns user's transaction context
@@ -61,8 +90,8 @@ func (d *dbSession) DBsTx() (DBsTxContext, error) {
 }
 
 // DataTx returns data's transaction context
-func (d *dbSession) DataTx() (DataTxContext, error) {
-	commonCtx, err := d.newCommonTxContext()
+func (d *dbSession) DataTx(options ...TxContextOption) (DataTxContext, error) {
+	commonCtx, err := d.newCommonTxContext(options...)
 	if err != nil {
 		return nil, err
 	}
@@ -158,17 +187,11 @@ func (d *dbSession) JSONQuery() (JSONQuery, error) {
 	}, nil
 }
 
-func (d *dbSession) newCommonTxContext() (*commonTxContext, error) {
+func (d *dbSession) newCommonTxContext(options ...TxContextOption) (*commonTxContext, error) {
 	httpClient := newHTTPClient()
 
-	txID, err := computeTxID(d.userCert)
-	if err != nil {
-		return nil, err
-	}
-
-	commonTxContext := &commonTxContext{
+	commonTxCtx := &commonTxContext{
 		userID:        d.userID,
-		txID:          txID,
 		signer:        d.signer,
 		userCert:      d.userCert,
 		replicaSet:    d.replicaSet,
@@ -178,7 +201,22 @@ func (d *dbSession) newCommonTxContext() (*commonTxContext, error) {
 		queryTimeout:  d.queryTimeout,
 		logger:        d.logger,
 	}
-	return commonTxContext, nil
+
+	for _, opt := range options {
+		if err := opt(commonTxCtx); err != nil {
+			return nil, errors.WithMessage(err, "error while applying option")
+		}
+	}
+
+	if len(commonTxCtx.txID) == 0 {
+		var err error
+		commonTxCtx.txID, err = computeTxID(d.userCert)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return commonTxCtx, nil
 }
 
 func (d *dbSession) sigVerifier(httpClient *http.Client) (SignatureVerifier, error) {
@@ -308,5 +346,21 @@ func computeTxID(userCert []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return base64.URLEncoding.EncodeToString(sha256Hash), err
+	return base64.URLEncoding.EncodeToString(sha256Hash), nil
+}
+
+var validIDChar = regexp.MustCompile(`^[-\._~%!\$&'\(\)\*\+,;=:@a-zA-Z0-9]+$`)
+
+// SafeCharsForTxID checks that the TxID has only safe characters.
+//
+// from https://www.ietf.org/rfc/rfc3986.txt
+// segment-nz  = pchar*1
+// pchar       = unreserved / pct-encoded / sub-delims / ":" / "@"
+// unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
+// sub-delims  = "!" / "$" / "&" / "'" / "(" / ")" / "*" / "+" / "," / ";" / "="
+func SafeCharsForTxID(s string) error {
+	if !validIDChar.MatchString(s) {
+		return errors.Errorf("TxID contains un-safe characters: %q", s)
+	}
+	return nil
 }

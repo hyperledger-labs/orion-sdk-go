@@ -27,7 +27,7 @@ type BCDB interface {
 // DBSession captures user's session
 type DBSession interface {
 	UsersTx() (UsersTxContext, error)
-	DataTx() (DataTxContext, error)
+	DataTx(options ...TxContextOption) (DataTxContext, error)
 	LoadDataTx(*types.DataTxEnvelope) (LoadedDataTxContext, error)
 	DBsTx() (DBsTxContext, error)
 	ConfigTx() (ConfigTxContext, error)
