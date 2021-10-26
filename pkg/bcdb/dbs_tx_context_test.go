@@ -5,7 +5,7 @@ package bcdb
 import (
 	"errors"
 	"fmt"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
 	sdkConfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -44,27 +45,132 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 	require.NoError(t, err)
 	StartTestServer(t, testServer)
 
-	_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
-	// Start submission session to create a new database
-	tx, err := session.DBsTx()
-	require.NoError(t, err)
+	t.Run("create a database successfully", func(t *testing.T) {
+		_, session := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+		// Start submission session to create a new database
+		tx, err := session.DBsTx()
+		require.NoError(t, err)
 
-	err = tx.CreateDB("testDB")
-	require.NoError(t, err)
+		err = tx.CreateDB("testDB", nil)
+		require.NoError(t, err)
 
-	txId, receipt, err := tx.Commit(true)
-	require.NoError(t, err)
-	require.True(t, len(txId) > 0)
-	require.NotNil(t, receipt)
-	require.True(t, len(receipt.GetHeader().GetValidationInfo())>0)
-	require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_VALID)
+		txId, receipt, err := tx.Commit(true)
+		require.NoError(t, err)
+		require.True(t, len(txId) > 0)
+		require.NotNil(t, receipt)
+		require.True(t, len(receipt.GetHeader().GetValidationInfo()) > 0)
+		require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_VALID)
 
-	// Check database status, whenever created or not
-	tx, err = session.DBsTx()
-	require.NoError(t, err)
-	exist, err := tx.Exists("testDB")
-	require.NoError(t, err)
-	require.True(t, exist)
+		// Check database status, whenever created or not
+		tx, err = session.DBsTx()
+		require.NoError(t, err)
+		exist, err := tx.Exists("testDB")
+		require.NoError(t, err)
+		require.True(t, exist)
+	})
+
+	t.Run("create a database with index", func(t *testing.T) {
+		bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+		// Start submission session to create a new database
+		tx, err := adminSession.DBsTx()
+		require.NoError(t, err)
+
+		index := map[string]types.IndexAttributeType{
+			"attr1": types.IndexAttributeType_BOOLEAN,
+			"attr2": types.IndexAttributeType_NUMBER,
+			"attr3": types.IndexAttributeType_STRING,
+		}
+		err = tx.CreateDB("testDB-1", index)
+		require.NoError(t, err)
+
+		txId, receipt, err := tx.Commit(true)
+		require.NoError(t, err)
+		require.True(t, len(txId) > 0)
+		require.NotNil(t, receipt)
+		require.True(t, len(receipt.GetHeader().GetValidationInfo()) > 0)
+		require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_VALID)
+
+		// Check database status, whenever created or not
+		tx, err = adminSession.DBsTx()
+		require.NoError(t, err)
+		exist, err := tx.Exists("testDB-1")
+		require.NoError(t, err)
+		require.True(t, exist)
+
+		pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
+		require.NoError(t, err)
+		dbPerm := map[string]types.Privilege_Access{
+			"testDB-1": 1,
+		}
+		addUser(t, "alice", adminSession, pemUserCert, dbPerm)
+		userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
+
+		putKeySync(t, "testDB-1", "key1", `{"attr1":false}`, "alice", userSession)
+
+		q, err := userSession.JSONQuery()
+		require.NoError(t, err)
+		require.NotNil(t, q)
+		query := `
+		{
+			"selector": {
+				"attr1": {"$eq": false}
+			}
+		}
+	`
+		kvs, err := q.Execute("testDB-1", query)
+		require.NoError(t, err)
+		require.Len(t, kvs, 1)
+		expectedKVs := []*types.KVWithMetadata{
+			{
+				Key:   "key1",
+				Value: []byte(`{"attr1":false}`),
+				Metadata: &types.Metadata{
+					Version: &types.Version{
+						BlockNum: 5,
+						TxNum:    0,
+					},
+					AccessControl: &types.AccessControl{
+						ReadUsers: map[string]bool{
+							"alice": true,
+						},
+						ReadWriteUsers: map[string]bool{
+							"alice": true,
+						},
+					},
+				},
+			},
+		}
+		require.ElementsMatch(t, kvs, expectedKVs)
+	})
+
+	t.Run("database creation fails due to bad index", func(t *testing.T) {
+		_, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+		// Start submission session to create a new database
+		tx, err := adminSession.DBsTx()
+		require.NoError(t, err)
+
+		index := map[string]types.IndexAttributeType{
+			"attr1": 143256,
+			"attr2": types.IndexAttributeType_NUMBER,
+			"attr3": types.IndexAttributeType_STRING,
+		}
+		err = tx.CreateDB("testDB-2", index)
+		require.NoError(t, err)
+
+		txId, receipt, err := tx.Commit(true)
+		require.Contains(t, err.Error(), "invalid type provided for the attribute [attr1]")
+		require.True(t, len(txId) > 0)
+		require.NotNil(t, receipt)
+		require.True(t, len(receipt.GetHeader().GetValidationInfo()) > 0)
+		require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_INVALID_INCORRECT_ENTRIES)
+
+		// Check database status, whenever created or not
+		tx, err = adminSession.DBsTx()
+		require.NoError(t, err)
+		exist, err := tx.Exists("testDB-2")
+		require.NoError(t, err)
+		require.False(t, exist)
+	})
 }
 
 func TestDBsContext_CheckStatusTimeout(t *testing.T) {
@@ -79,7 +185,7 @@ func TestDBsContext_CheckStatusTimeout(t *testing.T) {
 	tx, err := session.DBsTx()
 	require.NoError(t, err)
 
-	err = tx.CreateDB("testDB")
+	err = tx.CreateDB("testDB", nil)
 	require.NoError(t, err)
 
 	txId, receipt, err := tx.Commit(true)
@@ -118,12 +224,12 @@ func TestDBsContext_CommitAbortFinality(t *testing.T) {
 		tx, err := session.DBsTx()
 		require.NoError(t, err)
 
-		err = tx.CreateDB(fmt.Sprintf("testDB-%d", i))
+		err = tx.CreateDB(fmt.Sprintf("testDB-%d", i), nil)
 		require.NoError(t, err)
 
 		assertTxFinality(t, TxFinality(i), tx, session)
 
-		err = tx.CreateDB("some-db")
+		err = tx.CreateDB("some-db", nil)
 		require.EqualError(t, err, ErrTxSpent.Error())
 
 		err = tx.DeleteDB("some-db")
@@ -186,7 +292,7 @@ func TestDBsContext_ExistsFailureScenarios(t *testing.T) {
 			name: "rest client internal error",
 			restClientFactory: func() RestClient {
 				restClient := &mocks.RestClient{}
-				restClient.On("Query", mock.Anything, mock.Anything, mock.Anything).
+				restClient.On("Query", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 					Return(nil, errors.New("cannot connect to replica"))
 				return restClient
 			},
@@ -196,7 +302,7 @@ func TestDBsContext_ExistsFailureScenarios(t *testing.T) {
 			name: "rest response error",
 			restClientFactory: func() RestClient {
 				restClient := &mocks.RestClient{}
-				restClient.On("Query", mock.Anything, mock.Anything, mock.Anything).
+				restClient.On("Query", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 					Return(&http.Response{
 						StatusCode: http.StatusBadRequest,
 						Status:     "malformed response",
@@ -226,9 +332,10 @@ func TestDBsContext_ExistsFailureScenarios(t *testing.T) {
 						},
 					},
 				},
-				createdDBs: map[string]bool{},
+				createdDBs: map[string]*types.DBIndex{},
 				deletedDBs: map[string]bool{},
 			}
+			signer.On("Sign", mock.Anything).Return(nil, nil)
 
 			exist, err := dbsCtx.Exists("bdb")
 			require.Error(t, err)
@@ -250,7 +357,7 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 	tx, err := session.DBsTx()
 	require.NoError(t, err)
 
-	err = tx.CreateDB("testDB")
+	err = tx.CreateDB("testDB", nil)
 	require.NoError(t, err)
 
 	_, receipt, err := tx.Commit(true)
@@ -268,7 +375,7 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 	tx, err = session.DBsTx()
 	require.NoError(t, err)
 
-	err = tx.CreateDB("db1")
+	err = tx.CreateDB("db1", nil)
 	require.NoError(t, err)
 	err = tx.DeleteDB("testDB")
 	require.NoError(t, err)
@@ -310,8 +417,8 @@ func TestDBsContext_AttemptDeleteSystemDatabase(t *testing.T) {
 	require.NotNil(t, receipt)
 	require.Equal(t, types.Flag_INVALID_INCORRECT_ENTRIES, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
 	require.Equal(t, "the database [bdb] is the system created default database to store states and it cannot be deleted", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
-	require.Equal(t,"transaction txID = " + txID + " is not valid, flag: INVALID_INCORRECT_ENTRIES," +
-		" reason: the database [bdb] is the system created default database to store states and it cannot be deleted",  err.Error())
+	require.Equal(t, "transaction txID = "+txID+" is not valid, flag: INVALID_INCORRECT_ENTRIES,"+
+		" reason: the database [bdb] is the system created default database to store states and it cannot be deleted", err.Error())
 
 	// Check database status, whenever created or not
 	tx, err = session.DBsTx()

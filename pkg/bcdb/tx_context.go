@@ -9,9 +9,10 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
 	"github.com/hyperledger-labs/orion-server/pkg/logger"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 )
 
@@ -148,7 +149,15 @@ func (t *commonTxContext) selectReplica() *url.URL {
 	return nil
 }
 
-func (t *commonTxContext) handleRequest(rawurl string, query, res proto.Message) error {
+func (t *commonTxContext) handleRequest(rawurl string, msgToSign, res proto.Message) error {
+	return t.handleGetPostRequest(rawurl, http.MethodGet, nil, msgToSign, res)
+}
+
+func (t *commonTxContext) handleRequestWithPost(rawurl string, postData []byte, msgToSign, res proto.Message) error {
+	return t.handleGetPostRequest(rawurl, http.MethodPost, postData, msgToSign, res)
+}
+
+func (t *commonTxContext) handleGetPostRequest(rawurl, httpMethod string, postData []byte, msgToSign, res proto.Message) error {
 	parsedURL, err := url.Parse(rawurl)
 	if err != nil {
 		return err
@@ -162,7 +171,12 @@ func (t *commonTxContext) handleRequest(rawurl string, query, res proto.Message)
 		defer cancelFnc()
 	}
 
-	response, err := t.restClient.Query(ctx, restURL, query)
+	signature, err := cryptoservice.SignQuery(t.signer, msgToSign)
+	if err != nil {
+		return err
+	}
+
+	response, err := t.restClient.Query(ctx, restURL, httpMethod, postData, signature)
 	if err != nil {
 		return err
 	}

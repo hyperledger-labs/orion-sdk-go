@@ -14,12 +14,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
 	sdkConfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -124,7 +124,7 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 			name: "rest client internal error",
 			restClientFactory: func() RestClient {
 				restClient := &mocks.RestClient{}
-				restClient.On("Query", mock.Anything, mock.Anything, mock.Anything).
+				restClient.On("Query", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 					Return(nil, errors.New("cannot connect to replica"))
 				return restClient
 			},
@@ -134,7 +134,7 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 			name: "rest response error",
 			restClientFactory: func() RestClient {
 				restClient := &mocks.RestClient{}
-				restClient.On("Query", mock.Anything, mock.Anything, mock.Anything).
+				restClient.On("Query", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 					Return(&http.Response{
 						StatusCode: http.StatusBadRequest,
 						Status:     "malformed response",
@@ -166,6 +166,7 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 				},
 			}
 
+			signer.On("Sign", mock.Anything).Return(nil, nil)
 			user, err := usrCtx.GetUser("alice")
 			require.Error(t, err)
 			require.Nil(t, user)
@@ -208,14 +209,19 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 	require.NotNil(t, queryResultBytes)
 
 	bodyReader := bytes.NewBuffer(queryResultBytes)
-	restClient.On("Query", mock.Anything, mock.Anything, mock.Anything).
+	restClient.On("Query", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			uri := args.Get(1).(string)
 			require.Equal(t, constants.URLForGetUser("alice"), uri)
 
-			user := args.Get(2).(*types.GetUserQuery)
-			require.Equal(t, "testUserId", user.UserId)
-			require.Equal(t, "alice", user.TargetUserId)
+			httpMethod := args.Get(2).(string)
+			require.Equal(t, http.MethodGet, httpMethod)
+
+			postData := args.Get(3).([]byte)
+			require.Nil(t, postData)
+
+			signature := args.Get(4).([]byte)
+			require.NotNil(t, signature)
 		}).
 		Return(&http.Response{
 			StatusCode: http.StatusOK,

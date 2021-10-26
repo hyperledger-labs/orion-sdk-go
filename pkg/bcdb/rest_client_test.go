@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
+	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -36,12 +37,14 @@ func TestRestClient_Query(t *testing.T) {
 	signer.On("Sign", mock.Anything).Return([]byte{1, 2, 3}, nil)
 
 	client := NewRestClient("testUserID", server.Client(), signer)
-
-	response, err := client.Query(context.Background(), server.URL, &types.GetDataQuery{
+	signature, err := cryptoservice.SignQuery(signer, &types.GetDataQuery{
 		UserId: "alice",
 		DbName: "bdb",
 		Key:    "foo",
 	})
+	require.NoError(t, err)
+
+	response, err := client.Query(context.Background(), server.URL, http.MethodGet, nil, signature)
 
 	require.NoError(t, err)
 	require.NotNil(t, response)
@@ -50,11 +53,8 @@ func TestRestClient_Query(t *testing.T) {
 	ctx, cancelFnc := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancelFnc()
 
-	response, err = client.Query(ctx, server.URL, &types.GetDataQuery{
-		UserId: "alice",
-		DbName: "bdb",
-		Key:    "foo",
-	})
+	require.NoError(t, err)
+	response, err = client.Query(ctx, server.URL, http.MethodGet, nil, signature)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "queryTimeout error")
@@ -63,11 +63,7 @@ func TestRestClient_Query(t *testing.T) {
 	ctx, cancelFnc = context.WithTimeout(context.Background(), time.Second)
 	defer cancelFnc()
 
-	response, err = client.Query(ctx, server.URL, &types.GetDataQuery{
-		UserId: "alice",
-		DbName: "bdb",
-		Key:    "foo",
-	})
+	response, err = client.Query(ctx, server.URL, http.MethodGet, nil, signature)
 
 	require.NoError(t, err)
 	require.NotNil(t, response)

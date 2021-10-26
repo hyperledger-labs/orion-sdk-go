@@ -54,7 +54,7 @@ func (d *dbSession) DBsTx() (DBsTxContext, error) {
 	}
 	dbsTx := &dbsTxContext{
 		commonTxContext: commonCtx,
-		createdDBs:      map[string]bool{},
+		createdDBs:      map[string]*types.DBIndex{},
 		deletedDBs:      map[string]bool{},
 	}
 	return dbsTx, nil
@@ -143,6 +143,17 @@ func (d *dbSession) Ledger() (Ledger, error) {
 		return nil, err
 	}
 	return &ledger{
+		commonCtx,
+	}, nil
+}
+
+// JSONQuery returns handler to access bcdb data through JSON query
+func (d *dbSession) JSONQuery() (JSONQuery, error) {
+	commonCtx, err := d.newCommonTxContext()
+	if err != nil {
+		return nil, err
+	}
+	return &JSONQueryExecutor{
 		commonCtx,
 	}, nil
 }
