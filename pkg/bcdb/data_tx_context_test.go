@@ -46,6 +46,55 @@ func TestDataContext_PutAndGetKey(t *testing.T) {
 	require.NotNil(t, meta)
 }
 
+func TestDataContext_PutKey_WithTxID(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
+	require.NoError(t, err)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
+	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
+
+	tx, err := userSession.DataTx(WithTxID("external-TxID-1"))
+	require.NoError(t, err)
+
+	err = tx.Put("bdb", "key1", []byte("some-value"), nil)
+	require.NoError(t, err)
+
+	txID, receipt, err := tx.Commit(true)
+	require.NoError(t, err)
+	require.Equal(t, "external-TxID-1", txID)
+	require.NotNil(t, receipt)
+
+	// cannot reuse a TxID
+	tx2, err := userSession.DataTx(WithTxID("external-TxID-1"))
+	require.NoError(t, err)
+
+	err = tx2.Put("bdb", "key1", []byte("some-other-value"), nil)
+	require.NoError(t, err)
+
+	txID2, receipt2, err := tx2.Commit(true)
+	require.EqualError(t, err, "failed to submit transaction, server returned: status: 400 Bad Request, message: the transaction has a duplicate txID [external-TxID-1]")
+	require.Equal(t, "external-TxID-1", txID2)
+	require.Nil(t, receipt2)
+
+	// URL segment unsafe char `/`
+	tx3, err := userSession.DataTx(WithTxID("external/TxID-1"))
+	require.Nil(t, tx3)
+	require.EqualError(t, err, "error while applying option: WithTxID: TxID contains un-safe characters: \"external/TxID-1\"")
+
+	tx4, err := userSession.DataTx(WithTxID(""))
+	require.Nil(t, tx4)
+	require.EqualError(t, err, "error while applying option: WithTxID: empty txID")
+}
+
 func TestDataContext_GetNonExistKey(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
