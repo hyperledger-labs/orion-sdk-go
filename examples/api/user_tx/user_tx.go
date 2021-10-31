@@ -4,6 +4,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
@@ -16,9 +17,16 @@ import (
    Create, update and delete database users
 */
 func main() {
+	if err := executeUserTxExample(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func executeUserTxExample() error {
 	c, err := util.ReadConfig("../../util/config.yml")
 	if err != nil {
 		fmt.Printf(err.Error())
+		return err
 	}
 
 	logger, err := logger.New(
@@ -30,6 +38,10 @@ func main() {
 			Name:          "bcdb-client",
 		},
 	)
+	if err != nil {
+		fmt.Printf(err.Error())
+		return err
+	}
 
 	conConf := &config.ConnectionConfig{
 		ReplicaSet: c.ConnectionConfig.ReplicaSet,
@@ -41,7 +53,7 @@ func main() {
 	db, err := bcdb.Create(conConf)
 	if err != nil {
 		fmt.Printf("Database connection creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	sessionConf := &config.SessionConfig{
@@ -53,28 +65,28 @@ func main() {
 	session, err := db.Session(sessionConf)
 	if err != nil {
 		fmt.Printf("Database session creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Opening database transaction")
 	dbTx, err := session.DBsTx()
 	if err != nil {
 		fmt.Printf("Database transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Checking whenever database db1 already exists")
 	exist, err := dbTx.Exists("db1")
 	if err != nil {
 		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	if exist {
 		fmt.Println("Deleting db1")
 		err = dbTx.DeleteDB("db1")
 		if err != nil {
 			fmt.Printf("Deleting db1 failed, reason: %s\n", err.Error())
-			return
+			return err
 		}
 	}
 
@@ -82,14 +94,14 @@ func main() {
 	exist, err = dbTx.Exists("db2")
 	if err != nil {
 		fmt.Printf("Checking the existence of database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	if exist {
 		fmt.Println("Deleting db2")
 		err = dbTx.DeleteDB("db2")
 		if err != nil {
 			fmt.Printf("Deleting db2 failed, reason: %s\n", err.Error())
-			return
+			return err
 		}
 	}
 
@@ -97,7 +109,7 @@ func main() {
 	txID, _, err := dbTx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -105,27 +117,27 @@ func main() {
 	dbTx, err = session.DBsTx()
 	if err != nil {
 		fmt.Printf("Database transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Creating new database db1")
 	err = dbTx.CreateDB("db1", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Println("Creating new database db2")
 	err = dbTx.CreateDB("db2", nil)
 	if err != nil {
 		fmt.Printf("New database creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction")
 	txID, _, err = dbTx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -133,7 +145,7 @@ func main() {
 	tx, err := session.UsersTx()
 	if err != nil {
 		fmt.Printf("User transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	dbPerm := map[string]types.Privilege_Access{
@@ -144,7 +156,7 @@ func main() {
 	alicePemUserCert, err := ioutil.ReadFile("../../../../orion-server/sampleconfig/crypto/alice/alice.pem")
 	if err != nil {
 		fmt.Printf(err.Error())
-		return
+		return err
 	}
 	aliceCertBlock, _ := pem.Decode(alicePemUserCert)
 
@@ -159,7 +171,7 @@ func main() {
 	err = tx.PutUser(alice, nil)
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	dbPerm = map[string]types.Privilege_Access{
@@ -170,7 +182,7 @@ func main() {
 	bobPemUserCert, err := ioutil.ReadFile("../../../../orion-server/sampleconfig/crypto/bob/bob.pem")
 	if err != nil {
 		fmt.Printf(err.Error())
-		return
+		return err
 	}
 	bobCertBlock, _ := pem.Decode(bobPemUserCert)
 
@@ -185,14 +197,14 @@ func main() {
 	err = tx.PutUser(bob, nil)
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction")
 	txID, _, err = tx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -200,14 +212,14 @@ func main() {
 	tx, err = session.UsersTx()
 	if err != nil {
 		fmt.Printf("User transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Getting alice's record from database")
 	user, err := tx.GetUser("alice")
 	if err != nil || user.GetId() != "alice" {
 		fmt.Printf("Getting user's record from database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("alice information: id: %s, privilege: %s\n", user.GetId(), user.GetPrivilege().String())
 
@@ -215,7 +227,7 @@ func main() {
 	user, err = tx.GetUser("bob")
 	if err != nil || user.GetId() != "bob" {
 		fmt.Printf("Getting user's record from database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("bob information: id: %s, privilege: %s\n", user.GetId(), user.GetPrivilege().String())
 
@@ -223,7 +235,7 @@ func main() {
 	txID, _, err = tx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -231,7 +243,7 @@ func main() {
 	tx, err = session.UsersTx()
 	if err != nil {
 		fmt.Printf("User transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	alice = &types.User{
@@ -243,14 +255,14 @@ func main() {
 	err = tx.PutUser(alice, nil)
 	if err != nil {
 		fmt.Printf("Updating user failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction")
 	txID, _, err = tx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
@@ -258,21 +270,23 @@ func main() {
 	tx, err = session.UsersTx()
 	if err != nil {
 		fmt.Printf("User transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Deleting alice from the database")
 	err = tx.RemoveUser("alice")
 	if err != nil {
 		fmt.Printf("Deleting user from database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction")
 	txID, _, err = tx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
+
+	return nil
 }

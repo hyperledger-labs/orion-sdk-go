@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
@@ -14,30 +15,36 @@ import (
 	Example of using async commit
 */
 func main() {
+	if err := executeAsyncCommitExample(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func executeAsyncCommitExample() error {
 	session, err := prepareData()
 	if session == nil || err != nil {
-		return
+		return err
 	}
 
 	fmt.Println("Opening data transaction")
 	tx, err := session.DataTx()
 	if err != nil {
 		fmt.Printf("Data transaction creating failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Adding key, value: key1, val1 to the database")
 	err = tx.Put("bdb", "key1", []byte("val1"), nil)
 	if err != nil {
 		fmt.Printf("Adding new key to database failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Committing transaction")
 	txID, txReceipt, err := tx.Commit(false)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		return
+		return err
 	}
 	//async commit always return receipt = nil
 	fmt.Printf("Transaction receipt = %s\n", txReceipt)
@@ -45,7 +52,7 @@ func main() {
 	l, err := session.Ledger()
 	if err != nil {
 		fmt.Printf(err.Error())
-		return
+		return err
 	}
 
 	fmt.Println("Getting transaction receipt")
@@ -57,7 +64,7 @@ LOOP:
 			txReceipt, err = l.GetTransactionReceipt(txID)
 			if err != nil {
 				fmt.Printf("Getting transaction receipt failed, reason: %s\n", err.Error())
-				return
+				return err
 			}
 			if txReceipt == nil {
 				continue
@@ -66,19 +73,22 @@ LOOP:
 			}
 		case <-timeout:
 			fmt.Println("Getting transaction receipt failed")
-			return
+			return err
 		}
 	}
 
 	fmt.Printf("The transaction is stored on block header number %d, index %d, with validiation flag %s\n", txReceipt.Header.GetBaseHeader().GetNumber(),
 		txReceipt.GetTxIndex(), txReceipt.Header.ValidationInfo[txReceipt.TxIndex].GetFlag())
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
+
+	return nil
 }
 
 func prepareData() (bcdb.DBSession, error) {
 	c, err := util.ReadConfig("../../util/config.yml")
 	if err != nil {
 		fmt.Printf(err.Error())
+		return nil, err
 	}
 
 	logger, err := logger.New(
@@ -90,6 +100,10 @@ func prepareData() (bcdb.DBSession, error) {
 			Name:          "bcdb-client",
 		},
 	)
+	if err != nil {
+		fmt.Printf(err.Error())
+		return nil, err
+	}
 
 	conConf := &config.ConnectionConfig{
 		ReplicaSet: c.ConnectionConfig.ReplicaSet,

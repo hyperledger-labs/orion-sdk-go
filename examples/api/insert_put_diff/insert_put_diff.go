@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
@@ -16,7 +17,9 @@ import (
 	tx3 - putting key3, val3 in the database
 */
 func main() {
-	executeInsertPutExample()
+	if err := executeInsertPutExample(); err != nil {
+		os.Exit(1)
+	}
 }
 
 func executeInsertPutExample() error {
@@ -126,6 +129,7 @@ func prepareData() (bcdb.DBSession, error) {
 	c, err := util.ReadConfig("../../util/config.yml")
 	if err != nil {
 		fmt.Printf(err.Error())
+		return nil, err
 	}
 
 	logger, err := logger.New(
@@ -137,6 +141,10 @@ func prepareData() (bcdb.DBSession, error) {
 			Name:          "bcdb-client",
 		},
 	)
+	if err != nil {
+		fmt.Printf(err.Error())
+		return nil, err
+	}
 
 	conConf := &config.ConnectionConfig{
 		ReplicaSet: c.ConnectionConfig.ReplicaSet,
