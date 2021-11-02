@@ -23,7 +23,7 @@ func TestGetBlockHeader(t *testing.T) {
 	txReceipts := make([]*types.TxReceipt, 0)
 	firstdataBlockIndex := 0
 	for i := 1; i < 10; i++ {
-		txReceipt := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		txReceipt, _ := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
 		txReceipts = append(txReceipts, txReceipt)
 		if firstdataBlockIndex == 0 {
 			firstdataBlockIndex = int(txReceipt.Header.BaseHeader.Number)
@@ -38,12 +38,12 @@ func TestGetBlockHeader(t *testing.T) {
 		require.NotNil(t, header)
 		require.Equal(t, uint64(i), header.GetBaseHeader().GetNumber())
 		if i >= firstdataBlockIndex {
-			require.True(t, proto.Equal(txReceipts[i - firstdataBlockIndex].Header, header))
+			require.True(t, proto.Equal(txReceipts[i-firstdataBlockIndex].Header, header))
 		}
 	}
 
 	header, err := l.GetBlockHeader(100)
-	require.EqualError(t, err, "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/block/100' because block not found: 100")
+	require.EqualError(t, err, "error handling request, server returned: status: 404 Not Found, status code: 404, message: error while processing 'GET /ledger/block/100' because block not found: 100")
 	require.Nil(t, header)
 }
 
@@ -99,14 +99,14 @@ func TestGetLedgerPath(t *testing.T) {
 			start:      6,
 			end:        1,
 			path:       nil,
-			errMessage: "error handling request, server returned: status: 400 Bad Request, message: query error: startId=6 > endId=1",
+			errMessage: "error handling request, server returned: status: 400 Bad Request, status code: 400, message: query error: startId=6 > endId=1",
 		},
 		{
 			name:       "from 100 to 1 - error not found",
 			start:      1,
 			end:        100,
 			path:       nil,
-			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/path?start=1&end=100' because can't find path in blocks skip list between 100 1: block not found: 100",
+			errMessage: "error handling request, server returned: status: 404 Not Found, status code: 404, message: error while processing 'GET /ledger/path?start=1&end=100' because can't find path in blocks skip list between 100 1: block not found: 100",
 		},
 	}
 
@@ -165,13 +165,13 @@ func TestGetTransactionProof(t *testing.T) {
 			name:       "block 15, tx 0, block not exist",
 			block:      15,
 			txIdx:      0,
-			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/proof/tx/15?idx=0' because requested block number [15] cannot be greater than the last committed block number",
+			errMessage: "error handling request, server returned: status: 404 Not Found, status code: 404, message: error while processing 'GET /ledger/proof/tx/15?idx=0' because requested block number [15] cannot be greater than the last committed block number [12]",
 		},
 		{
 			name:       "block 10, tx 30, tx not exist in block",
 			block:      10,
 			txIdx:      30,
-			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/proof/tx/10?idx=30' because node with index 30 is not part of merkle tree (0, 9)",
+			errMessage: "error handling request, server returned: status: 404 Not Found, status code: 404, message: error while processing 'GET /ledger/proof/tx/10?idx=30' because node with index 30 is not part of merkle tree (0, 9)",
 		},
 	}
 	for _, tt := range tests {
@@ -255,7 +255,7 @@ func TestGetTransactionReceipt(t *testing.T) {
 			txIdx:      0,
 			txID:       "not_exist",
 			wantErr:    true,
-			errMessage: "error handling request, server returned: status: 404 Not Found, message: error while processing 'GET /ledger/tx/receipt/not_exist' because TxID not found: not_exist",
+			errMessage: "error handling request, server returned: status: 404 Not Found, status code: 404, message: error while processing 'GET /ledger/tx/receipt/not_exist' because TxID not found: not_exist",
 		},
 	}
 
@@ -349,7 +349,7 @@ func TestGetStateProof(t *testing.T) {
 			key:        "key6_1",
 			value:      []byte("value6_1"),
 			isDeleted:  false,
-			errMessage: "404 Not Found, message: error while processing 'GET /ledger/proof/data/bdb/key6_1?block=19' because block not found: 19",
+			errMessage: "404 Not Found, status code: 404, message: error while processing 'GET /ledger/proof/data/bdb/key6_1?block=19' because block not found: 19",
 		},
 	}
 	for _, tt := range tests {

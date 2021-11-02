@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -157,6 +158,19 @@ func (t *commonTxContext) handleRequestWithPost(rawurl string, postData []byte, 
 	return t.handleGetPostRequest(rawurl, http.MethodPost, postData, msgToSign, res)
 }
 
+type httpError struct {
+	status     string
+	statusCode int
+	errMsg     string
+}
+
+func (e *httpError) Error() string {
+	return "error handling request, server returned:" +
+		" status: " + e.status +
+		", status code: " + strconv.Itoa(e.statusCode) +
+		", message: " + e.errMsg
+}
+
 func (t *commonTxContext) handleGetPostRequest(rawurl, httpMethod string, postData []byte, msgToSign, res proto.Message) error {
 	parsedURL, err := url.Parse(rawurl)
 	if err != nil {
@@ -191,7 +205,11 @@ func (t *commonTxContext) handleGetPostRequest(rawurl, httpMethod string, postDa
 				errMsg = errRes.Error()
 			}
 		}
-		return errors.Errorf("error handling request, server returned: status: %s, message: %s", response.Status, errMsg)
+		return &httpError{
+			status:     response.Status,
+			statusCode: response.StatusCode,
+			errMsg:     errMsg,
+		}
 	}
 
 	err = json.NewDecoder(response.Body).Decode(res)

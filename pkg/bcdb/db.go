@@ -66,6 +66,10 @@ type Ledger interface {
 	// GetDataProof returns proof of existence of value associated with key in block Merkle-Patricia Trie
 	// Proof itself is a path from node that contains value to root node in MPTrie
 	GetDataProof(blockNum uint64, dbName, key string, isDeleted bool) (*state.Proof, error)
+	// NewBlockHeaderDeliveryService creates a delivery service to deliver block header
+	// from a given starting block number present in the config to all the future block
+	// till the service is stopped
+	NewBlockHeaderDeliveryService(conf *BlockHeaderDeliveryConfig) BlockHeaderDelivererService
 }
 
 type Provenance interface {
