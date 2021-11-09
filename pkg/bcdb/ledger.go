@@ -13,7 +13,7 @@ type ledger struct {
 }
 
 func (l *ledger) GetBlockHeader(blockNum uint64) (*types.BlockHeader, error) {
-	path := constants.URLForLedgerBlock(blockNum)
+	path := constants.URLForLedgerBlock(blockNum, false)
 	resEnv := &types.GetBlockResponseEnvelope{}
 	err := l.handleRequest(
 		path,
