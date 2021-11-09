@@ -340,7 +340,7 @@ func TestDataContext_GetUserPermissions(t *testing.T) {
 	require.NoError(t, err)
 	_, _, err = tx.Get("bdb", "key1")
 	require.Error(t, err)
-	require.EqualError(t, err, "error handling request, server returned: status: 403 Forbidden, message: error while processing 'GET /data/bdb/key1' because the user [bob] has no permission to read key [key1] from database [bdb]")
+	require.EqualError(t, err, "error handling request, server returned: status: 403 Forbidden, status code: 403, message: error while processing 'GET /data/bdb/key1' because the user [bob] has no permission to read key [key1] from database [bdb]")
 	err = tx.Abort()
 	require.NoError(t, err)
 
@@ -743,7 +743,7 @@ func createDB(t *testing.T, dbName string, session DBSession) {
 	require.True(t, exist)
 }
 
-func putKeySync(t *testing.T, dbName, key string, value string, user string, session DBSession) *types.TxReceipt {
+func putKeySync(t *testing.T, dbName, key string, value string, user string, session DBSession) (*types.TxReceipt, string) {
 	tx, err := session.DataTx()
 	require.NoError(t, err)
 
@@ -763,7 +763,7 @@ func putKeySync(t *testing.T, dbName, key string, value string, user string, ses
 	require.NoError(t, err, fmt.Sprintf("Key = %s, value = %s", key, value))
 	require.NotNil(t, txID)
 	require.NotNil(t, receipt)
-	return receipt
+	return receipt, txID
 }
 
 func putMultipleKeysAndValues(t *testing.T, key []string, value []string, user string, session DBSession) (txEnvelopes []proto.Message) {

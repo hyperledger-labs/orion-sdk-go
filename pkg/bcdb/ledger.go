@@ -20,6 +20,7 @@ func (l *ledger) GetBlockHeader(blockNum uint64) (*types.BlockHeader, error) {
 		&types.GetBlockQuery{
 			UserId:      l.userID,
 			BlockNumber: blockNum,
+			Augmented:   false,
 		},
 		resEnv,
 	)
@@ -31,6 +32,20 @@ func (l *ledger) GetBlockHeader(blockNum uint64) (*types.BlockHeader, error) {
 	// TODO: signature verification
 
 	return resEnv.GetResponse().GetBlockHeader(), nil
+}
+
+func (l *ledger) NewBlockHeaderDeliveryService(conf *BlockHeaderDeliveryConfig) BlockHeaderDelivererService {
+	d := &blockHeaderDeliverer{
+		blockHeaders: make(chan interface{}, conf.Capacity),
+		stop:         make(chan struct{}),
+		conf:         conf,
+		txContext:    l.commonTxContext,
+		logger:       l.logger,
+	}
+
+	go d.start()
+
+	return d
 }
 
 func (l *ledger) GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeader, error) {
