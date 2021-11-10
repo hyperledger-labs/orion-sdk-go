@@ -42,22 +42,22 @@ func TestDataJSONQuery(t *testing.T) {
 	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 	userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
-	v1 := `{"attr1":true, "attr2": -10, "attr3": "name1"}`
+	v1 := `{"attr1":true, "attr2": -10, "attr3": "name1", "attr4": "abc"}`
 	putKeySync(t, "testDB", "key1", v1, "alice", userSession)
 
-	v2 := `{"attr1":false, "attr2": -110, "attr3": "name2"}`
+	v2 := `{"attr1":false, "attr2": -110, "attr3": "name2", "attr4": "def"}`
 	putKeySync(t, "testDB", "key2", v2, "alice", userSession)
 
-	v3 := `{"attr1":true, "attr2": -1, "attr3": "name3"}`
+	v3 := `{"attr1":true, "attr2": -1, "attr3": "name3", "attr4": "ghi"}`
 	putKeySync(t, "testDB", "key3", v3, "alice", userSession)
 
-	v4 := `{"attr1":false, "attr2": 0, "attr3": "name4"}`
+	v4 := `{"attr1":false, "attr2": 0, "attr3": "name4", "attr4": "jkl"}`
 	putKeySync(t, "testDB", "key4", v4, "alice", userSession)
 
-	v5 := `{"attr1":true, "attr2": 110, "attr3": "name5"}`
+	v5 := `{"attr1":true, "attr2": 110, "attr3": "name5", "attr4": "mno"}`
 	putKeySync(t, "testDB", "key5", v5, "alice", userSession)
 
-	v6 := `{"attr1":true, "attr2": 100, "attr3": "name6"}`
+	v6 := `{"attr1":true, "attr2": 100, "attr3": "name6", "attr4": "pqr"}`
 	putKeySync(t, "testDB", "key6", v6, "alice", userSession)
 
 	acl := &types.AccessControl{
