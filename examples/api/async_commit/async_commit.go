@@ -15,13 +15,13 @@ import (
 	Example of using async commit
 */
 func main() {
-	if err := executeAsyncCommitExample(); err != nil {
+	if err := executeAsyncCommitExample("../../util/config.yml"); err != nil {
 		os.Exit(1)
 	}
 }
 
-func executeAsyncCommitExample() error {
-	session, err := prepareData()
+func executeAsyncCommitExample(configFile string) error {
+	session, err := prepareData(configFile)
 	if session == nil || err != nil {
 		return err
 	}
@@ -63,6 +63,9 @@ LOOP:
 		case <-time.After(10 * time.Millisecond):
 			txReceipt, err = l.GetTransactionReceipt(txID)
 			if err != nil {
+				if _, notFoundErr := err.(*bcdb.ErrorNotFound); notFoundErr {
+					continue
+				}
 				fmt.Printf("Getting transaction receipt failed, reason: %s\n", err.Error())
 				return err
 			}
@@ -84,8 +87,8 @@ LOOP:
 	return nil
 }
 
-func prepareData() (bcdb.DBSession, error) {
-	c, err := util.ReadConfig("../../util/config.yml")
+func prepareData(configFile string) (bcdb.DBSession, error) {
+	c, err := util.ReadConfig(configFile)
 	if err != nil {
 		fmt.Printf(err.Error())
 		return nil, err

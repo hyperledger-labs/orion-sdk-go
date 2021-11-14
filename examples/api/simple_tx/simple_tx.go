@@ -14,13 +14,13 @@ import (
 	Add, get, update and delete key-value pairs on the database
 */
 func main() {
-	if err := executeSimpleTxExample(); err != nil {
+	if err := executeSimpleTxExample("../../util/config.yml"); err != nil {
 		os.Exit(1)
 	}
 }
 
-func executeSimpleTxExample() error {
-	c, err := util.ReadConfig("../../util/config.yml")
+func executeSimpleTxExample(configFile string) error {
+	c, err := util.ReadConfig(configFile)
 	if err != nil {
 		fmt.Printf(err.Error())
 		return err
