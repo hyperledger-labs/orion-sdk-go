@@ -98,8 +98,6 @@ func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
 }
 
 func TestConfigTxContext_AddAdmin(t *testing.T) {
-	t.Skip("Add admin is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/148")
-
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 
@@ -167,8 +165,6 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_DeleteAdmin(t *testing.T) {
-	t.Skip("Delete admin is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/148")
-
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "admin3", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
@@ -248,13 +244,11 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 
 	// session1 by removed admin cannot execute additional transactions
 	tx4, err := session1.ConfigTx()
-	require.EqualError(t, err, "error handling request, server returned: status: 401 Unauthorized, message: signature verification failed")
+	require.EqualError(t, err, "error handling request, server returned: status: 401 Unauthorized, status code: 401, message: signature verification failed")
 	require.Nil(t, tx4)
 }
 
 func TestConfigTxContext_UpdateAdmin(t *testing.T) {
-	t.Skip("Update admin is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/148")
-
 	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "adminUpdated", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
@@ -315,7 +309,7 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 
 	// session1 by updated admin cannot execute additional transactions, need to recreate session
 	tx3, err := session1.ConfigTx()
-	require.EqualError(t, err, "error handling request, server returned: status: 401 Unauthorized, message: signature verification failed")
+	require.EqualError(t, err, "error handling request, server returned: status: 401 Unauthorized, status code: 401, message: signature verification failed")
 	require.Nil(t, tx3)
 
 	// need to recreate session with new credentials

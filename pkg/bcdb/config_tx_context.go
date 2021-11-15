@@ -14,7 +14,7 @@ import (
 // configuration management related transactions.
 // Add, delete and update an admin record; Add, delete and update a cluster node config.
 type ConfigTxContext interface {
-	// Embed general abstraction.
+	// TxContext embeds the general abstraction.
 	TxContext
 
 	// AddAdmin add admin record.
