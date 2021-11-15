@@ -247,3 +247,11 @@ type ErrorTxValidation struct {
 func (e *ErrorTxValidation) Error() string {
 	return "transaction txID = " + e.TxID + " is not valid, flag: " + e.Flag + ", reason: " + e.Reason
 }
+
+type ErrorNotFound struct {
+	Message string
+}
+
+func (e *ErrorNotFound) Error() string {
+	return e.Message
+}

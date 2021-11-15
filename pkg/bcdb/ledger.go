@@ -3,6 +3,8 @@
 package bcdb
 
 import (
+	"net/http"
+
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
 	"github.com/hyperledger-labs/orion-server/pkg/state"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
@@ -25,8 +27,13 @@ func (l *ledger) GetBlockHeader(blockNum uint64) (*types.BlockHeader, error) {
 		resEnv,
 	)
 	if err != nil {
-		l.logger.Errorf("failed to execute ledger block query %s, due to %s", path, err)
-		return nil, err
+		httpError, ok := err.(*httpError)
+		if !ok || httpError.statusCode != http.StatusNotFound {
+			l.logger.Errorf("failed to execute ledger block query %s, due to %s", path, err)
+			return nil, err
+		} else {
+			return nil, &ErrorNotFound{err.Error()}
+		}
 	}
 
 	// TODO: signature verification
@@ -104,8 +111,13 @@ func (l *ledger) GetTransactionReceipt(txId string) (*types.TxReceipt, error) {
 		}, resEnv,
 	)
 	if err != nil {
-		l.logger.Errorf("failed to execute transaction receipt query %s, due to %s", path, err)
-		return nil, err
+		httpError, ok := err.(*httpError)
+		if !ok || httpError.statusCode != http.StatusNotFound {
+			l.logger.Errorf("failed to execute transaction receipt query %s, due to %s", path, err)
+			return nil, err
+		} else {
+			return nil, &ErrorNotFound{err.Error()}
+		}
 	}
 
 	// TODO: signature verification
