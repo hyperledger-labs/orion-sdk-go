@@ -13,7 +13,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"time"
 
 	"github.com/hyperledger-labs/orion-server/pkg/certificateauthority"
@@ -54,7 +53,7 @@ func WithTxID(txID string) TxContextOption {
 		if len(txID) == 0 {
 			return errors.New("WithTxID: empty txID")
 		}
-		if err := SafeCharsForTxID(txID); err != nil {
+		if err := constants.SafeURLSegmentNZ(txID); err != nil {
 			return errors.WithMessage(err, "WithTxID")
 		}
 
@@ -347,20 +346,4 @@ func computeTxID(userCert []byte) (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(sha256Hash), nil
-}
-
-var validIDChar = regexp.MustCompile(`^[-\._~%!\$&'\(\)\*\+,;=:@a-zA-Z0-9]+$`)
-
-// SafeCharsForTxID checks that the TxID has only safe characters.
-//
-// from https://www.ietf.org/rfc/rfc3986.txt
-// segment-nz  = pchar*1
-// pchar       = unreserved / pct-encoded / sub-delims / ":" / "@"
-// unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
-// sub-delims  = "!" / "$" / "&" / "'" / "(" / ")" / "*" / "+" / "," / ";" / "="
-func SafeCharsForTxID(s string) error {
-	if !validIDChar.MatchString(s) {
-		return errors.Errorf("TxID contains un-safe characters: %q", s)
-	}
-	return nil
 }

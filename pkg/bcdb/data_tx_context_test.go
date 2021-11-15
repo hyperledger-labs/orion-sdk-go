@@ -88,7 +88,7 @@ func TestDataContext_PutKey_WithTxID(t *testing.T) {
 	// URL segment unsafe char `/`
 	tx3, err := userSession.DataTx(WithTxID("external/TxID-1"))
 	require.Nil(t, tx3)
-	require.EqualError(t, err, "error while applying option: WithTxID: TxID contains un-safe characters: \"external/TxID-1\"")
+	require.EqualError(t, err, "error while applying option: WithTxID: un-safe for a URL segment: \"external/TxID-1\"")
 
 	tx4, err := userSession.DataTx(WithTxID(""))
 	require.Nil(t, tx4)
