@@ -46,16 +46,22 @@ Generate crypto materials for users used in the examples
 ```
 ./scripts/cryptoGen.sh sampleconfig alice bob charlie
 ```
-
+For more options about crypto generation, see [here](https://labs.hyperledger.org/orion-server/docs/getting-started/launching-one-node/crypto-materials)
 #### Generate docker image
 ```
 make docker
 ```
 #### Start the server inside a docker container
 
-```
-docker run -it --rm -v $(pwd)/sampleconfig/:/etc/orion-server -p 6001:6001 -p 7050:7050 orion-server
+```shell
+docker run -it --rm -v $(pwd)/deployment/crypto/:/etc/orion-server/crypto -p 6001:6001 \
+    -p 7050:7050 orionbcdb/orion-server
 ``` 
+
+Docker image contains already all required configuration files, so thise command is enough for basic run.
+
+For information how to customize docker run parameters, including Orions server configuration, see [here](https://labs.hyperledger.org/orion-server/docs/getting-started/launching-one-node/docker)
+
 #### After this step, you can run multiple examples one after another without repeating the build process
 
 ## Run an example
