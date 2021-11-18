@@ -218,7 +218,31 @@ func (t *commonTxContext) handleGetPostRequest(rawurl, httpMethod string, postDa
 		return err
 	}
 
+	if _, ok := res.(ResponseEnvelop); ok {
+		responsePayload := res.(ResponseEnvelop).GetResponse()
+		respBytes, err := json.Marshal(responsePayload)
+		if err != nil {
+			t.logger.Errorf("failed to marshal the response")
+			return err
+		}
+		nodeID := responsePayload.GetHeader().GetNodeId()
+		err = t.verifier.Verify(nodeID, respBytes, responsePayload.GetSignature())
+		if err != nil {
+			t.logger.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
+			return errors.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
+		}
+	}
+
 	return nil
+}
+
+type ResponseEnvelop interface {
+	GetResponse() ResponseWithHeaderAndSignature
+}
+
+type ResponseWithHeaderAndSignature interface {
+	GetHeader() *types.ResponseHeader
+	GetSignature() []byte
 }
 
 func (t *commonTxContext) CommittedTxEnvelope() (proto.Message, error) {
