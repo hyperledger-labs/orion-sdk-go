@@ -110,8 +110,6 @@ func (d *dataTxContext) Get(dbName, key string) ([]byte, *types.Metadata, error)
 		return nil, nil, err
 	}
 
-	// TODO: signature verification
-
 	if !ok {
 		ops = newDBOperations()
 		d.operations[dbName] = ops

@@ -278,10 +278,6 @@ func (c *configTxContext) queryClusterConfig() error {
 		return err
 	}
 
-	// TODO need to validate signature in the response envelope
-	// configResponseEnv.Signature - the signature over response
-	// configResponseEnv.GetResponse().GetHeader().NodeID - the id of the node signed response
-
 	confResp := configResponseEnv.GetResponse()
 	c.oldConfig = confResp.GetConfig()
 	c.readOldConfigVersion = confResp.GetMetadata().GetVersion()

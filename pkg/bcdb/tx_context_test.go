@@ -130,7 +130,7 @@ func TestTxCommit(t *testing.T) {
 			},
 			syncCommit: true,
 			wantErr:    true,
-			errMsg: "INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE",
+			errMsg:     "INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE",
 		},
 		{
 			name: "dataTx sync server commitTimeout",
@@ -499,7 +499,7 @@ func TestTxCommit(t *testing.T) {
 			_, receipt, err := tt.txCtx.Commit(tt.syncCommit)
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Contains(t,  err.Error(),tt.errMsg)
+				require.Contains(t, err.Error(), tt.errMsg)
 				return
 			}
 			require.NoError(t, err)
@@ -521,6 +521,9 @@ func TestTxQuery(t *testing.T) {
 
 	verifier := &mocks.SignatureVerifier{}
 	verifier.On("Verify", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	verifierFails := &mocks.SignatureVerifier{}
+	verifierFails.On("Verify", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("bad-mock-signature"))
 
 	logger := createTestLogger(t)
 
@@ -594,6 +597,28 @@ func TestTxQuery(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "signature verifier fails",
+			txCtx: &commonTxContext{
+				userID:   "testUser",
+				signer:   emptySigner,
+				userCert: []byte{1, 2, 3},
+				replicaSet: map[string]*url.URL{
+					"node1": {
+						Path: "http://localhost:8888",
+					},
+				},
+				verifier: verifierFails,
+				restClient: NewRestClient("testUser", &mockHttpClient{
+					process: querySleep10,
+					resp:    okDataQueryResponse(),
+				}, emptySigner),
+				queryTimeout: time.Millisecond * 100,
+				logger:       logger,
+			},
+			wantErr: true,
+			errMsg:  "signature verification failed nodeID node1, due to bad-mock-signature",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -601,7 +626,7 @@ func TestTxQuery(t *testing.T) {
 			require.Error(t, err)
 			require.Contains(t, "can't access tx envelope, transaction not finalized", err.Error())
 			require.Nil(t, env)
-			res := &types.GetDataResponse{}
+			res := &types.GetDataResponseEnvelope{}
 			req := &types.GetDataQuery{
 				UserId: "testUSer",
 				DbName: "bdb",
@@ -619,6 +644,16 @@ func TestTxQuery(t *testing.T) {
 
 }
 
+func TestResponseSelector(t *testing.T) {
+	res, err := ResponseSelector(&types.GetDBStatusResponseEnvelope{})
+	require.NoError(t, err)
+	require.IsType(t, &types.GetDBStatusResponse{}, res)
+	res, err = ResponseSelector(&errorResponseEnvelope{})
+	require.Error(t, err)
+	require.Equal(t, err.Error(), "unknown response type *bcdb.errorResponseEnvelope")
+	require.Nil(t, res)
+}
+
 func okResponse() *http.Response {
 	okResp := &types.TxReceiptResponseEnvelope{
 		Response: &types.TxReceiptResponse{
@@ -630,14 +665,14 @@ func okResponse() *http.Response {
 					BaseHeader: &types.BlockHeaderBase{
 						Number: 1,
 					},
-					ValidationInfo:          []*types.ValidationInfo{
+					ValidationInfo: []*types.ValidationInfo{
 						{
-							Flag:                 types.Flag_VALID,
-							ReasonIfInvalid:      "",
+							Flag:            types.Flag_VALID,
+							ReasonIfInvalid: "",
 						},
 						{
-							Flag:                 types.Flag_VALID,
-							ReasonIfInvalid:      "",
+							Flag:            types.Flag_VALID,
+							ReasonIfInvalid: "",
 						},
 					},
 				},
@@ -690,10 +725,10 @@ func mvccResponse() *http.Response {
 					BaseHeader: &types.BlockHeaderBase{
 						Number: 1,
 					},
-					ValidationInfo:          []*types.ValidationInfo{
+					ValidationInfo: []*types.ValidationInfo{
 						{
-							Flag:                 types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE,
-							ReasonIfInvalid:      "oops",
+							Flag:            types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE,
+							ReasonIfInvalid: "oops",
 						},
 					},
 				},
@@ -840,3 +875,7 @@ type timeoutError struct{}
 func (e *timeoutError) Error() string   { return "timeout" }
 func (e *timeoutError) Timeout() bool   { return true }
 func (e *timeoutError) Temporary() bool { return true }
+
+type errorResponseEnvelope struct{}
+
+func (err *errorResponseEnvelope) GetSignature() []byte { return nil }

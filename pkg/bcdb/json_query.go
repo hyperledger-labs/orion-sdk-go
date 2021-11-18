@@ -33,7 +33,5 @@ func (j *JSONQueryExecutor) Execute(dbName, query string) ([]*types.KVWithMetada
 		return nil, err
 	}
 
-	// TODO: signature verification
-
 	return resEnv.GetResponse().KVs, nil
 }
