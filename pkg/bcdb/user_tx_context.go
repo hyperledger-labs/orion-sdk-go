@@ -3,10 +3,10 @@
 package bcdb
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
 	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/golang/protobuf/proto"
 )
 
 // UsersTxContext transaction context to operate with
@@ -72,8 +72,6 @@ func (u *userTxContext) GetUser(userID string) (*types.User, error) {
 		u.logger.Errorf("failed to execute user query, path = %s, due to %s", path, err)
 		return nil, err
 	}
-
-	// TODO: signature verification
 
 	res := resEnv.GetResponse()
 	u.userReads = append(u.userReads, &types.UserRead{

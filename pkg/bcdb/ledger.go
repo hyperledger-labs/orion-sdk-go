@@ -36,8 +36,6 @@ func (l *ledger) GetBlockHeader(blockNum uint64) (*types.BlockHeader, error) {
 		}
 	}
 
-	// TODO: signature verification
-
 	return resEnv.GetResponse().GetBlockHeader(), nil
 }
 
@@ -72,8 +70,6 @@ func (l *ledger) GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeade
 		return nil, err
 	}
 
-	// TODO: signature verification
-
 	return resEnv.GetResponse().GetBlockHeaders(), nil
 }
 
@@ -92,8 +88,6 @@ func (l *ledger) GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, er
 		l.logger.Errorf("failed to execute transaction proof query %s, due to %s", path, err)
 		return nil, err
 	}
-
-	// TODO: signature verification
 
 	return &TxProof{
 		intermediateHashes: resEnv.GetResponse().GetHashes(),
@@ -120,8 +114,6 @@ func (l *ledger) GetTransactionReceipt(txId string) (*types.TxReceipt, error) {
 		}
 	}
 
-	// TODO: signature verification
-
 	return resEnv.GetResponse().GetReceipt(), nil
 }
 
@@ -142,8 +134,6 @@ func (l *ledger) GetDataProof(blockNum uint64, dbName, key string, isDeleted boo
 		l.logger.Errorf("failed to execute state proof query %s, due to %s", path, err)
 		return nil, err
 	}
-
-	// TODO: signature verification
 
 	return state.NewProof(resEnv.GetResponse().GetPath()), nil
 }

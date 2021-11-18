@@ -219,30 +219,78 @@ func (t *commonTxContext) handleGetPostRequest(rawurl, httpMethod string, postDa
 	}
 
 	if _, ok := res.(ResponseEnvelop); ok {
-		responsePayload := res.(ResponseEnvelop).GetResponse()
+		responsePayload, err := ResponseSelector(res.(ResponseEnvelop))
+		if err != nil {
+			t.logger.Errorf("failed to recognize resopnse type: %s", err)
+			return err
+		}
 		respBytes, err := json.Marshal(responsePayload)
 		if err != nil {
 			t.logger.Errorf("failed to marshal the response")
 			return err
 		}
 		nodeID := responsePayload.GetHeader().GetNodeId()
-		err = t.verifier.Verify(nodeID, respBytes, responsePayload.GetSignature())
+		err = t.verifier.Verify(nodeID, respBytes, res.(ResponseEnvelop).GetSignature())
 		if err != nil {
 			t.logger.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
 			return errors.Errorf("signature verification failed nodeID %s, due to %s", nodeID, err)
 		}
+	} else {
+		t.logger.Errorf("can't identify response type, unable to validate signature")
+		return errors.New("can't identify response type, unable to validate signature")
 	}
 
 	return nil
 }
 
 type ResponseEnvelop interface {
-	GetResponse() ResponseWithHeaderAndSignature
+	GetSignature() []byte
 }
 
-type ResponseWithHeaderAndSignature interface {
+type ResponseWithHeader interface {
 	GetHeader() *types.ResponseHeader
-	GetSignature() []byte
+}
+
+func ResponseSelector(envelop ResponseEnvelop) (ResponseWithHeader, error) {
+	switch t := envelop.(type) {
+	case *types.GetDBStatusResponseEnvelope:
+		return envelop.(*types.GetDBStatusResponseEnvelope).GetResponse(), nil
+	case *types.GetDataResponseEnvelope:
+		return envelop.(*types.GetDataResponseEnvelope).GetResponse(), nil
+	case *types.GetUserResponseEnvelope:
+		return envelop.(*types.GetUserResponseEnvelope).GetResponse(), nil
+	case *types.GetConfigResponseEnvelope:
+		return envelop.(*types.GetConfigResponseEnvelope).GetResponse(), nil
+	case *types.GetNodeConfigResponseEnvelope:
+		return envelop.(*types.GetNodeConfigResponseEnvelope).GetResponse(), nil
+	case *types.GetBlockResponseEnvelope:
+		return envelop.(*types.GetBlockResponseEnvelope).GetResponse(), nil
+	case *types.GetAugmentedBlockHeaderResponseEnvelope:
+		return envelop.(*types.GetAugmentedBlockHeaderResponseEnvelope).GetResponse(), nil
+	case *types.GetLedgerPathResponseEnvelope:
+		return envelop.(*types.GetLedgerPathResponseEnvelope).GetResponse(), nil
+	case *types.GetTxProofResponseEnvelope:
+		return envelop.(*types.GetTxProofResponseEnvelope).GetResponse(), nil
+	case *types.GetDataProofResponseEnvelope:
+		return envelop.(*types.GetDataProofResponseEnvelope).GetResponse(), nil
+	case *types.GetHistoricalDataResponseEnvelope:
+		return envelop.(*types.GetHistoricalDataResponseEnvelope).GetResponse(), nil
+	case *types.GetDataReadersResponseEnvelope:
+		return envelop.(*types.GetDataReadersResponseEnvelope).GetResponse(), nil
+	case *types.GetDataWritersResponseEnvelope:
+		return envelop.(*types.GetDataWritersResponseEnvelope).GetResponse(), nil
+	case *types.GetDataProvenanceResponseEnvelope:
+		return envelop.(*types.GetDataProvenanceResponseEnvelope).GetResponse(), nil
+	case *types.GetTxIDsSubmittedByResponseEnvelope:
+		return envelop.(*types.GetTxIDsSubmittedByResponseEnvelope).GetResponse(), nil
+	case *types.TxReceiptResponseEnvelope:
+		return envelop.(*types.TxReceiptResponseEnvelope).GetResponse(), nil
+	case *types.DataQueryResponseEnvelope:
+		return envelop.(*types.DataQueryResponseEnvelope).GetResponse(), nil
+
+	default:
+		return nil, errors.Errorf("unknown response type %T", t)
+	}
 }
 
 func (t *commonTxContext) CommittedTxEnvelope() (proto.Message, error) {

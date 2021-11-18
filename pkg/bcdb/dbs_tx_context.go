@@ -79,8 +79,6 @@ func (d *dbsTxContext) Exists(dbName string) (bool, error) {
 		return false, err
 	}
 
-	// TODO: signature verification
-
 	return resEnv.GetResponse().GetExist(), nil
 }
 
