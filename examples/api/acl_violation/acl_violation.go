@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"os"
+	"path"
 	"time"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
@@ -21,25 +22,25 @@ import (
 	each user opens a transaction that writes to the database, alice tx is valid and bob tx is non-valid
 */
 func main() {
-	if err := executeAclViolationExample(); err != nil {
+	if err := executeAclViolationExample("../../../../orion-server/deployment/crypto/", "../../util/config.yml"); err != nil {
 		os.Exit(1)
 	}
 }
 
-func executeAclViolationExample() error {
-	session, db, err := openSessionAndCreateDB()
+func executeAclViolationExample(cryptoDir string, configFile string) error {
+	session, db, err := openSessionAndCreateDB(configFile)
 	if session == nil || db == nil || err != nil {
 		return err
 	}
 
-	err = addUser(session, "alice", "../../../../orion-server/sampleconfig/crypto/alice/alice.pem",
+	err = addUser(session, "alice", path.Join(cryptoDir, "alice", "alice.pem"),
 		nil, []string{"db"})
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
 		return err
 	}
 
-	err = addUser(session, "bob", "../../../../orion-server/sampleconfig/crypto/bob/bob.pem",
+	err = addUser(session, "bob", path.Join(cryptoDir, "bob", "bob.pem"),
 		[]string{"db"}, nil)
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
@@ -50,8 +51,8 @@ func executeAclViolationExample() error {
 	aliceConfig := config.SessionConfig{
 		UserConfig: &config.UserConfig{
 			UserID:         "alice",
-			CertPath:       "../../../../orion-server/sampleconfig/crypto/alice/alice.pem",
-			PrivateKeyPath: "../../../../orion-server/sampleconfig/crypto/alice/alice.key",
+			CertPath:       path.Join(cryptoDir, "alice", "alice.pem"),
+			PrivateKeyPath: path.Join(cryptoDir, "alice", "alice.key"),
 		},
 		TxTimeout: time.Second * 5,
 	}
@@ -91,8 +92,8 @@ func executeAclViolationExample() error {
 	bobConfig := config.SessionConfig{
 		UserConfig: &config.UserConfig{
 			UserID:         "bob",
-			CertPath:       "../../../../orion-server/sampleconfig/crypto/bob/bob.pem",
-			PrivateKeyPath: "../../../../orion-server/sampleconfig/crypto/bob/bob.key",
+			CertPath:       path.Join(cryptoDir, "bob", "bob.pem"),
+			PrivateKeyPath: path.Join(cryptoDir, "bob", "bob.key"),
 		},
 		TxTimeout: time.Second * 5,
 	}
@@ -157,8 +158,8 @@ func clearData(session bcdb.DBSession) error {
 	return nil
 }
 
-func openSessionAndCreateDB() (bcdb.DBSession, bcdb.BCDB, error) {
-	c, err := util.ReadConfig("../../util/config.yml")
+func openSessionAndCreateDB(configFile string) (bcdb.DBSession, bcdb.BCDB, error) {
+	c, err := util.ReadConfig(configFile)
 	if err != nil {
 		fmt.Printf(err.Error())
 		return nil, nil, err

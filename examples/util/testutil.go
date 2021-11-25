@@ -50,7 +50,7 @@ func CreateTestEnvFilesAndConfigs(t *testing.T, tempDir string, nodePort uint32,
 		nodePort, raftPort = test.GetPorts()
 	}
 	cryptoDir := path.Join(tempDir, "crypto")
-	err := GenerateTestDirectoryStruct(tempDir, cryptoDir, nodePort, []string{"admin", "alice", "bob", "node"})
+	err := GenerateTestDirectoryStruct(tempDir, cryptoDir, nodePort, []string{"admin", "alice", "bob", "charlie", "node"})
 	if err != nil {
 		return nil, err
 	}

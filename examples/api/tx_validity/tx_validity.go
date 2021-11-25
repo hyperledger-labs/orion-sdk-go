@@ -20,13 +20,13 @@ import (
 	In the case of async-commit, it's not possible to know in advance which one of the transactions will be valid, as the server may reorder them.
 */
 func main() {
-	if err := executeTxValidityExample(); err != nil {
+	if err := executeTxValidityExample("../../util/config.yml"); err != nil {
 		os.Exit(1)
 	}
 }
 
-func executeTxValidityExample() error {
-	session, err := prepareData()
+func executeTxValidityExample(configFile string) error {
+	session, err := prepareData(configFile)
 	if session == nil || err != nil {
 		return err
 	}
@@ -230,6 +230,9 @@ LOOP:
 		case <-time.After(10 * time.Millisecond):
 			tx3Receipt, err = l.GetTransactionReceipt(tx3Id)
 			if err != nil {
+				if _, notFoundErr := err.(*bcdb.ErrorNotFound); notFoundErr {
+					continue
+				}
 				fmt.Printf("Getting transaction receipt failed, reason: %s\n", err.Error())
 				return err
 			}
@@ -265,6 +268,9 @@ LOOP2:
 		case <-time.After(10 * time.Millisecond):
 			tx4Receipt, err = l.GetTransactionReceipt(tx4Id)
 			if err != nil {
+				if _, notFoundErr := err.(*bcdb.ErrorNotFound); notFoundErr {
+					continue
+				}
 				fmt.Printf("Getting transaction receipt failed, reason: %s\n", err.Error())
 				return err
 			}
@@ -299,8 +305,8 @@ LOOP2:
 	return nil
 }
 
-func prepareData() (bcdb.DBSession, error) {
-	c, err := util.ReadConfig("../../util/config.yml")
+func prepareData(configFile string) (bcdb.DBSession, error) {
+	c, err := util.ReadConfig(configFile)
 	if err != nil {
 		fmt.Printf(err.Error())
 		return nil, err

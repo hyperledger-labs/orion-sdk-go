@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"time"
 
 	"github.com/pkg/errors"
@@ -24,20 +25,20 @@ import (
        keys where each key has different user in the write ACL, the signature of additional users may be required.
 */
 func main() {
-	if err := executeMultiSignExample(); err != nil {
+	if err := executeMultiSignExample("../../../../orion-server/deployment/crypto/", "../../util/config.yml"); err != nil {
 		os.Exit(1)
 	}
 }
 
-func executeMultiSignExample() error {
+func executeMultiSignExample(cryptoDir string, configFile string) error {
 	// creating new database 'db'
-	session, db, err := openSessionAndCreateDB()
+	session, db, err := openSessionAndCreateDB(configFile)
 	if session == nil || db == nil || err != nil {
 		return err
 	}
 
 	// creating 3 users: alice, bob and charlie, with read-write permission on the database 'db'
-	aliceSession, bobSession, charlieSession, err := addUsersAndOpenUsersSessions(session, db)
+	aliceSession, bobSession, charlieSession, err := addUsersAndOpenUsersSessions(session, db, cryptoDir)
 	if err != nil {
 		return err
 	}
@@ -91,8 +92,8 @@ func clearData(session bcdb.DBSession) error {
 	return nil
 }
 
-func openSessionAndCreateDB() (bcdb.DBSession, bcdb.BCDB, error) {
-	c, err := util.ReadConfig("../../util/config.yml")
+func openSessionAndCreateDB(configFile string) (bcdb.DBSession, bcdb.BCDB, error) {
+	c, err := util.ReadConfig(configFile)
 	if err != nil {
 		fmt.Printf(err.Error())
 		return nil, nil, err
@@ -216,12 +217,12 @@ func addUser(session bcdb.DBSession, userName string, pemUserCert string, readPr
 	return nil
 }
 
-func openUserSession(db bcdb.BCDB, userName string) (bcdb.DBSession, error) {
+func openUserSession(db bcdb.BCDB, userName string, cryptoDir string) (bcdb.DBSession, error) {
 	userConfig := config.SessionConfig{
 		UserConfig: &config.UserConfig{
 			UserID:         userName,
-			CertPath:       "../../../../orion-server/sampleconfig/crypto/" + userName + "/" + userName + ".pem",
-			PrivateKeyPath: "../../../../orion-server/sampleconfig/crypto/" + userName + "/" + userName + ".key",
+			CertPath:       path.Join(cryptoDir, userName, userName+".pem"),
+			PrivateKeyPath: path.Join(cryptoDir, userName, userName+".key"),
 		},
 		TxTimeout: time.Second * 5,
 	}
@@ -235,41 +236,41 @@ func openUserSession(db bcdb.BCDB, userName string) (bcdb.DBSession, error) {
 	return userSession, nil
 }
 
-func addUsersAndOpenUsersSessions(session bcdb.DBSession, db bcdb.BCDB) (bcdb.DBSession, bcdb.DBSession, bcdb.DBSession, error) {
-	err := addUser(session, "alice", "../../../../orion-server/sampleconfig/crypto/alice/alice.pem",
+func addUsersAndOpenUsersSessions(session bcdb.DBSession, db bcdb.BCDB, cryptoDir string) (bcdb.DBSession, bcdb.DBSession, bcdb.DBSession, error) {
+	err := addUser(session, "alice", path.Join(cryptoDir, "alice", "alice.pem"),
 		nil, []string{"db"})
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
 		return nil, nil, nil, err
 	}
 
-	err = addUser(session, "bob", "../../../../orion-server/sampleconfig/crypto/bob/bob.pem",
+	err = addUser(session, "bob", path.Join(cryptoDir, "bob", "bob.pem"),
 		nil, []string{"db"})
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
 		return nil, nil, nil, err
 	}
 
-	err = addUser(session, "charlie", "../../../../orion-server/sampleconfig/crypto/charlie/charlie.pem",
+	err = addUser(session, "charlie", path.Join(cryptoDir, "charlie", "charlie.pem"),
 		nil, []string{"db"})
 	if err != nil {
 		fmt.Printf("Adding new user to database failed, reason: %s\n", err.Error())
 		return nil, nil, nil, err
 	}
 
-	aliceSession, err := openUserSession(db, "alice")
+	aliceSession, err := openUserSession(db, "alice", cryptoDir)
 	if err != nil {
 		fmt.Printf("Session creating failed, reason: %s\n", err.Error())
 		return nil, nil, nil, err
 	}
 
-	bobSession, err := openUserSession(db, "bob")
+	bobSession, err := openUserSession(db, "bob", cryptoDir)
 	if err != nil {
 		fmt.Printf("Session creating failed, reason: %s\n", err.Error())
 		return nil, nil, nil, err
 	}
 
-	charlieSession, err := openUserSession(db, "charlie")
+	charlieSession, err := openUserSession(db, "charlie", cryptoDir)
 	if err != nil {
 		fmt.Printf("Session creating failed, reason: %s\n", err.Error())
 		return nil, nil, nil, err

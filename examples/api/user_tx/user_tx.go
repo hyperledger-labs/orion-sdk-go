@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
@@ -17,13 +18,13 @@ import (
    Create, update and delete database users
 */
 func main() {
-	if err := executeUserTxExample(); err != nil {
+	if err := executeUserTxExample("../../../../orion-server/deployment/crypto/", "../../util/config.yml"); err != nil {
 		os.Exit(1)
 	}
 }
 
-func executeUserTxExample() error {
-	c, err := util.ReadConfig("../../util/config.yml")
+func executeUserTxExample(cryptoDir string, configFile string) error {
+	c, err := util.ReadConfig(configFile)
 	if err != nil {
 		fmt.Printf(err.Error())
 		return err
@@ -153,7 +154,7 @@ func executeUserTxExample() error {
 		"db2": types.Privilege_ReadWrite,
 	}
 	//reading and decoding alice's certificate
-	alicePemUserCert, err := ioutil.ReadFile("../../../../orion-server/sampleconfig/crypto/alice/alice.pem")
+	alicePemUserCert, err := ioutil.ReadFile(path.Join(cryptoDir, "alice", "alice.pem"))
 	if err != nil {
 		fmt.Printf(err.Error())
 		return err
@@ -179,7 +180,7 @@ func executeUserTxExample() error {
 		"db2": types.Privilege_Read,
 	}
 	//reading and decoding bob's certificate
-	bobPemUserCert, err := ioutil.ReadFile("../../../../orion-server/sampleconfig/crypto/bob/bob.pem")
+	bobPemUserCert, err := ioutil.ReadFile(path.Join(cryptoDir, "bob", "bob.pem"))
 	if err != nil {
 		fmt.Printf(err.Error())
 		return err

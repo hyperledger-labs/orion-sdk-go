@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"time"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
@@ -22,13 +23,13 @@ import (
 	   - history of user transactions
 */
 func main() {
-	if err := executeProvenanceExample(); err != nil {
+	if err := executeProvenanceExample("../../../../orion-server/deployment/crypto/", "../../util/config.yml"); err != nil {
 		os.Exit(1)
 	}
 }
 
-func executeProvenanceExample() error {
-	session, err := prepareData()
+func executeProvenanceExample(cryptoDir string, configFile string) error {
+	session, err := prepareData(cryptoDir, configFile)
 	if session == nil || err != nil {
 		return err
 	}
@@ -158,8 +159,8 @@ func executeProvenanceExample() error {
 	- "key1" and "key2" added in first transaction, read and updated in second transaction
 	- "key3" added in first transaction, deleted in second transaction
 */
-func prepareData() (bcdb.DBSession, error) {
-	c, err := util.ReadConfig("../../util/config.yml")
+func prepareData(cryptoDir string, configFile string) (bcdb.DBSession, error) {
+	c, err := util.ReadConfig(configFile)
 	if err != nil {
 		fmt.Printf(err.Error())
 		return nil, err
@@ -266,7 +267,7 @@ func prepareData() (bcdb.DBSession, error) {
 	}
 
 	//reading and decoding alice's certificate
-	alicePemUserCert, err := ioutil.ReadFile("../../../../orion-server/sampleconfig/crypto/alice/alice.pem")
+	alicePemUserCert, err := ioutil.ReadFile(path.Join(cryptoDir, "alice", "alice.pem"))
 	if err != nil {
 		fmt.Printf(err.Error())
 		return nil, err
@@ -311,8 +312,8 @@ func prepareData() (bcdb.DBSession, error) {
 	aliceConfig := config.SessionConfig{
 		UserConfig: &config.UserConfig{
 			UserID:         "alice",
-			CertPath:       "../../../../orion-server/sampleconfig/crypto/alice/alice.pem",
-			PrivateKeyPath: "../../../../orion-server/sampleconfig/crypto/alice/alice.key",
+			CertPath:       path.Join(cryptoDir, "alice", "alice.pem"),
+			PrivateKeyPath: path.Join(cryptoDir, "alice", "alice.key"),
 		},
 		TxTimeout: time.Second * 5,
 	}

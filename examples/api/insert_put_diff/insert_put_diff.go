@@ -17,13 +17,13 @@ import (
 	tx3 - putting key3, val3 in the database
 */
 func main() {
-	if err := executeInsertPutExample(); err != nil {
+	if err := executeInsertPutExample("../../util/config.yml"); err != nil {
 		os.Exit(1)
 	}
 }
 
-func executeInsertPutExample() error {
-	session, err := prepareData()
+func executeInsertPutExample(configFile string) error {
+	session, err := prepareData(configFile)
 	if session == nil || err != nil {
 		return err
 	}
@@ -125,8 +125,8 @@ func executeInsertPutExample() error {
 	return nil
 }
 
-func prepareData() (bcdb.DBSession, error) {
-	c, err := util.ReadConfig("../../util/config.yml")
+func prepareData(configFile string) (bcdb.DBSession, error) {
+	c, err := util.ReadConfig(configFile)
 	if err != nil {
 		fmt.Printf(err.Error())
 		return nil, err

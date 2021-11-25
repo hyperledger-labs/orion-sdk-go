@@ -14,13 +14,13 @@ import (
 	Create and delete databases
 */
 func main() {
-	if err := executeDbTxExample(); err != nil {
+	if err := executeDbTxExample("../../util/config.yml"); err != nil {
 		os.Exit(1)
 	}
 }
 
-func executeDbTxExample() error {
-	c, err := util.ReadConfig("../../util/config.yml")
+func executeDbTxExample(configFile string) error {
+	c, err := util.ReadConfig(configFile)
 	if err != nil {
 		fmt.Printf(err.Error())
 		return err
