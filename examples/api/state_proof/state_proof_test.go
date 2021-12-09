@@ -17,7 +17,7 @@ func TestDataContext_ExecuteStateTrieExample(t *testing.T) {
 
 	testConfigFile := path.Join(tempDir, "config.yml")
 
-	testServer, _, _, err := util.SetupTestEnv(t, tempDir, uint32(6001))
+	testServer, _, _, err := util.SetupTestEnv(t, tempDir, uint32(6009))
 	require.NoError(t, err)
 	defer testServer.Stop()
 	util.StartTestServer(t, testServer)
