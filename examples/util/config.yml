@@ -1,13 +1,13 @@
 connectionConfig:
   replicaSet:
-    - id: "server1"
+    - id: "orion-server1"
       endpoint: "http://127.0.0.1:6001"
-  rootCAs: "../../../../orion-server/sampleconfig/crypto/CA/CA.pem"
+  rootCAs: "../../../../orion-server/deployment/crypto/CA/CA.pem"
 
 sessionConfig:
   userConfig:
     userID: "admin"
-    certPath: "../../../../orion-server/sampleconfig/crypto/admin/admin.pem"
-    privateKeyPath: "../../../../orion-server/sampleconfig/crypto/admin/admin.key"
+    certPath: "../../../../orion-server/deployment/crypto/admin/admin.pem"
+    privateKeyPath: "../../../../orion-server/deployment/crypto/admin/admin.key"
   txTimeout: 20s
   queryTimeout: 10s
