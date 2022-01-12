@@ -41,12 +41,13 @@ func executeAsyncCommitExample(configFile string) error {
 	}
 
 	fmt.Println("Committing transaction")
-	txID, txReceipt, err := tx.Commit(false)
+	txID, receiptEnv, err := tx.Commit(false)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
 		return err
 	}
 	//async commit always return receipt = nil
+	txReceipt := receiptEnv.GetResponse().GetReceipt()
 	fmt.Printf("Transaction receipt = %s\n", txReceipt)
 
 	l, err := session.Ledger()
@@ -80,8 +81,8 @@ LOOP:
 		}
 	}
 
-	fmt.Printf("The transaction is stored on block header number %d, index %d, with validiation flag %s\n", txReceipt.Header.GetBaseHeader().GetNumber(),
-		txReceipt.GetTxIndex(), txReceipt.Header.ValidationInfo[txReceipt.TxIndex].GetFlag())
+	fmt.Printf("The transaction is stored on block header number %d, index %d, with validiation flag %s\n", txReceipt.GetHeader().GetBaseHeader().GetNumber(),
+		txReceipt.GetTxIndex(), txReceipt.GetHeader().GetValidationInfo()[txReceipt.GetTxIndex()].GetFlag())
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
 	return nil

@@ -61,7 +61,7 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	txID, txReceipt, err := dataTx.Commit(true)
+	txID, receiptEnv, err := dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
@@ -73,7 +73,7 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 
 	lg.Infof("MintRequest committed successfully: %s", txID)
 
-	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
+	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv.GetResponse().GetReceipt(), lg)
 	if err != nil {
 		return "", err
 	}
@@ -153,7 +153,7 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	txID, txReceipt, err := dataTx.Commit(true)
+	txID, receiptEnv, err := dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
@@ -165,7 +165,7 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 
 	lg.Infof("MintApprove committed successfully: %s", txID)
 
-	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
+	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv.GetResponse().GetReceipt(), lg)
 	if err != nil {
 		return "", err
 	}

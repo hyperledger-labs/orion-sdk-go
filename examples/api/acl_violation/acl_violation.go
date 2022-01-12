@@ -78,10 +78,13 @@ func executeAclViolationExample(cryptoDir string, configFile string) error {
 	}
 
 	fmt.Println("Committing alice transaction")
-	txID, aliceReceipt, err := aliceTx.Commit(true)
+	txID, receiptEnv, err := aliceTx.Commit(true)
 	if err != nil {
-		if aliceReceipt != nil && aliceReceipt.Header.ValidationInfo[aliceReceipt.TxIndex].Flag != types.Flag_VALID {
-			fmt.Printf("Alice transaction is invalid, reason: %s\n", aliceReceipt.Header.ValidationInfo[aliceReceipt.TxIndex].ReasonIfInvalid)
+		if receiptEnv != nil {
+			receipt := receiptEnv.GetResponse().GetReceipt()
+			if receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].GetFlag() != types.Flag_VALID {
+				fmt.Printf("Alice transaction is invalid, reason: %s\n", receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].GetReasonIfInvalid())
+			}
 		}
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
 		return err
@@ -118,12 +121,15 @@ func executeAclViolationExample(cryptoDir string, configFile string) error {
 	}
 
 	fmt.Println("Committing bob transaction")
-	txID, bobReceipt, err := bobTx.Commit(true)
+	txID, receiptEnv, err = bobTx.Commit(true)
 	if err == nil {
 		return errors.Errorf("Unexpectedly transaction number %s committed successfully\n", txID)
 	}
-	if bobReceipt != nil && bobReceipt.Header.ValidationInfo[bobReceipt.TxIndex].Flag != types.Flag_VALID {
-		fmt.Printf("Bob transaction is invalid, reason: %s\n", bobReceipt.Header.ValidationInfo[bobReceipt.TxIndex].ReasonIfInvalid)
+	if receiptEnv != nil {
+		receipt := receiptEnv.GetResponse().GetReceipt()
+		if receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].GetFlag() != types.Flag_VALID {
+			fmt.Printf("Bob transaction is invalid, reason: %s\n", receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].GetReasonIfInvalid())
+		}
 	}
 	fmt.Printf("As expected, commit failed, reason: %s\n", err.Error())
 	return nil

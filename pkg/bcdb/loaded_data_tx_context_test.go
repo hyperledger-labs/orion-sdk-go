@@ -7,9 +7,9 @@ import (
 	"path"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -88,9 +88,9 @@ func TestLoadedDataContext_CommitConstructedMultiSign(t *testing.T) {
 		require.ElementsMatch(t, []string{"alice", "bob"}, loadedTx.MustSignUsers())
 		require.ElementsMatch(t, []string{"alice"}, loadedTx.SignedUsers())
 
-		txID, receipt, err := loadedTx.Commit(true)
+		txID, receiptEnv, err := loadedTx.Commit(true)
 		require.NoError(t, err)
-		require.NotNil(t, receipt)
+		require.NotNil(t, receiptEnv)
 		require.Equal(t, dataTxEnv.Payload.TxId, txID)
 
 		tx, err = userSession.DataTx()

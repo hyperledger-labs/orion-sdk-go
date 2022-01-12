@@ -70,12 +70,12 @@ func createDBs(s bcdb.DBSession) error {
 		return err
 	}
 
-	txID, receipt, err := dbtx.Commit(true)
+	txID, receiptEnv, err := dbtx.Commit(true)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("transaction with txID " + txID + " got committed in the block " + strconv.Itoa(int(receipt.GetHeader().GetBaseHeader().GetNumber())))
+	fmt.Println("transaction with txID " + txID + " got committed in the block " + strconv.Itoa(int(receiptEnv.GetResponse().GetReceipt().GetHeader().GetBaseHeader().GetNumber())))
 	return nil
 }
 
@@ -127,11 +127,11 @@ func createUsers(s bcdb.DBSession) error {
 		return err
 	}
 
-	txID, receipt, err := tx.Commit(true)
+	txID, receiptEnv, err := tx.Commit(true)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("transaction with txID " + txID + " got committed in the block " + strconv.Itoa(int(receipt.GetHeader().GetBaseHeader().GetNumber())))
+	fmt.Println("transaction with txID " + txID + " got committed in the block " + strconv.Itoa(int(receiptEnv.GetResponse().GetReceipt().GetHeader().GetBaseHeader().GetNumber())))
 	return nil
 }

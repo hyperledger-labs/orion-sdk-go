@@ -54,10 +54,11 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		err = tx.CreateDB("testDB", nil)
 		require.NoError(t, err)
 
-		txId, receipt, err := tx.Commit(true)
+		txId, receiptEnv, err := tx.Commit(true)
 		require.NoError(t, err)
 		require.True(t, len(txId) > 0)
-		require.NotNil(t, receipt)
+		require.NotNil(t, receiptEnv)
+		receipt := receiptEnv.GetResponse().GetReceipt()
 		require.True(t, len(receipt.GetHeader().GetValidationInfo()) > 0)
 		require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_VALID)
 
@@ -83,10 +84,11 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		err = tx.CreateDB("testDB-1", index)
 		require.NoError(t, err)
 
-		txId, receipt, err := tx.Commit(true)
+		txId, receiptEnv, err := tx.Commit(true)
 		require.NoError(t, err)
 		require.True(t, len(txId) > 0)
-		require.NotNil(t, receipt)
+		require.NotNil(t, receiptEnv)
+		receipt := receiptEnv.GetResponse().GetReceipt()
 		require.True(t, len(receipt.GetHeader().GetValidationInfo()) > 0)
 		require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_VALID)
 
@@ -157,10 +159,11 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		err = tx.CreateDB("testDB-2", index)
 		require.NoError(t, err)
 
-		txId, receipt, err := tx.Commit(true)
+		txId, receiptEnv, err := tx.Commit(true)
 		require.Contains(t, err.Error(), "invalid type provided for the attribute [attr1]")
 		require.True(t, len(txId) > 0)
-		require.NotNil(t, receipt)
+		require.NotNil(t, receiptEnv)
+		receipt := receiptEnv.GetResponse().GetReceipt()
 		require.True(t, len(receipt.GetHeader().GetValidationInfo()) > 0)
 		require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_INVALID_INCORRECT_ENTRIES)
 
@@ -188,10 +191,10 @@ func TestDBsContext_CheckStatusTimeout(t *testing.T) {
 	err = tx.CreateDB("testDB", nil)
 	require.NoError(t, err)
 
-	txId, receipt, err := tx.Commit(true)
+	txId, receiptEnv, err := tx.Commit(true)
 	require.NoError(t, err)
 	require.Greater(t, len(txId), 0)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	sessionOneNano := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Nanosecond)
 	sessionTenSeconds := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Second*10)
@@ -360,9 +363,9 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 	err = tx.CreateDB("testDB", nil)
 	require.NoError(t, err)
 
-	_, receipt, err := tx.Commit(true)
+	_, receiptEnv, err := tx.Commit(true)
 	require.NoError(t, err)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	// Check database status, whenever created or not
 	tx, err = session.DBsTx()
@@ -379,9 +382,9 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 	require.NoError(t, err)
 	err = tx.DeleteDB("testDB")
 	require.NoError(t, err)
-	_, receipt, err = tx.Commit(true)
+	_, receiptEnv, err = tx.Commit(true)
 	require.NoError(t, err)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	tx, err = session.DBsTx()
 	require.NoError(t, err)
@@ -412,9 +415,10 @@ func TestDBsContext_AttemptDeleteSystemDatabase(t *testing.T) {
 	err = tx.DeleteDB("bdb")
 	require.NoError(t, err)
 
-	txID, receipt, err := tx.Commit(true)
+	txID, receiptEnv, err := tx.Commit(true)
 	require.Error(t, err)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
+	receipt := receiptEnv.GetResponse().GetReceipt()
 	require.Equal(t, types.Flag_INVALID_INCORRECT_ENTRIES, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
 	require.Equal(t, "the database [bdb] is the system created default database to store states and it cannot be deleted", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
 	require.Equal(t, "transaction txID = "+txID+" is not valid, flag: INVALID_INCORRECT_ENTRIES,"+

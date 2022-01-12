@@ -242,11 +242,12 @@ func SyncDataUpdate(session bcdb.DBSession, updateKeys, updateValues, deleteKeys
 	}
 
 	fmt.Println("Committing transaction synchronously")
-	txID, receipt, err := tx.Commit(true)
+	txID, receiptEnv, err := tx.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
 		return "", nil, err
 	}
+	receipt := receiptEnv.GetResponse().GetReceipt()
 	fmt.Printf("Transaction ID %s committed successfully in block %d\n", txID, receipt.GetHeader().GetBaseHeader().GetNumber())
 	return txID, receipt, nil
 }

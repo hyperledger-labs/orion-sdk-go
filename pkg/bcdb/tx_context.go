@@ -42,7 +42,7 @@ type txContext interface {
 	cleanCtx()
 }
 
-func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (string, *types.TxReceipt, error) {
+func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (string, *types.TxReceiptResponseEnvelope, error) {
 	if t.txSpent {
 		return "", nil, ErrTxSpent
 	}
@@ -120,16 +120,16 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 	if sync {
 		validationInfo := receipt.GetHeader().GetValidationInfo()
 		if validationInfo == nil {
-			return t.txID, receipt, errors.Errorf("server error: validation info is nil")
+			return t.txID, nil, errors.Errorf("server error: validation info is nil")
 		} else {
 			validFlag := validationInfo[receipt.TxIndex].GetFlag()
 			if validFlag != types.Flag_VALID {
-				return t.txID, receipt, &ErrorTxValidation{TxID: t.txID, Flag: validFlag.String(), Reason: validationInfo[receipt.TxIndex].ReasonIfInvalid}
+				return t.txID, txResponseEnvelope, &ErrorTxValidation{TxID: t.txID, Flag: validFlag.String(), Reason: validationInfo[receipt.TxIndex].ReasonIfInvalid}
 			}
 		}
 	}
 
-	return t.txID, receipt, nil
+	return t.txID, txResponseEnvelope, nil
 }
 
 func (t *commonTxContext) abort(tx txContext) error {

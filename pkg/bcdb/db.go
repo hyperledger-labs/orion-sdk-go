@@ -42,10 +42,10 @@ var ErrTxSpent = errors.New("transaction committed or aborted")
 // functionality for all types of transactions context
 type TxContext interface {
 	// Commit submits transaction to the server, can be sync or async.
-	// Sync option returns tx id and tx receipt and
+	// Sync option returns tx id and tx receipt envelope and
 	// in case of error, commitTimeout error is one of possible errors to return.
 	// Async returns tx id, always nil as tx receipt or error
-	Commit(sync bool) (string, *types.TxReceipt, error)
+	Commit(sync bool) (string, *types.TxReceiptResponseEnvelope, error)
 	// Abort cancel submission and abandon all changes
 	// within given transaction context
 	Abort() error

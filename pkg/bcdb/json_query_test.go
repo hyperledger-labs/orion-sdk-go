@@ -29,10 +29,10 @@ func TestDataJSONQuery(t *testing.T) {
 	err = txDB.CreateDB("testDB", index)
 	require.NoError(t, err)
 
-	txId, receipt, err := txDB.Commit(true)
+	txId, receiptEnv, err := txDB.Commit(true)
 	require.NoError(t, err)
 	require.True(t, len(txId) > 0)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
