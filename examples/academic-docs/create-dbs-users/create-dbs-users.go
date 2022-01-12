@@ -13,27 +13,31 @@ import (
 )
 
 func main() {
-	fmt.Println("\n===Creating a Connection to Orion===\n")
+	fmt.Println("\n===Creating a Connection to Orion===")
+	fmt.Println()
 	db, err := util.CreateConnection()
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
-	fmt.Println("\n===Creating a Session to Orion===\n")
+	fmt.Println("\n===Creating a Session to Orion===")
+	fmt.Println()
 	session, err := util.OpenSession(db, "admin")
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
-	fmt.Println("\n===Creating a Database db1===\n")
+	fmt.Println("\n===Creating a Database db1===")
+	fmt.Println()
 	if err = createDBs(session); err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
-	fmt.Println("\n===Creating Users alice and bob===\n")
+	fmt.Println("\n===Creating Users alice and bob===")
+	fmt.Println()
 	if err = createUsers(session); err != nil {
 		fmt.Println(err.Error())
 		return
