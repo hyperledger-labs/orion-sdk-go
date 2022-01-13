@@ -128,7 +128,7 @@ func setupTestServer(t *testing.T, demoDir string) (*server.BCDBHTTPServer, stri
 		},
 
 		SharedConfig: &config.SharedConfiguration{
-			Nodes: []config.NodeConf{
+			Nodes: []*config.NodeConf{
 				{
 					NodeID:          "demo",
 					Host:            "127.0.0.1",

@@ -184,7 +184,7 @@ func GenerateSampleServerConfig(tempDir, cryptoDir string, nodePort uint32, raft
 			Bootstrap: config.BootstrapConf{},
 		},
 		SharedConfig: &config.SharedConfiguration{
-			Nodes: []config.NodeConf{
+			Nodes: []*config.NodeConf{
 				{
 					NodeID:          "server1",
 					Host:            "127.0.0.1",
