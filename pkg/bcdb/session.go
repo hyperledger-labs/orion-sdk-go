@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"net"
 	"net/http"
 	"net/url"
@@ -232,7 +233,7 @@ func (d *dbSession) sigVerifier(httpClient *http.Client) (SignatureVerifier, err
 	}
 
 	if verifier == nil {
-		d.logger.Errorf("failed to obtain the servers' certificates, replicaSet: %s", d.replicaSet)
+		d.logger.Errorf("failed to obtain the servers' certificates, bootstrapReplicaSet: %s", d.replicaSet)
 		return nil, errors.New("failed to obtain the servers' certificates")
 	}
 	return verifier, nil
@@ -240,12 +241,12 @@ func (d *dbSession) sigVerifier(httpClient *http.Client) (SignatureVerifier, err
 
 func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (SignatureVerifier, error) {
 	nodesCerts := map[string]*x509.Certificate{}
-	getConfig := &url.URL{
-		Path: constants.URLForGetConfig(),
+	getStatus := &url.URL{
+		Path: constants.GetClusterStatus,
 	}
-	configREST := replica.ResolveReference(getConfig)
+	statusREST := replica.ResolveReference(getStatus)
 	ctx := context.TODO()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, configREST.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, statusREST.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +264,7 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 	req.Header.Set(constants.SignatureHeader, base64.StdEncoding.EncodeToString(signature))
 	response, err := httpClient.Do(req)
 	if err != nil {
-		d.logger.Errorf("failed to send transaction to server %s, due to %s", getConfig.String(), err)
+		d.logger.Errorf("failed to send transaction to server %s, due to %s", getStatus.String(), err)
 		return nil, err
 	}
 
@@ -272,13 +273,17 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 		return nil, errors.New(fmt.Sprintf("error response from the server, %s", response.Status))
 	}
 
-	resEnv := &types.GetConfigResponseEnvelope{}
+	resEnv := &types.GetClusterStatusResponseEnvelope{}
 	err = json.NewDecoder(response.Body).Decode(resEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, node := range resEnv.GetResponse().GetConfig().GetNodes() {
+	statusResp := resEnv.GetResponse()
+	nodes := statusResp.GetNodes()
+	numNodes := len(nodes)
+	for i, node := range nodes {
+		d.logger.Debugf("Cluster Nodes (from %s): [%d/%d]: %s", replica.String(), i+1, numNodes, nodeConfigToString(node))
 		err := d.rootCAs.VerifyLeafCert(node.Certificate)
 		if err != nil {
 			return nil, err
@@ -295,18 +300,21 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 		return nil, err
 	}
 
-	respBytes, err := json.Marshal(resEnv.GetResponse())
+	respBytes, err := json.Marshal(statusResp)
 	if err != nil {
 		return nil, err
 	}
 
 	if err = verifier.Verify(
-		resEnv.GetResponse().GetHeader().GetNodeId(),
+		statusResp.GetHeader().GetNodeId(),
 		respBytes,
 		resEnv.GetSignature()); err != nil {
 		d.logger.Errorf("failed to verify configuration response, error = %s", err)
 		return nil, errors.Errorf("failed to verify configuration response, error = %s", err)
 	}
+
+	d.logger.Debugf("Cluster Status (from %s): Leader: %s, Active: %v, Version: %v",
+		statusResp.GetLeader(), statusResp.GetActive(), statusResp.GetVersion())
 
 	return verifier, err
 }
@@ -346,4 +354,8 @@ func computeTxID(userCert []byte) (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(sha256Hash), nil
+}
+
+func nodeConfigToString(n *types.NodeConfig) string {
+	return fmt.Sprintf("Id: %s, Address: %s, Port: %d, Cert-hash: %x", n.Id, n.Address, n.Port, crc32.ChecksumIEEE(n.Certificate))
 }
