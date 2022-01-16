@@ -122,12 +122,12 @@ func initDB(session bcdb.DBSession, lg *logger.SugarLogger) error {
 	if err != nil {
 		return err
 	}
-	txID, txReceipt, err := tx.Commit(true)
+	txID, receiptEnv, err := tx.Commit(true)
 	if err != nil {
 		lg.Errorf("cannot commit transaction to create cars db, due to %s", err)
 		return err
 	}
-	lg.Debugf("transaction to create carDB has been submitted, txID = %s, txReceipt = %s", txID, txReceipt.String())
+	lg.Debugf("transaction to create carDB has been submitted, txID = %s, txReceipt = %s", txID, receiptEnv.GetResponse().GetReceipt().String())
 
 	lg.Info("database carDB has been created")
 	return nil
@@ -163,10 +163,11 @@ func initUsers(demoDir string, session bcdb.DBSession, logger *logger.SugarLogge
 			return err
 		}
 
-		txID, receipt, err := usersTx.Commit(true)
+		txID, receiptEnv, err := usersTx.Commit(true)
 		if err != nil {
 			return err
 		}
+		receipt := receiptEnv.GetResponse().GetReceipt()
 		logger.Infof("transaction to provision user record has been committed, user-ID: %s, txID = %s, block = %i, txIdx = %i", role, txID, receipt.GetHeader().GetBaseHeader().GetNumber(), receipt.GetTxIndex())
 	}
 

@@ -69,7 +69,7 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	txID, txReceipt, err := dataTx.Commit(true)
+	txID, receiptEnv, err := dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
@@ -81,7 +81,7 @@ func TransferTo(demoDir, ownerID, buyerID, carRegistration string, lg *logger.Su
 
 	lg.Infof("TransferTo committed successfully: %s", txID)
 
-	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
+	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv.GetResponse().GetReceipt(), lg)
 	if err != nil {
 		return "", err
 	}
@@ -158,7 +158,7 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	txID, txReceipt, err := dataTx.Commit(true)
+	txID, receiptEnv, err := dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
@@ -170,7 +170,7 @@ func TransferReceive(demoDir, buyerID, carRegistration, transferToRecordKey stri
 
 	lg.Infof("TransferReceive committed successfully: %s", txID)
 
-	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
+	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv.GetResponse().GetReceipt(), lg)
 	if err != nil {
 		return "", err
 	}
@@ -254,7 +254,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	txID, txReceipt, err := dataTx.Commit(true)
+	txID, receiptEnv, err := dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
@@ -266,7 +266,7 @@ func Transfer(demoDir, dmvID, transferToRecordKey, transferRcvRecordKey string, 
 
 	lg.Infof("Transfer committed successfully: %s", txID)
 
-	err = saveTxEvidence(demoDir, txID, txEnv, txReceipt, lg)
+	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv.GetResponse().GetReceipt(), lg)
 	if err != nil {
 		return "", err
 	}

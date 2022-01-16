@@ -33,7 +33,7 @@ type userTxContext struct {
 	userDeletes []*types.UserDelete
 }
 
-func (u *userTxContext) Commit(sync bool) (string, *types.TxReceipt, error) {
+func (u *userTxContext) Commit(sync bool) (string, *types.TxReceiptResponseEnvelope, error) {
 	return u.commit(u, constants.PostUserTx, sync)
 }
 

@@ -60,13 +60,13 @@ func main() {
 			fmt.Println(err.Error())
 			return
 		}
-		_, txReceipt, err := tx.Commit(true)
+		_, receiptEnv, err := tx.Commit(true)
 		if err != nil {
 			fmt.Println(err.Error())
 			return
 		}
 
-		jsonTxReceipt, err := json.Marshal(txReceipt)
+		jsonTxReceipt, err := json.Marshal(receiptEnv.GetResponse().GetReceipt())
 		if err != nil {
 			fmt.Println(err.Error())
 			return

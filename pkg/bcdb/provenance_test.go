@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -566,8 +566,8 @@ func runUpdateTx(t *testing.T, user string, userSession DBSession, readKey strin
 	})
 	require.NoError(t, err)
 
-	_, receipt, err := userTx.Commit(true)
+	_, receiptEnv, err := userTx.Commit(true)
 	require.NoError(t, err)
-	require.NotNil(t, receipt)
-	return receipt
+	require.NotNil(t, receiptEnv)
+	return receiptEnv.GetResponse().GetReceipt()
 }

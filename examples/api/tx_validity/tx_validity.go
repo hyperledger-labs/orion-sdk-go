@@ -111,27 +111,28 @@ func executeTxValidityExample(configFile string) error {
 	}
 
 	fmt.Println("Committing transaction tx1")
-	tx1Id, tx1Receipt, err := tx1.Commit(true)
+	tx1Id, receiptEnv, err := tx1.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		if tx1Receipt == nil {
+		if receiptEnv == nil {
 			return err
 		}
 	} else {
 		fmt.Printf("Transaction number %s committed successfully\n", tx1Id)
 	}
 
-	tx1Flag := tx1Receipt.Header.ValidationInfo[tx1Receipt.TxIndex].Flag
+	tx1Receipt := receiptEnv.GetResponse().GetReceipt()
+	tx1Flag := tx1Receipt.GetHeader().GetValidationInfo()[tx1Receipt.GetTxIndex()].GetFlag()
 	if err == nil {
 		fmt.Printf("Transaction number %s validation flag is %s\n", tx1Id, tx1Flag)
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", tx1Id)
 
 	fmt.Println("Committing transaction tx2")
-	tx2Id, tx2Receipt, err := tx2.Commit(true)
+	tx2Id, receiptEnv, err := tx2.Commit(true)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
-		if tx2Receipt == nil {
+		if receiptEnv == nil {
 			return err
 		}
 	} else {
@@ -139,7 +140,8 @@ func executeTxValidityExample(configFile string) error {
 	}
 
 	var tx2Flag types.Flag
-	if tx2Receipt != nil {
+	if receiptEnv != nil {
+		tx2Receipt := receiptEnv.GetResponse().GetReceipt()
 		tx2Flag = tx2Receipt.Header.ValidationInfo[tx2Receipt.TxIndex].Flag
 		fmt.Printf("Transaction number %s validation flag is %s, reason: %s\n", tx2Id, tx2Flag,
 			tx2Receipt.Header.ValidationInfo[tx2Receipt.TxIndex].ReasonIfInvalid)
@@ -205,16 +207,18 @@ func executeTxValidityExample(configFile string) error {
 	}
 
 	fmt.Println("Committing transaction tx3")
-	tx3Id, tx3Receipt, err := tx3.Commit(false)
+	tx3Id, receiptEnv, err := tx3.Commit(false)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
 	}
+	tx3Receipt := receiptEnv.GetResponse().GetReceipt()
 
 	fmt.Println("Committing transaction tx4")
-	tx4Id, tx4Receipt, err := tx4.Commit(false)
+	tx4Id, receiptEnv, err := tx4.Commit(false)
 	if err != nil {
 		fmt.Printf("Commit failed, reason: %s\n", err.Error())
 	}
+	tx4Receipt := receiptEnv.GetResponse().GetReceipt()
 
 	l, err := session.Ledger()
 	if err != nil {

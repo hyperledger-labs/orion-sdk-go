@@ -68,10 +68,10 @@ func TestDataContext_PutKey_WithTxID(t *testing.T) {
 	err = tx.Put("bdb", "key1", []byte("some-value"), nil)
 	require.NoError(t, err)
 
-	txID, receipt, err := tx.Commit(true)
+	txID, receiptEnv, err := tx.Commit(true)
 	require.NoError(t, err)
 	require.Equal(t, "external-TxID-1", txID)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	// cannot reuse a TxID
 	tx2, err := userSession.DataTx(WithTxID("external-TxID-1"))
@@ -80,10 +80,10 @@ func TestDataContext_PutKey_WithTxID(t *testing.T) {
 	err = tx2.Put("bdb", "key1", []byte("some-other-value"), nil)
 	require.NoError(t, err)
 
-	txID2, receipt2, err := tx2.Commit(true)
+	txID2, receiptEnv2, err := tx2.Commit(true)
 	require.EqualError(t, err, "failed to submit transaction, server returned: status: 400 Bad Request, message: the transaction has a duplicate txID [external-TxID-1]")
 	require.Equal(t, "external-TxID-1", txID2)
-	require.Nil(t, receipt2)
+	require.Nil(t, receiptEnv2)
 
 	// URL segment unsafe char `/`
 	tx3, err := userSession.DataTx(WithTxID("external/TxID-1"))
@@ -135,10 +135,10 @@ func TestDataContext_MultipleUpdateForSameKey(t *testing.T) {
 	err = txDB.CreateDB("testDB", nil)
 	require.NoError(t, err)
 
-	txId, receipt, err := txDB.Commit(true)
+	txId, receiptEnv, err := txDB.Commit(true)
 	require.NoError(t, err)
 	require.True(t, len(txId) > 0)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 	require.NoError(t, err)
@@ -305,11 +305,12 @@ func TestDataContext_MultipleGetForSameKeyInTxAndMVCCConflict(t *testing.T) {
 	require.Equal(t, meta, storedRead.GetMetadata())
 	require.Equal(t, storedReadUpdated, storedRead)
 	require.NoError(t, err)
-	txID, receipt, err := tx.Commit(true)
+	txID, receiptEnv, err := tx.Commit(true)
 	require.Error(t, err)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
+	receipt := receiptEnv.GetResponse().GetReceipt()
 	require.Equal(t, types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
-	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
+	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].GetReasonIfInvalid())
 	require.Equal(t, "transaction txID = "+txID+" is not valid, flag: INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE,"+
 		" reason: mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", err.Error())
 }
@@ -492,11 +493,12 @@ func TestDataContext_AssertReadOnZeroVersion(t *testing.T) {
 	err = tx3.AssertRead("bdb", "key1", nil)
 	require.NoError(t, err)
 
-	txID, receipt, err := tx3.Commit(true)
+	txID, receiptEnv, err := tx3.Commit(true)
 	require.Error(t, err) // commit failed because 'key1' exists in the database => 'key1' version is not nil
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
+	receipt := receiptEnv.GetResponse().GetReceipt()
 	require.Equal(t, types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
-	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
+	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].GetReasonIfInvalid())
 	require.Equal(t, "transaction txID = "+txID+" is not valid, flag: INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE,"+
 		" reason: mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", err.Error())
 }
@@ -539,11 +541,12 @@ func TestDataContext_AssertReadIncorrectVersionAndMVCCConflict(t *testing.T) {
 	err = tx3.AssertRead("bdb", "key1", &incorrectVersion)
 	require.NoError(t, err)
 
-	txID, receipt, err := tx3.Commit(true)
+	txID, receiptEnv, err := tx3.Commit(true)
 	require.Error(t, err)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
+	receipt := receiptEnv.GetResponse().GetReceipt()
 	require.Equal(t, types.Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE, receipt.GetHeader().GetValidationInfo()[int(receipt.GetTxIndex())].GetFlag())
-	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().ValidationInfo[receipt.TxIndex].GetReasonIfInvalid())
+	require.Equal(t, "mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].GetReasonIfInvalid())
 	require.Equal(t, "transaction txID = "+txID+" is not valid, flag: INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE,"+
 		" reason: mvcc conflict has occurred as the committed state for the key [key1] in database [bdb] changed", err.Error())
 }
@@ -710,9 +713,9 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 		},
 	}, nil)
 	require.NoError(t, err)
-	_, receipt, err := tx.Commit(true)
+	_, receiptEnv, err := tx.Commit(true)
 	require.NoError(t, err)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	tx, err = session.UsersTx()
 	require.NoError(t, err)
@@ -728,10 +731,11 @@ func createDB(t *testing.T, dbName string, session DBSession) {
 	err = tx.CreateDB(dbName, nil)
 	require.NoError(t, err)
 
-	txId, receipt, err := tx.Commit(true)
+	txId, receiptEnv, err := tx.Commit(true)
 	require.NoError(t, err)
 	require.True(t, len(txId) > 0)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
+	receipt := receiptEnv.GetResponse().GetReceipt()
 	require.True(t, len(receipt.GetHeader().GetValidationInfo()) > 0)
 	require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_VALID)
 
@@ -759,11 +763,11 @@ func putKeySync(t *testing.T, dbName, key string, value string, user string, ses
 	})
 	require.NoError(t, err)
 
-	txID, receipt, err := tx.Commit(true)
+	txID, receiptEnv, err := tx.Commit(true)
 	require.NoError(t, err, fmt.Sprintf("Key = %s, value = %s", key, value))
 	require.NotNil(t, txID)
-	require.NotNil(t, receipt)
-	return receipt, txID
+	require.NotNil(t, receiptEnv)
+	return receiptEnv.GetResponse().GetReceipt(), txID
 }
 
 func putMultipleKeysAndValues(t *testing.T, key []string, value []string, user string, session DBSession) (txEnvelopes []proto.Message) {

@@ -47,7 +47,7 @@ type dataTxContext struct {
 	txUsers    map[string]bool
 }
 
-func (d *dataTxContext) Commit(sync bool) (string, *types.TxReceipt, error) {
+func (d *dataTxContext) Commit(sync bool) (string, *types.TxReceiptResponseEnvelope, error) {
 	return d.commit(d, constants.PostDataTx, sync)
 }
 

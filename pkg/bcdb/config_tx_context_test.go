@@ -138,10 +138,10 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 	err = tx.AddAdmin(admin2)
 	require.EqualError(t, err, "admin already exists in pending config: admin2")
 
-	txID, receipt, err := tx.Commit(true)
+	txID, receiptEnv, err := tx.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	tx2, err := session1.ConfigTx()
 	require.NoError(t, err)
@@ -199,10 +199,10 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	err = tx1.AddAdmin(admin3)
 	require.NoError(t, err)
 
-	txID, receipt, err := tx1.Commit(true)
+	txID, receiptEnv, err := tx1.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	tx, err := session1.ConfigTx()
 	require.NoError(t, err)
@@ -222,10 +222,10 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	err = tx2.DeleteAdmin("non-admin")
 	require.EqualError(t, err, "admin does not exist in current config: non-admin")
 
-	txID, receipt, err = tx2.Commit(true)
+	txID, receiptEnv, err = tx2.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	// verify tx was successfully committed
 	tx3, err := session2.ConfigTx()
@@ -277,10 +277,10 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	err = tx1.AddAdmin(admin2)
 	require.NoError(t, err)
 
-	txID, receipt, err := tx1.Commit(true)
+	txID, receiptEnv, err := tx1.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	// Update an admin
 	session2 := openUserSession(t, bcdb, "admin2", clientCryptoDir)
@@ -291,10 +291,10 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	err = tx2.UpdateAdmin(&types.Admin{Id: "non-admin", Certificate: []byte("bad-cert")})
 	require.EqualError(t, err, "admin does not exist in current config: non-admin")
 
-	txID, receipt, err = tx2.Commit(true)
+	txID, receiptEnv, err = tx2.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	tx, err := session2.ConfigTx()
 	require.NoError(t, err)
@@ -365,11 +365,11 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 	err = tx.AddClusterNode(node2, peer2)
 	require.NoError(t, err)
 
-	txID, receipt, err := tx.Commit(true)
+	txID, receiptEnv, err := tx.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
-	require.NotNil(t, receipt)
-	require.Equal(t, types.Flag_VALID, receipt.Header.ValidationInfo[receipt.GetTxIndex()].Flag)
+	require.NotNil(t, receiptEnv)
+	require.Equal(t, types.Flag_VALID, receiptEnv.Response.Receipt.Header.ValidationInfo[receiptEnv.Response.Receipt.GetTxIndex()].Flag)
 
 	tx2, err := session1.ConfigTx()
 	require.NoError(t, err)
@@ -424,11 +424,11 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 
 	err = tx1.AddClusterNode(node2, peer2)
 	require.NoError(t, err)
-	txID, receipt, err := tx1.Commit(true)
+	txID, receiptEnv, err := tx1.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
-	require.NotNil(t, receipt)
-	require.Equal(t, types.Flag_VALID, receipt.Header.ValidationInfo[receipt.GetTxIndex()].Flag)
+	require.NotNil(t, receiptEnv)
+	require.Equal(t, types.Flag_VALID, receiptEnv.Response.Receipt.Header.ValidationInfo[receiptEnv.Response.Receipt.GetTxIndex()].Flag)
 
 	tx2, err := session1.ConfigTx()
 	require.NoError(t, err)
@@ -447,11 +447,11 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 	err = tx2.DeleteClusterNode(node2.Id)
 	require.NoError(t, err)
 
-	txID, receipt, err = tx2.Commit(true)
+	txID, receiptEnv, err = tx2.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
-	require.NotNil(t, receipt)
-	require.Equal(t, types.Flag_VALID, receipt.Header.ValidationInfo[receipt.GetTxIndex()].Flag)
+	require.NotNil(t, receiptEnv)
+	require.Equal(t, types.Flag_VALID, receiptEnv.Response.Receipt.Header.ValidationInfo[receiptEnv.Response.Receipt.GetTxIndex()].Flag)
 
 	// verify tx was successfully committed. "Get" works once per Tx.
 	tx3, err := session1.ConfigTx()
@@ -500,10 +500,10 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 	err = tx1.UpdateClusterNode(node1, peer1)
 	require.NoError(t, err)
 
-	txID, receipt, err := tx1.Commit(true)
+	txID, receiptEnv, err := tx1.Commit(true)
 	require.NoError(t, err)
 	require.NotNil(t, txID)
-	require.NotNil(t, receipt)
+	require.NotNil(t, receiptEnv)
 
 	// verify tx was successfully committed. "Get" works once per Tx.
 	tx, err := session1.ConfigTx()

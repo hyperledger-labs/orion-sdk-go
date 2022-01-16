@@ -48,7 +48,7 @@ type configTxContext struct {
 	newConfig            *types.ClusterConfig
 }
 
-func (c *configTxContext) Commit(sync bool) (string, *types.TxReceipt, error) {
+func (c *configTxContext) Commit(sync bool) (string, *types.TxReceiptResponseEnvelope, error) {
 	return c.commit(c, constants.PostConfigTx, sync)
 }
 

@@ -200,21 +200,21 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 
 	switch txFinality {
 	case TxFinalityCommitSync:
-		txID, receipt, err := tx.Commit(true)
+		txID, receiptEnv, err := tx.Commit(true)
 		require.NoError(t, err)
 		require.True(t, len(txID) > 0)
-		require.NotNil(t, receipt)
+		require.NotNil(t, receiptEnv)
 	case TxFinalityCommitAsync:
-		txID, receipt, err := tx.Commit(false)
+		txID, receiptEnv, err := tx.Commit(false)
 		require.NoError(t, err)
 		require.True(t, len(txID) > 0)
-		require.Nil(t, receipt)
+		require.Nil(t, receiptEnv.GetResponse().GetReceipt())
 		switch tx.(type) {
 		case ConfigTxContext:
 			// TODO remove once support for non data tx provenance added
 			e, _ := tx.CommittedTxEnvelope()
-			env := e.(*types.ConfigTxEnvelope)
-			newConfig := env.GetPayload().GetNewConfig()
+			receiptEnv := e.(*types.ConfigTxEnvelope)
+			newConfig := receiptEnv.GetPayload().GetNewConfig()
 			require.Eventually(t, func() bool {
 				// verify tx was successfully committed. "Get" works once per Tx.
 				cfgTx, err := userSession.ConfigTx()

@@ -3,10 +3,10 @@
 package bcdb
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
 	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/golang/protobuf/proto"
 )
 
 type dbWrites struct {
@@ -52,7 +52,7 @@ type loadedDataTxContext struct {
 	txEnv *types.DataTxEnvelope
 }
 
-func (d *loadedDataTxContext) Commit(sync bool) (string, *types.TxReceipt, error) {
+func (d *loadedDataTxContext) Commit(sync bool) (string, *types.TxReceiptResponseEnvelope, error) {
 	return d.commit(d, constants.PostDataTx, sync)
 }
 

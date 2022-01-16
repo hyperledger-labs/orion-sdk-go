@@ -496,7 +496,7 @@ func TestTxCommit(t *testing.T) {
 			require.Error(t, err)
 			require.Contains(t, "can't access tx envelope, transaction not finalized", err.Error())
 			require.Nil(t, env)
-			_, receipt, err := tt.txCtx.Commit(tt.syncCommit)
+			_, receiptEnv, err := tt.txCtx.Commit(tt.syncCommit)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.errMsg)
@@ -507,7 +507,7 @@ func TestTxCommit(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, env)
 			if tt.syncCommit {
-				require.NotNil(t, receipt)
+				require.NotNil(t, receiptEnv.GetResponse().GetReceipt())
 			}
 			require.NoError(t, err)
 		})
