@@ -148,7 +148,7 @@ func writeConfigFile(demoDir string) error {
 		},
 	}
 	bootstrap := &config.SharedConfiguration{
-		Nodes: []config.NodeConf{
+		Nodes: []*config.NodeConf{
 			{
 				NodeID:          "demo",
 				Host:            "127.0.0.1",

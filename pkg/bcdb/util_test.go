@@ -85,7 +85,7 @@ func SetupTestServerWithParams(t *testing.T, cryptoTempDir string, blockTime tim
 			Bootstrap: config.BootstrapConf{},
 		},
 		SharedConfig: &config.SharedConfiguration{
-			Nodes: []config.NodeConf{
+			Nodes: []*config.NodeConf{
 				{
 					NodeID:          "testNode1",
 					Host:            "127.0.0.1",
