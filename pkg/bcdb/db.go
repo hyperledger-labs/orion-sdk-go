@@ -1,5 +1,6 @@
 // Copyright IBM Corp. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 package bcdb
 
 import (
@@ -177,16 +178,16 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 	}
 
 	return &bDB{
-		replicaSet: urls,
-		rootCAs:    rootCACerts,
-		logger:     dbLogger,
+		bootstrapReplicaSet: urls,
+		rootCAs:             rootCACerts,
+		logger:              dbLogger,
 	}, nil
 }
 
 type bDB struct {
-	replicaSet map[string]*url.URL
-	rootCAs    *certificateauthority.CACertCollection
-	logger     *logger.SugarLogger
+	bootstrapReplicaSet map[string]*url.URL
+	rootCAs             *certificateauthority.CACertCollection
+	logger              *logger.SugarLogger
 }
 
 // Session parses sessions configuration and opens session to BCDB, takes
@@ -212,7 +213,7 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 		userID:       cfg.UserConfig.UserID,
 		signer:       signer,
 		userCert:     certBytes,
-		replicaSet:   b.replicaSet,
+		replicaSet:   b.bootstrapReplicaSet,
 		rootCAs:      b.rootCAs,
 		txTimeout:    cfg.TxTimeout,
 		queryTimeout: cfg.QueryTimeout,
