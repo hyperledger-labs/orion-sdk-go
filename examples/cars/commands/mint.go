@@ -1,5 +1,6 @@
 // Copyright IBM Corp. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 package commands
 
 import (
@@ -145,8 +146,8 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 
 	err = dataTx.Put(CarDBName, carKey, carRecordBytes,
 		&types.AccessControl{
-			ReadUsers:      usersMap(mintReqRec.Dealer),
-			ReadWriteUsers: usersMap(dmvID),
+			ReadWriteUsers:     usersMap(dmvID, mintReqRec.Dealer),
+			SignPolicyForWrite: types.AccessControl_ALL,
 		},
 	)
 	if err != nil {

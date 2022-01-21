@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/pkg/errors"
 	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/pkg/errors"
 )
 
 func ListCar(demoDir, userID, carRegistration string, provenance bool, lg *logger.SugarLogger) (out string, err error) {

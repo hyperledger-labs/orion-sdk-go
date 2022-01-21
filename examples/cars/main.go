@@ -62,20 +62,12 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 	maUserID := mintApprove.Flag("user", "DMV user ID").Short('u').Required().String()
 	maRequestRecKey := mintApprove.Flag("mint-request-key", "mint-request record key").Short('k').Required().String()
 
-	transferTo := app.Command("transfer-to", "A seller issues an contract to sell a car")
-	ttUserID := transferTo.Flag("user", "seller user ID").Short('u').Required().String()
-	ttBuyerID := transferTo.Flag("buyer", "buyer user ID").Short('b').Required().String()
-	ttCar := transferTo.Flag("car", "car registration plate").Short('c').Required().String()
-
-	transferReceive := app.Command("transfer-receive", "A buyer agrees to the contract to sell a car")
-	trUserID := transferReceive.Flag("user", "buyer user ID").Short('u').Required().String()
-	trCar := transferReceive.Flag("car", "car registration plate").Short('c').Required().String()
-	trTrsToRecordKey := transferReceive.Flag("transfer-to-key", "transfer-to record key").Short('k').Required().String()
-
 	transferOwnership := app.Command("transfer", "Transfer car ownership between a seller and a buyer")
 	toUserID := transferOwnership.Flag("user", "dmv user ID").Short('u').Required().String()
-	toTrsToRecordKey := transferOwnership.Flag("transfer-to-key", "transfer-to record key").Short('k').Required().String()
-	toTrsRcvRecordKey := transferOwnership.Flag("transfer-receive-key", "transfer-receive record key").Short('r').Required().String()
+	toSellerID := transferOwnership.Flag("seller", "seller user ID").Short('s').Required().String()
+	toBuyerID := transferOwnership.Flag("buyer", "buyer user ID").Short('b').Required().String()
+	toCarRegistry := transferOwnership.Flag("car", "car registration plate").Short('c').Required().String()
+
 
 	listCar := app.Command("list-car", "List a car record")
 	lsCarUserID := listCar.Flag("user", "user ID").Short('u').Required().String()
@@ -130,29 +122,8 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 
 		return fmt.Sprintf("Approved mint request:\n%s\n", out), 0, nil
 
-	case transferTo.FullCommand():
-		out, err := commands.TransferTo(*demoDir, *ttUserID, *ttBuyerID, *ttCar, lg)
-		if err != nil {
-			fmt.Println(command)
-
-			return errorOutput(err), 1, nil
-		}
-
-		return fmt.Sprintf("Issued transfer-to:\n%s\n", out), 0, nil
-
-	case transferReceive.FullCommand():
-		out, err := commands.TransferReceive(*demoDir, *trUserID, *trCar, *trTrsToRecordKey, lg)
-
-		if err != nil {
-			fmt.Println(command)
-			return errorOutput(err), 1, nil
-
-		}
-
-		return fmt.Sprintf("Issued transfer-receive:\n%s\n", out), 0, nil
-
 	case transferOwnership.FullCommand():
-		out, err := commands.Transfer(*demoDir, *toUserID, *toTrsToRecordKey, *toTrsRcvRecordKey, lg)
+		out, err := commands.Transfer(*demoDir, *toUserID, *toSellerID, *toBuyerID, *toCarRegistry, lg)
 		if err != nil {
 			fmt.Println(command)
 			return errorOutput(err), 1, nil

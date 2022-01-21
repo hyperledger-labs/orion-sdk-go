@@ -23,6 +23,8 @@ import (
 // crypto under demoDir/crypto
 // server config under demoDir/config
 // server db dir under demoDir/database
+// server replication dir under demoDir/replication
+// transactions dir under demoDir/txs
 func Generate(demoDir string) error {
 	if !strings.HasSuffix(demoDir, "/") {
 		demoDir = demoDir + "/"
@@ -32,7 +34,7 @@ func Generate(demoDir string) error {
 		return err
 	}
 
-	for _, subdir := range []string{"crypto", "database", "config", "txs"} {
+	for _, subdir := range []string{"crypto", "database", "replication", "config", "txs"} {
 		if err := os.MkdirAll(path.Join(demoDir, subdir), 0755); err != nil {
 			return err
 		}
@@ -136,6 +138,9 @@ func writeConfigFile(demoDir string) error {
 			BlockTimeout:                500 * time.Millisecond,
 		},
 		Replication: config.ReplicationConf{
+			WALDir:  path.Join(demoDir, "replication", "wal"),
+			SnapDir: path.Join(demoDir, "replication", "snap"),
+			AuxDir:  path.Join(demoDir, "replication", "aux"),
 			Network: config.NetworkConf{
 				Address: "127.0.0.1",
 				Port:    peerPort,

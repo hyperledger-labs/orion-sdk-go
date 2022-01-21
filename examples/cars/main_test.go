@@ -8,9 +8,9 @@ import (
 	"path"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/hyperledger-labs/orion-server/pkg/logger"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCars_Generate(t *testing.T) {

@@ -12,8 +12,6 @@ import (
 const (
 	CarRecordKeyPrefix             = "car~"
 	MintRequestRecordKeyPrefix     = "mint-request~"
-	TransferToRecordKeyPrefix      = "transfer-to~"
-	TransferReceiveRecordKeyPrefix = "transfer-receive~"
 )
 
 type MintRequestRecord struct {
@@ -42,36 +40,4 @@ func (r *CarRecord) String() string {
 
 func (r *CarRecord) Key() string {
 	return CarRecordKeyPrefix + r.CarRegistration
-}
-
-type TransferToRecord struct {
-	Owner           string
-	Buyer           string
-	CarRegistration string
-}
-
-func (r *TransferToRecord) RequestID() string {
-	str := r.Owner + "_" + r.Buyer + "_" + r.CarRegistration
-	sha256Hash, _ := crypto.ComputeSHA256Hash([]byte(str))
-	return base64.URLEncoding.EncodeToString(sha256Hash)
-}
-
-type TransferReceiveRecord struct {
-	Buyer               string
-	CarRegistration     string
-	TransferToRecordKey string
-}
-
-func (r *TransferToRecord) Key() string {
-	return TransferToRecordKeyPrefix + r.RequestID()
-}
-
-func (r *TransferReceiveRecord) RequestID() string {
-	str := r.Buyer + "_" + r.CarRegistration + "_" + r.TransferToRecordKey
-	sha256Hash, _ := crypto.ComputeSHA256Hash([]byte(str))
-	return base64.URLEncoding.EncodeToString(sha256Hash)
-}
-
-func (r *TransferReceiveRecord) Key() string {
-	return TransferReceiveRecordKeyPrefix + r.RequestID()
 }

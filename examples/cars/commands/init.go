@@ -1,5 +1,6 @@
 // Copyright IBM Corp. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 package commands
 
 import (
@@ -168,7 +169,8 @@ func initUsers(demoDir string, session bcdb.DBSession, logger *logger.SugarLogge
 			return err
 		}
 		receipt := receiptEnv.GetResponse().GetReceipt()
-		logger.Infof("transaction to provision user record has been committed, user-ID: %s, txID = %s, block = %i, txIdx = %i", role, txID, receipt.GetHeader().GetBaseHeader().GetNumber(), receipt.GetTxIndex())
+		logger.Infof("transaction to provision user record has been committed, user-ID: %s, txID: %s, block: %d, txIndex: %d",
+			role, txID, receipt.GetHeader().GetBaseHeader().GetNumber(), receipt.GetTxIndex())
 	}
 
 	return nil
