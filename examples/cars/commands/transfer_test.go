@@ -27,7 +27,7 @@ func TestTransfer(t *testing.T) {
 	defer func() {
 		if testServer != nil {
 			err = testServer.Stop()
-			require.NoError(t,err)
+			require.NoError(t, err)
 		}
 	}()
 	require.NoError(t, err)
@@ -73,28 +73,12 @@ func TestTransfer(t *testing.T) {
 	carKey := strings.TrimSpace(out[index+4:])
 	require.True(t, strings.HasPrefix(carKey, CarRecordKeyPrefix))
 
-	out, err = TransferTo(demoDir, "dealer", "alice", carReg, lg)
-	require.NoError(t, err)
-	require.Contains(t, out, "TransferTo: committed")
-
-	index = strings.Index(out, "Key:")
-	ttKey := strings.TrimSpace(out[index+4:])
-	require.True(t, strings.HasPrefix(ttKey, TransferToRecordKeyPrefix))
-
-	out, err = TransferReceive(demoDir, "alice", carReg, ttKey, lg)
-	require.NoError(t, err)
-	require.Contains(t, out, "TransferReceive: committed")
-
-	index = strings.Index(out, "Key:")
-	trKey := strings.TrimSpace(out[index+4:])
-	require.True(t, strings.HasPrefix(trKey, TransferReceiveRecordKeyPrefix))
-
 	out, err = ListCar(demoDir, "dmv", carReg, false, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "ListCar: executed")
 	require.Contains(t, out, "Owner: dealer")
 
-	out, err = Transfer(demoDir, "dmv", ttKey, trKey, lg)
+	out, err = Transfer(demoDir, "dmv", "dealer", "alice", carReg, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "Transfer: committed")
 
@@ -115,7 +99,7 @@ func TestTransfer(t *testing.T) {
 	require.Contains(t, out, "Owner: dealer")
 	require.Contains(t, out, "Owner: alice")
 
-	out, err = VerifyEvidence(demoDir, "alice", transferTxID, lg)
+	out, err = VerifyEvidence(demoDir, "bob", transferTxID, lg)
 	require.NoError(t, err)
 	require.Contains(t, out, "VerifyEvidence:")
 }
