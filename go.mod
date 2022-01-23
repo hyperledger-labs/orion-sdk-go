@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/golang/protobuf v1.5.2
-	github.com/hyperledger-labs/orion-server v0.2.0-fix-docker.0.20220113091226-90b4fe817afe
+	github.com/hyperledger-labs/orion-server v0.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.7.0

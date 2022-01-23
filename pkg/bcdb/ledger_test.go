@@ -14,19 +14,19 @@ import (
 )
 
 func TestGetBlockHeader(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
+	clientCertTempDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCertTempDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")
 
 	txReceipts := make([]*types.TxReceipt, 0)
-	firstdataBlockIndex := 0
+	firstDataBlockIndex := 0
 	for i := 1; i < 10; i++ {
 		txReceipt, _ := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
 		txReceipts = append(txReceipts, txReceipt)
-		if firstdataBlockIndex == 0 {
-			firstdataBlockIndex = int(txReceipt.Header.BaseHeader.Number)
+		if firstDataBlockIndex == 0 {
+			firstDataBlockIndex = int(txReceipt.Header.BaseHeader.Number)
 		}
 	}
 
@@ -37,8 +37,8 @@ func TestGetBlockHeader(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, header)
 		require.Equal(t, uint64(i), header.GetBaseHeader().GetNumber())
-		if i >= firstdataBlockIndex {
-			require.True(t, proto.Equal(txReceipts[i-firstdataBlockIndex].Header, header))
+		if i >= firstDataBlockIndex {
+			require.True(t, proto.Equal(txReceipts[i-firstDataBlockIndex].Header, header))
 		}
 	}
 
@@ -47,12 +47,30 @@ func TestGetBlockHeader(t *testing.T) {
 	require.Nil(t, header)
 }
 
-func TestGetLedgerPath(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
+func TestGetLastBlockHeader(t *testing.T) {
+	clientCertTempDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCertTempDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")
+
+	l, err := aliceSession.Ledger()
+
+	for i := 1; i < 10; i++ {
+		txReceipt, _ := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		header, err := l.GetLastBlockHeader()
+		require.NoError(t, err)
+		require.NotNil(t, header)
+		require.True(t, proto.Equal(txReceipt.Header, header))
+	}
+}
+
+func TestGetLedgerPath(t *testing.T) {
+	clientCertTempDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCertTempDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")
 
 	for i := 1; i < 10; i++ {
 		putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
@@ -126,11 +144,11 @@ func TestGetLedgerPath(t *testing.T) {
 }
 
 func TestGetTransactionProof(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, 5*time.Second, 10)
+	clientCertTempDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 5*time.Second, 10)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")
 
 	txEnvelopesPerBlock := make([][]proto.Message, 0)
 
@@ -201,11 +219,11 @@ func TestGetTransactionProof(t *testing.T) {
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, 5*time.Second, 10)
+	clientCertTempDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 5*time.Second, 10)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")
 
 	txEnvelopesPerBlock := make([][]proto.Message, 0)
 
@@ -278,11 +296,11 @@ func TestGetTransactionReceipt(t *testing.T) {
 }
 
 func TestGetStateProof(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, 20*time.Second, 10)
+	clientCertTempDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 20*time.Second, 10)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")
 
 	txEnvelopesPerBlock := make([][]proto.Message, 0)
 
