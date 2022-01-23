@@ -39,6 +39,29 @@ func (l *ledger) GetBlockHeader(blockNum uint64) (*types.BlockHeader, error) {
 	return resEnv.GetResponse().GetBlockHeader(), nil
 }
 
+func (l *ledger) GetLastBlockHeader() (*types.BlockHeader, error) {
+	path := constants.URLForLastLedgerBlock()
+	resEnv := &types.GetBlockResponseEnvelope{}
+	err := l.handleRequest(
+		path,
+		&types.GetLastBlockQuery{
+			UserId: l.userID,
+		},
+		resEnv,
+	)
+	if err != nil {
+		httpError, ok := err.(*httpError)
+		if !ok || httpError.statusCode != http.StatusNotFound {
+			l.logger.Errorf("failed to execute ledger block query %s, due to %s", path, err)
+			return nil, err
+		} else {
+			return nil, &ErrorNotFound{err.Error()}
+		}
+	}
+
+	return resEnv.GetResponse().GetBlockHeader(), nil
+}
+
 func (l *ledger) NewBlockHeaderDeliveryService(conf *BlockHeaderDeliveryConfig) BlockHeaderDelivererService {
 	d := &blockHeaderDeliverer{
 		blockHeaders: make(chan interface{}, conf.Capacity),
