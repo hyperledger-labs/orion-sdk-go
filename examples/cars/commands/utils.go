@@ -1,15 +1,16 @@
 // Copyright IBM Corp. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 package commands
 
 import (
 	"io/ioutil"
 	"path"
 
-	"github.com/hyperledger-labs/orion-server/pkg/logger"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 )
 
 func marshalOrPanic(msg proto.Message) []byte {
@@ -29,7 +30,7 @@ func marshalToStringOrPanic(msg proto.Message) string {
 	return envStr
 }
 
-func saveTxEvidence(demoDir, txID string, txEnv proto.Message, txReceipt *types.TxReceipt, lg *logger.SugarLogger) error {
+func saveTxEvidence(demoDir, txID string, txEnv proto.Message, txReceipt *types.TxReceiptResponseEnvelope, lg *logger.SugarLogger) error {
 	envFile := path.Join(demoDir, "txs", txID+".envelope")
 	err := ioutil.WriteFile(envFile, marshalOrPanic(txEnv), 0644)
 	if err != nil {
@@ -68,8 +69,8 @@ func loadTxEvidence(demoDir, txID string, lg *logger.SugarLogger) (*types.DataTx
 	if err != nil {
 		return nil, nil, err
 	}
-	rct := &types.TxReceipt{}
-	err = proto.Unmarshal(rctBytes, rct)
+	rctEnv := &types.TxReceiptResponseEnvelope{}
+	err = proto.Unmarshal(rctBytes, rctEnv)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -77,9 +78,9 @@ func loadTxEvidence(demoDir, txID string, lg *logger.SugarLogger) (*types.DataTx
 	lg.Infof("Loaded tx envelope, file: %s", envFile)
 	lg.Infof("Loaded tx envelope: \n%s", marshalToStringOrPanic(env))
 	lg.Infof("Loaded tx receipt, file: %s", rctFile)
-	lg.Infof("Loaded tx receipt: \n%s", marshalToStringOrPanic(rct))
+	lg.Infof("Loaded tx receipt: \n%s", marshalToStringOrPanic(rctEnv.GetResponse().GetReceipt()))
 
-	return env, rct, nil
+	return env, rctEnv.GetResponse().GetReceipt(), nil
 }
 
 func usersMap(users ...string) map[string]bool {
