@@ -60,7 +60,7 @@ type Ledger interface {
 	// GetLastBlockHeader returns last block from ledger
 	GetLastBlockHeader() (*types.BlockHeader, error)
 	// GetLedgerPath returns cryptographically verifiable path between any block pairs in ledger skip list
-	GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeader, error)
+	GetLedgerPath(startBlock, endBlock uint64) (*LedgerPath, error)
 	// GetTransactionProof returns intermediate hashes from hash(tx, validating info) to root of
 	// tx merkle tree stored in block header
 	GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, error)

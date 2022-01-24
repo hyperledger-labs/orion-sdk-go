@@ -134,8 +134,21 @@ func TestGetLedgerPath(t *testing.T) {
 			if tt.errMessage == "" {
 				require.NoError(t, err)
 				for i, b := range tt.path {
-					require.True(t, proto.Equal(b, path[i]), fmt.Sprintf("Expected block number %d, actual block number %d", b.GetBaseHeader().GetNumber(), path[i].GetBaseHeader().GetNumber()))
+					require.True(t, proto.Equal(b, path.Path[i]), fmt.Sprintf("Expected block number %d, actual block number %d", b.GetBaseHeader().GetNumber(), path.Path[i].GetBaseHeader().GetNumber()))
 				}
+				begin, err := p.GetBlockHeader(tt.start)
+				require.NoError(t, err)
+				end, err := p.GetBlockHeader(tt.end)
+				require.NoError(t, err)
+				verified, err := path.Verify(begin, end)
+				require.NoError(t, err)
+				require.True(t, verified)
+				verified, err = path.Verify(nil, nil)
+				require.NoError(t, err)
+				require.True(t, verified)
+				verified, err = path.Verify(end, begin)
+				require.Error(t, err)
+				require.False(t, verified)
 			} else {
 				require.EqualError(t, err, tt.errMessage)
 			}

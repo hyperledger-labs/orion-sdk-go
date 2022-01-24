@@ -76,7 +76,7 @@ func (l *ledger) NewBlockHeaderDeliveryService(conf *BlockHeaderDeliveryConfig) 
 	return d
 }
 
-func (l *ledger) GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeader, error) {
+func (l *ledger) GetLedgerPath(startBlock, endBlock uint64) (*LedgerPath, error) {
 	path := constants.URLForLedgerPath(startBlock, endBlock)
 	resEnv := &types.GetLedgerPathResponseEnvelope{}
 	err := l.handleRequest(
@@ -93,7 +93,7 @@ func (l *ledger) GetLedgerPath(startBlock, endBlock uint64) ([]*types.BlockHeade
 		return nil, err
 	}
 
-	return resEnv.GetResponse().GetBlockHeaders(), nil
+	return &LedgerPath{resEnv.GetResponse().GetBlockHeaders()}, nil
 }
 
 func (l *ledger) GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, error) {
@@ -113,7 +113,7 @@ func (l *ledger) GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, er
 	}
 
 	return &TxProof{
-		intermediateHashes: resEnv.GetResponse().GetHashes(),
+		IntermediateHashes: resEnv.GetResponse().GetHashes(),
 	}, nil
 }
 

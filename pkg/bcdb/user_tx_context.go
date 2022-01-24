@@ -69,7 +69,7 @@ func (u *userTxContext) GetUser(userID string) (*types.User, error) {
 		}, resEnv,
 	)
 	if err != nil {
-		u.logger.Errorf("failed to execute user query, path = %s, due to %s", path, err)
+		u.logger.Errorf("failed to execute user query, Path = %s, due to %s", path, err)
 		return nil, err
 	}
 

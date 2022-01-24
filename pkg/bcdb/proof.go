@@ -7,15 +7,21 @@ import (
 	"encoding/json"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 	"github.com/hyperledger-labs/orion-server/pkg/crypto"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"github.com/pkg/errors"
 )
 
+// TxProof keeps Merkle tree proof for specific transaction
 type TxProof struct {
-	intermediateHashes [][]byte
+	// IntermediateHashes are hashes between leaf (transaction) hash and tree root
+	// for simplicity, both tx hash and tree root is part of IntermediateHashes
+	IntermediateHashes [][]byte
 }
 
+// Verify the validity of the proof with respect to the Tx and TxReceipt.
+// receipt stores the block header and the tx-index in that block. The block header contains the Merkle tree root and the tx validation info. The validation info is indexed by the tx-index.
+// tx stores the transaction envelope content.
 func (p *TxProof) Verify(receipt *types.TxReceipt, tx proto.Message) (bool, error) {
 	txEnv, ok := tx.(*types.DataTxEnvelope)
 	if !ok {
@@ -35,7 +41,7 @@ func (p *TxProof) Verify(receipt *types.TxReceipt, tx proto.Message) (bool, erro
 		return false, errors.Wrap(err, "can't calculate concatenated hash of tx and its validation info")
 	}
 	var currHash []byte
-	for i, pHash := range p.intermediateHashes {
+	for i, pHash := range p.IntermediateHashes {
 		if i == 0 {
 			if !bytes.Equal(txHash, pHash) {
 				return false, nil
@@ -50,4 +56,61 @@ func (p *TxProof) Verify(receipt *types.TxReceipt, tx proto.Message) (bool, erro
 	}
 
 	return bytes.Equal(receipt.GetHeader().GetTxMerkelTreeRootHash(), currHash), nil
+}
+
+// LedgerPath contains a skip list path in ledger, in form of block headers.
+// It is used to make ledger path validation easier.
+type LedgerPath struct {
+	// Path keeps all block headers in ledger path.
+	// Keep in mind that the skip list in the ledger is organized and validated backwards, from end of chain to genesis block,
+	// so Path is sorted from higher block numbers to lower, for example the path from block 8 to block 1 is (8, 7, 5, 1).
+	Path []*types.BlockHeader
+}
+
+// Verify ledger path correctness.
+// begin is lower block number and end is higher, opposite to how path is actually sorted.
+// This order makes it easier to the caller.
+func (lp *LedgerPath) Verify(begin, end *types.BlockHeader) (bool, error) {
+
+	if len(lp.Path) < 1 {
+		return false, errors.New("can't verify empty ledger path")
+	}
+	if begin != nil {
+		if !proto.Equal(begin, lp.Path[len(lp.Path)-1]) {
+			return false, errors.Errorf("path begin not equal to provided begin block %+v %+v", lp.Path[len(lp.Path)-1], begin)
+		}
+	}
+
+	if end != nil {
+		if !proto.Equal(end, lp.Path[0]) {
+			return false, errors.Errorf("path end not equal to provided end block %+v %+v", lp.Path[0], end)
+		}
+	}
+
+	currentBlockHeader := lp.Path[0]
+	for _, nextBlockHeader := range lp.Path[1:] {
+		headerBytes, err := proto.Marshal(nextBlockHeader)
+		if err != nil {
+			return false, err
+		}
+		nextBlockHash, err := crypto.ComputeSHA256Hash(headerBytes)
+		if err != nil {
+			return false, err
+		}
+
+		hashFound := false
+		for _, hash := range currentBlockHeader.GetSkipchainHashes() {
+			if bytes.Equal(nextBlockHash, hash) {
+				hashFound = true
+				break
+			}
+		}
+
+		if !hashFound {
+			return false, errors.Errorf("hash of block %d not found in list of skip list hashes of block %d", nextBlockHeader.GetBaseHeader().GetNumber(), currentBlockHeader.GetBaseHeader().GetNumber())
+		}
+
+		currentBlockHeader = nextBlockHeader
+	}
+	return true, nil
 }
