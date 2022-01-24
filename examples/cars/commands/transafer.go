@@ -115,7 +115,7 @@ func Transfer(demoDir, dmvID, seller, buyer, carReg string, lg *logger.SugarLogg
 		return "", errors.New("error getting transaction envelope")
 	}
 
-	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv.GetResponse().GetReceipt(), lg)
+	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv, lg)
 	if err != nil {
 		return "", err
 	}

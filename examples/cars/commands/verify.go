@@ -38,21 +38,18 @@ func VerifyEvidence(demoDir, userID, txID string, lg *logger.SugarLogger) (out s
 
 	ledger, err := session.Ledger()
 	if err != nil {
-		return "", errors.Wrap(err, "error creating data transaction")
+		return "", errors.Wrap(err, "error creating ledger transaction")
 	}
 
 	// Verify the transaction existence proof
-	txProof, err := ledger.GetTransactionProof(txRcpt.Header.BaseHeader.Number, int(txRcpt.TxIndex))
+	lastHeader, err := ledger.GetLastBlockHeader()
 	if err != nil {
-		return "", errors.Wrap(err, "error getting transaction proof")
+		return "", errors.Wrap(err, "error getting last block header")
 	}
 
-	okTx, err := txProof.Verify(txRcpt, txEnv)
+	_, _, err = ledger.GetFullTxProofAndVerify(txRcpt, lastHeader, txEnv)
 	if err != nil {
-		return "", errors.Wrapf(err, "error verifying transaction evidence against the proof")
-	}
-	if !okTx {
-		return "", errors.New("failed to verify Tx-existence")
+		return "", errors.Wrap(err, "error getting or verifying transaction proof")
 	}
 
 	// Verify the transaction data existence proof
@@ -88,6 +85,6 @@ func VerifyEvidence(demoDir, userID, txID string, lg *logger.SugarLogger) (out s
 		return "", errors.New("failed to verify Data-existence")
 	}
 
-	lg.Infof("Verified evidence for txID: %s, Tx-existence result: %t, Data-existence result: %t", txID, okTx, okData)
-	return fmt.Sprintf("VerifyEvidence: txID: %s, Tx-existence result: %t, Data-existence result: %t", txID, okTx, okData), nil
+	lg.Infof("Verified evidence for txID: %s,", txID)
+	return fmt.Sprintf("VerifyEvidence: txID: %s, Tx-existence result: true, Data-existence result: true", txID), nil
 }

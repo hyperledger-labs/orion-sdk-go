@@ -42,15 +42,16 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 		return "", errors.Wrap(err, "error creating data transaction")
 	}
 
-	recordBytes, _, err := dataTx.Get(CarDBName, key)
+	// AssertRead with a nil version makes the Put below an "insert-if-does-not-exist".
+	err = dataTx.AssertRead(CarDBName, key, nil)
 	if err != nil {
-		return "", errors.Wrapf(err, "error getting MintRequest: %s", key)
-	}
-	if recordBytes != nil {
-		return "", errors.Errorf("MintRequest already exists: %s", key)
+		return "", errors.Wrap(err, "error during data transaction")
 	}
 
-	recordBytes, err = json.Marshal(record)
+	recordBytes, err := json.Marshal(record)
+	if err != nil {
+		return "", errors.Wrap(err, "error marshaling record")
+	}
 
 	err = dataTx.Put(CarDBName, key, recordBytes,
 		&types.AccessControl{
@@ -72,13 +73,12 @@ func MintRequest(demoDir, dealerID, carRegistration string, lg *logger.SugarLogg
 		return "", errors.New("error getting transaction envelope")
 	}
 
-	lg.Infof("MintRequest committed successfully: %s", txID)
-
-	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv.GetResponse().GetReceipt(), lg)
+	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv, lg)
 	if err != nil {
 		return "", err
 	}
 
+	lg.Infof("MintRequest committed successfully: %s", txID)
 	return fmt.Sprintf("MintRequest: committed, txID: %s, Key: %s", txID, key), nil
 }
 
@@ -166,7 +166,7 @@ func MintApprove(demoDir, dmvID, mintReqRecordKey string, lg *logger.SugarLogger
 
 	lg.Infof("MintApprove committed successfully: %s", txID)
 
-	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv.GetResponse().GetReceipt(), lg)
+	err = saveTxEvidence(demoDir, txID, txEnv, receiptEnv, lg)
 	if err != nil {
 		return "", err
 	}
