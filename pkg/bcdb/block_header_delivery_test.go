@@ -28,7 +28,7 @@ func TestBlockHeaderDeliveryService(t *testing.T) {
 	totalDataBlock := 10
 	firstdataBlockIndex := 0
 	for i := 1; i <= 10; i++ {
-		txReceipt, txID := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		txReceipt, txID, _ := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
 		txReceipts = append(txReceipts, txReceipt)
 		txIDs = append(txIDs, txID)
 		if firstdataBlockIndex == 0 {
