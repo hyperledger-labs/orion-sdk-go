@@ -225,6 +225,8 @@ github.com/hyperledger-labs/orion-server v0.2.0-fix-docker.0.20220113091226-90b4
 github.com/hyperledger-labs/orion-server v0.2.0-fix-docker.0.20220113091226-90b4fe817afe/go.mod h1:PyEVhf9fKK8Euq0GDo48KBJFxS2dsZZXzcB2OH3nm7s=
 github.com/hyperledger-labs/orion-server v0.2.1 h1:uLhuSprg5EWWLs047+54f2ZGuhbZrMa/c38rqpj2FKQ=
 github.com/hyperledger-labs/orion-server v0.2.1/go.mod h1:PyEVhf9fKK8Euq0GDo48KBJFxS2dsZZXzcB2OH3nm7s=
+github.com/hyperledger-labs/orion-server v0.2.2-0.20220201095700-5b3b3926c088 h1:fubELLOvJEViGeh2MPk2k0MP/TYnzaTL+WnQrm47xJw=
+github.com/hyperledger-labs/orion-server v0.2.2-0.20220201095700-5b3b3926c088/go.mod h1:PyEVhf9fKK8Euq0GDo48KBJFxS2dsZZXzcB2OH3nm7s=
 github.com/imdario/mergo v0.3.7/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
