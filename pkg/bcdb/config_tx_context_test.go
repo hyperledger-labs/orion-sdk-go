@@ -1,5 +1,6 @@
 // Copyright IBM Corp. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 package bcdb
 
 import (
@@ -32,8 +33,6 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 
 	tx, err := session.ConfigTx()
 	require.NoError(t, err)
-
-	// TODO Check consensus config
 
 	clusterConfig, err := tx.GetClusterConfig()
 	require.NoError(t, err)
@@ -95,6 +94,175 @@ func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "queryTimeout error")
 	require.Nil(t, tx)
+}
+
+func TestConfigTxContext_SetClusterConfig(t *testing.T) {
+	cryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "server", "server2"})
+	admin2Cert, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "admin2")
+	server2Cert, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "server2")
+
+	testServer, _, _, err := SetupTestServer(t, cryptoDir)
+	defer func() {
+		if testServer != nil {
+			_ = testServer.Stop()
+		}
+	}()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+
+	serverPort, err := testServer.Port()
+	require.NoError(t, err)
+
+	bcdb := createDBInstance(t, cryptoDir, serverPort)
+
+	// Update the RaftConfig by setting a new config
+	t.Run("update RaftConfig", func(t *testing.T) {
+		session := openUserSession(t, bcdb, "admin", cryptoDir)
+
+		tx1, err := session.ConfigTx()
+		require.NoError(t, err)
+
+		clusterConfig, err := tx1.GetClusterConfig()
+		require.NoError(t, err)
+		require.NotNil(t, clusterConfig)
+
+		// These Raft parameters will not have an effect on the operation of the test node until it is restarted, but
+		// the config will be committed.
+		maxInflightBlocks := clusterConfig.ConsensusConfig.RaftConfig.MaxInflightBlocks + 10
+		snapshotIntervalSize := clusterConfig.ConsensusConfig.RaftConfig.SnapshotIntervalSize - 10
+		clusterConfig.ConsensusConfig.RaftConfig.MaxInflightBlocks = maxInflightBlocks
+		clusterConfig.ConsensusConfig.RaftConfig.SnapshotIntervalSize = snapshotIntervalSize
+		err = tx1.SetClusterConfig(clusterConfig)
+		require.NoError(t, err)
+
+		txID, receiptEnv, err := tx1.Commit(true)
+		require.NoError(t, err)
+		require.True(t, txID != "")
+		receipt := receiptEnv.GetResponse().GetReceipt()
+		require.NotNil(t, receipt)
+		require.Equal(t, receipt.GetHeader().GetValidationInfo()[receipt.TxIndex].Flag, types.Flag_VALID)
+
+		tx2, err := session.ConfigTx()
+		clusterConfig2, err := tx2.GetClusterConfig()
+		require.Equal(t, snapshotIntervalSize, clusterConfig2.GetConsensusConfig().GetRaftConfig().SnapshotIntervalSize)
+		require.Equal(t, maxInflightBlocks, clusterConfig2.GetConsensusConfig().GetRaftConfig().MaxInflightBlocks)
+	})
+
+	// Setting a new config and update on it
+	t.Run("set new config and update on it", func(t *testing.T) {
+		session := openUserSession(t, bcdb, "admin", cryptoDir)
+
+		tx, err := session.ConfigTx()
+		require.NoError(t, err)
+
+		config, err := tx.GetClusterConfig()
+		require.NoError(t, err)
+		require.NotNil(t, config)
+
+		config.ConsensusConfig.RaftConfig.MaxInflightBlocks++
+		err = tx.SetClusterConfig(config)
+		require.NoError(t, err)
+
+		err = tx.AddAdmin(&types.Admin{Id: "admin2", Certificate: admin2Cert.Raw})
+		require.NoError(t, err)
+
+		txID, receiptEnv, err := tx.Commit(true)
+		require.NoError(t, err)
+		require.True(t, txID != "")
+		receipt := receiptEnv.GetResponse().GetReceipt()
+		require.NotNil(t, receipt)
+		require.Equal(t, receipt.GetHeader().GetValidationInfo()[receipt.TxIndex].Flag, types.Flag_VALID)
+	})
+
+	// A bad new config
+	t.Run("error: bad RaftConfig", func(t *testing.T) {
+		session := openUserSession(t, bcdb, "admin", cryptoDir)
+
+		tx1, err := session.ConfigTx()
+		require.NoError(t, err)
+
+		clusterConfig, err := tx1.GetClusterConfig()
+		require.NoError(t, err)
+		require.NotNil(t, clusterConfig)
+
+		// A node without a corresponding peer
+		clusterConfig.Nodes = append(clusterConfig.Nodes,
+			&types.NodeConfig{
+				Id:          "node-2",
+				Address:     "127.0.0.1",
+				Port:        666,
+				Certificate: server2Cert.Raw,
+			},
+		)
+
+		err = tx1.SetClusterConfig(clusterConfig)
+		require.NoError(t, err)
+
+		txID, receiptEnv, err := tx1.Commit(true)
+		require.EqualError(t, err, "failed to submit transaction, server returned: status: 400 Bad Request, message: Invalid config tx, reason: ClusterConfig.Nodes must be the same length as ClusterConfig.ConsensusConfig.Members, and Nodes set must include all Members")
+		require.True(t, txID != "")
+		receipt := receiptEnv.GetResponse().GetReceipt()
+		require.Nil(t, receipt) // Rejected before ordering
+	})
+
+	// Submitting an empty new config results in an error
+	t.Run("error: empty new config", func(t *testing.T) {
+		session := openUserSession(t, bcdb, "admin", cryptoDir)
+
+		tx, err := session.ConfigTx()
+		require.NoError(t, err)
+
+		txID, receiptEnv, err := tx.Commit(true)
+		require.EqualError(t, err, "failed to submit transaction, server returned: status: 400 Bad Request, message: Invalid config tx, reason: new config is empty. There must be at least single node and an admin in the cluster")
+		require.True(t, txID != "")
+		require.Nil(t, receiptEnv)
+	})
+
+	// Setting a new config twice results in an error
+	t.Run("error: set new config twice", func(t *testing.T) {
+		session := openUserSession(t, bcdb, "admin", cryptoDir)
+
+		tx, err := session.ConfigTx()
+		require.NoError(t, err)
+
+		config, err := tx.GetClusterConfig()
+		require.NoError(t, err)
+		require.NotNil(t, config)
+
+		config.ConsensusConfig.RaftConfig.MaxInflightBlocks++
+		err = tx.SetClusterConfig(config)
+		require.NoError(t, err)
+
+		config.ConsensusConfig.RaftConfig.MaxInflightBlocks++
+		err = tx.SetClusterConfig(config)
+		require.EqualError(t, err, "pending config already exists")
+
+		err = tx.Abort()
+		require.NoError(t, err)
+	})
+
+	// Setting a new config when a pending config exists results in an error
+	t.Run("error: set new config on pending config", func(t *testing.T) {
+		session := openUserSession(t, bcdb, "admin", cryptoDir)
+
+		tx, err := session.ConfigTx()
+		require.NoError(t, err)
+
+		config, err := tx.GetClusterConfig()
+		require.NoError(t, err)
+		require.NotNil(t, config)
+
+		err = tx.AddAdmin(&types.Admin{Id: "admin-alias", Certificate: admin2Cert.Raw})
+		require.NoError(t, err)
+		require.NotNil(t, config)
+
+		config.ConsensusConfig.RaftConfig.MaxInflightBlocks++
+		err = tx.SetClusterConfig(config)
+		require.EqualError(t, err, "pending config already exists")
+
+		err = tx.Abort()
+		require.NoError(t, err)
+	})
 }
 
 func TestConfigTxContext_AddAdmin(t *testing.T) {
@@ -324,6 +492,118 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	tx3, err = session3.ConfigTx()
 	require.NoError(t, err)
 	require.NotNil(t, tx3)
+}
+
+func TestConfigTxContext_UpdateCAConfig(t *testing.T) {
+	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
+	defer func() {
+		if testServer != nil {
+			_ = testServer.Stop()
+		}
+	}()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+
+	serverPort, err := testServer.Port()
+	require.NoError(t, err)
+
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
+	session := openUserSession(t, bcdb, "admin", clientCryptoDir)
+
+	// 1. An empty CAConfig will return an error
+	tx1, err := session.ConfigTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+	err = tx1.UpdateCAConfig(nil)
+	require.NoError(t, err)
+
+	txID, receiptEnv, err := tx1.Commit(true)
+	require.EqualError(t, err, "failed to submit transaction, server returned: status: 400 Bad Request, message: Invalid config tx, reason: CA config is empty. At least one root CA is required")
+	require.True(t, txID != "")
+	require.Nil(t, receiptEnv)
+
+	// 2. add a Root CA & Intermediate CA
+	clientCryptoDir2 := testutils.GenerateTestClientCrypto(t, []string{"alice"}, true)
+	certRootCA2, _ := testutils.LoadTestClientCA(t, clientCryptoDir2, testutils.RootCAFileName)
+	certIntCA2, _ := testutils.LoadTestClientCA(t, clientCryptoDir2, testutils.IntermediateCAFileName)
+
+	tx2, err := session.ConfigTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+	clusterConfig, err := tx2.GetClusterConfig()
+	require.NoError(t, err)
+	caConf := clusterConfig.GetCertAuthConfig()
+	caConf.Roots = append(caConf.Roots, certRootCA2.Raw)
+	caConf.Intermediates = append(caConf.Intermediates, certIntCA2.Raw)
+	err = tx2.UpdateCAConfig(caConf)
+	require.NoError(t, err)
+
+	txID, receiptEnv, err = tx2.Commit(true)
+	require.NoError(t, err)
+	require.True(t, txID != "")
+	require.NotNil(t, receiptEnv)
+
+	tx3, err := session.ConfigTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+	clusterConfig2, err := tx3.GetClusterConfig()
+	require.NoError(t, err)
+	require.Len(t, clusterConfig2.GetCertAuthConfig().GetIntermediates(), 1)
+	require.Len(t, clusterConfig2.GetCertAuthConfig().GetRoots(), 2)
+}
+
+func TestConfigTxContext_UpdateRaftConfig(t *testing.T) {
+	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
+	defer func() {
+		if testServer != nil {
+			_ = testServer.Stop()
+		}
+	}()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+
+	serverPort, err := testServer.Port()
+	require.NoError(t, err)
+
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
+	session := openUserSession(t, bcdb, "admin", clientCryptoDir)
+
+	// 1. An empty RaftConfig will return an error
+	tx1, err := session.ConfigTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+	err = tx1.UpdateRaftConfig(nil)
+	require.NoError(t, err)
+
+	txID, receiptEnv, err := tx1.Commit(true)
+	require.EqualError(t, err, "failed to submit transaction, server returned: status: 400 Bad Request, message: Invalid config tx, reason: Consensus config RaftConfig is empty.")
+	require.True(t, txID != "")
+	require.Nil(t, receiptEnv)
+
+	// 2. Update the RaftConfig
+	tx2, err := session.ConfigTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+	clusterConfig, err := tx2.GetClusterConfig()
+	require.NoError(t, err)
+	raftConf := clusterConfig.GetConsensusConfig().GetRaftConfig()
+	raftConf.MaxInflightBlocks++
+	err = tx2.UpdateRaftConfig(raftConf)
+	require.NoError(t, err)
+
+	txID, receiptEnv, err = tx2.Commit(true)
+	require.NoError(t, err)
+	require.True(t, txID != "")
+	require.NotNil(t, receiptEnv)
+
+	tx3, err := session.ConfigTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+	clusterConfig2, err := tx3.GetClusterConfig()
+	require.NoError(t, err)
+	require.Equal(t, raftConf.MaxInflightBlocks, clusterConfig2.GetConsensusConfig().GetRaftConfig().GetMaxInflightBlocks())
 }
 
 //TODO this test will stop working once we implement quorum rules

@@ -134,7 +134,9 @@ func (d *dbSession) LoadDataTx(txEnv *types.DataTxEnvelope) (LoadedDataTxContext
 	return dataTx, nil
 }
 
-// ConfigTx returns config transaction context
+// ConfigTx returns config transaction context.
+// This methods first reads the current ClusterConfig from the cluster.
+// This is only available to sessions of an admin user.
 func (d *dbSession) ConfigTx() (ConfigTxContext, error) {
 	commonCtx, err := d.newCommonTxContext()
 	if err != nil {

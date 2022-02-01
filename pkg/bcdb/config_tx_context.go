@@ -1,5 +1,6 @@
 // Copyright IBM Corp. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 package bcdb
 
 import (
@@ -10,35 +11,75 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ConfigTxContext transaction context to operate with
-// configuration management related transactions.
-// Add, delete and update an admin record; Add, delete and update a cluster node config.
+// ConfigTxContext transaction context to operate with configuration management related transactions.
+//
+// When a ConfigTxContext is created, it gets the current cluster config once. To update the cluster's config it is
+// possible to get that config (using GetClusterConfig), manipulate it, set it as the pending config (using
+// SetClusterConfig), and commit.
+//
+// It is also possible to manipulate directly certain elements of the config:
+// - Add, delete and update an admin record;
+// - Manipulate the CA configuration;
+// - Add, delete and update a cluster node & peer config.
+// These methods operate on the pending config. If a pending config object does not exist yet, a clone of the current
+// config becomes the pending config.
+//
+// Reading and updating the cluster's config is only possible from a session of an admin user.
 type ConfigTxContext interface {
 	// TxContext embeds the general abstraction.
 	TxContext
 
 	// AddAdmin add admin record.
+	// The operation is applied to the pending config.
+	// If the pending config is not set yet, it will be cloned from the current config.
 	AddAdmin(admin *types.Admin) error
 
 	// DeleteAdmin delete admin record.
+	// The operation is applied to the pending config.
+	// If the pending config is not set yet, it will be cloned from the current config.
 	DeleteAdmin(adminID string) error
 
 	// UpdateAdmin update admin record.
+	// The operation is applied to the pending config.
+	// If the pending config is not set yet, it will be cloned from the current config.
 	UpdateAdmin(admin *types.Admin) error
 
+	// UpdateCAConfig update the CAConfig record.
+	// The operation is applied to the pending config.
+	// If the pending config is not set yet, it will be cloned from the current config.
+	UpdateCAConfig(caConfig *types.CAConfig) error
+
 	// AddClusterNode add cluster node record.
+	// The operation is applied to the pending config.
+	// If the pending config is not set yet, it will be cloned from the current config.
 	AddClusterNode(node *types.NodeConfig, peer *types.PeerConfig) error
 
 	// DeleteClusterNode delete cluster node record.
+	// The operation is applied to the pending config.
+	// If the pending config is not set yet, it will be cloned from the current config.
 	DeleteClusterNode(nodeID string) error
 
 	// UpdateClusterNode Update cluster node record.
+	// The operation is applied to the pending config.
+	// If the pending config is not set yet, it will be cloned from the current config.
 	UpdateClusterNode(node *types.NodeConfig, peer *types.PeerConfig) error
+
+	// UpdateRaftConfig Update the raft configuration parameters.
+	// The operation is applied to the pending config.
+	// If the pending config is not set yet, it will be cloned from the current config.
+	UpdateRaftConfig(raftConfig *types.RaftConfig) error
 
 	// GetClusterConfig returns the current cluster config.
 	// A ConfigTxContext only gets the current config once, subsequent calls return a cached value.
 	// The value returned is a deep clone of the cached value and can be manipulated.
 	GetClusterConfig() (*types.ClusterConfig, error)
+
+	// SetClusterConfig sets a new cluster config object that was possibly manipulated as the pending config
+	// object. The object is deep-cloned, so further manipulation to the input will not be reflected on the pending
+	// config. Setting a new config is only possible if there isn't any pending config. Using any of the write methods after a
+	// pending config was set is permitted. Those methods are applied to the pending config (e.g. AddAdmin() will add
+	// an admin, etc.).
+	SetClusterConfig(newConfig *types.ClusterConfig) error
 }
 
 type configTxContext struct {
@@ -251,12 +292,59 @@ func (c *configTxContext) UpdateClusterNode(node *types.NodeConfig, peer *types.
 	return nil
 }
 
+func (c *configTxContext) UpdateCAConfig(caConfig *types.CAConfig) error {
+	if c.txSpent {
+		return ErrTxSpent
+	}
+
+	if c.newConfig == nil {
+		c.newConfig = proto.Clone(c.oldConfig).(*types.ClusterConfig)
+	}
+
+	c.newConfig.CertAuthConfig = caConfig
+
+	c.logger.Debugf("Updated: CAConfig: %+v", caConfig)
+
+	return nil
+}
+
+func (c *configTxContext) UpdateRaftConfig(raftConfig *types.RaftConfig) error {
+	if c.txSpent {
+		return ErrTxSpent
+	}
+
+	if c.newConfig == nil {
+		c.newConfig = proto.Clone(c.oldConfig).(*types.ClusterConfig)
+	}
+
+	c.newConfig.ConsensusConfig.RaftConfig = raftConfig
+
+	c.logger.Debugf("Updated: RaftConfig: %+v", raftConfig)
+
+	return nil
+}
+
 func (c *configTxContext) GetClusterConfig() (*types.ClusterConfig, error) {
 	if c.txSpent {
 		return nil, ErrTxSpent
 	}
 	// deep clone
 	return proto.Clone(c.oldConfig).(*types.ClusterConfig), nil
+}
+
+func (c *configTxContext) SetClusterConfig(newConfig *types.ClusterConfig) error {
+	if c.txSpent {
+		return ErrTxSpent
+	}
+
+	if c.newConfig != nil {
+		return errors.New("pending config already exists")
+	}
+
+	c.newConfig = proto.Clone(newConfig).(*types.ClusterConfig)
+	c.logger.Debugf("Set pending config: %+v", c.newConfig)
+
+	return nil
 }
 
 func (c *configTxContext) queryClusterConfig() error {
