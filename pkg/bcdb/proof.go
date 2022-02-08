@@ -71,6 +71,7 @@ type LedgerPath struct {
 // Verify ledger path correctness.
 // begin is lower block number and end is higher, opposite to how path is actually sorted.
 // This order makes it easier to the caller.
+// Please, keep in mind that Path of one single block is correct by definition
 func (lp *LedgerPath) Verify(begin, end *types.BlockHeader) (bool, error) {
 
 	if len(lp.Path) < 1 {

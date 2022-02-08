@@ -185,14 +185,24 @@ func (l *ledger) GetFullTxProofAndVerify(txReceipt *types.TxReceipt, lastKnownBl
 		return nil, nil, &ProofVerificationError{fmt.Sprintf("can't create proof, last known block (%d) is not same as in ledger", lastKnownBlockHeader.GetBaseHeader().GetNumber())}
 	}
 
-	pathPartOne, err := l.GetLedgerPath(GenesisBlockNumber, txBlockHeader.GetBaseHeader().GetNumber())
-	if err != nil {
-		return nil, nil, err
+	pathPartOne := &LedgerPath{
+		Path: []*types.BlockHeader{txBlockHeader},
+	}
+	if GenesisBlockNumber != txBlockHeader.GetBaseHeader().GetNumber() {
+		pathPartOne, err = l.GetLedgerPath(GenesisBlockNumber, txBlockHeader.GetBaseHeader().GetNumber())
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
-	pathPartTwo, err := l.GetLedgerPath(txBlockHeader.GetBaseHeader().GetNumber(), lastKnownBlockHeader.GetBaseHeader().GetNumber())
-	if err != nil {
-		return nil, nil, err
+	pathPartTwo := &LedgerPath{
+		Path: []*types.BlockHeader{txBlockHeader},
+	}
+	if txBlockHeader.GetBaseHeader().GetNumber() != lastKnownBlockHeader.GetBaseHeader().GetNumber() {
+		pathPartTwo, err = l.GetLedgerPath(txBlockHeader.GetBaseHeader().GetNumber(), lastKnownBlockHeader.GetBaseHeader().GetNumber())
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	txProof, err := l.GetTransactionProof(txBlockHeader.GetBaseHeader().GetNumber(), int(txReceipt.GetTxIndex()))
