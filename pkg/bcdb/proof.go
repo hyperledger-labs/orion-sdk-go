@@ -5,6 +5,7 @@ package bcdb
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/crypto"
@@ -73,17 +74,17 @@ type LedgerPath struct {
 func (lp *LedgerPath) Verify(begin, end *types.BlockHeader) (bool, error) {
 
 	if len(lp.Path) < 1 {
-		return false, errors.New("can't verify empty ledger path")
+		return false, &ProofVerificationError{"can't verify empty ledger path"}
 	}
 	if begin != nil {
 		if !proto.Equal(begin, lp.Path[len(lp.Path)-1]) {
-			return false, errors.Errorf("path begin not equal to provided begin block %+v %+v", lp.Path[len(lp.Path)-1], begin)
+			return false, &ProofVerificationError{fmt.Sprintf("path begin not equal to provided begin block %+v %+v", lp.Path[len(lp.Path)-1], begin)}
 		}
 	}
 
 	if end != nil {
 		if !proto.Equal(end, lp.Path[0]) {
-			return false, errors.Errorf("path end not equal to provided end block %+v %+v", lp.Path[0], end)
+			return false, &ProofVerificationError{fmt.Sprintf("path end not equal to provided end block %+v %+v", lp.Path[0], end)}
 		}
 	}
 
@@ -107,10 +108,18 @@ func (lp *LedgerPath) Verify(begin, end *types.BlockHeader) (bool, error) {
 		}
 
 		if !hashFound {
-			return false, errors.Errorf("hash of block %d not found in list of skip list hashes of block %d", nextBlockHeader.GetBaseHeader().GetNumber(), currentBlockHeader.GetBaseHeader().GetNumber())
+			return false, &ProofVerificationError{fmt.Sprintf("hash of block %d not found in list of skip list hashes of block %d", nextBlockHeader.GetBaseHeader().GetNumber(), currentBlockHeader.GetBaseHeader().GetNumber())}
 		}
 
 		currentBlockHeader = nextBlockHeader
 	}
 	return true, nil
+}
+
+type ProofVerificationError struct {
+	msg string
+}
+
+func (e *ProofVerificationError) Error() string {
+	return e.msg
 }

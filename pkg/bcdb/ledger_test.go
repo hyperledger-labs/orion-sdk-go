@@ -23,7 +23,7 @@ func TestGetBlockHeader(t *testing.T) {
 	txReceipts := make([]*types.TxReceipt, 0)
 	firstDataBlockIndex := 0
 	for i := 1; i < 10; i++ {
-		txReceipt, _ := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		txReceipt, _, _ := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
 		txReceipts = append(txReceipts, txReceipt)
 		if firstDataBlockIndex == 0 {
 			firstDataBlockIndex = int(txReceipt.Header.BaseHeader.Number)
@@ -57,7 +57,7 @@ func TestGetLastBlockHeader(t *testing.T) {
 	l, err := aliceSession.Ledger()
 
 	for i := 1; i < 10; i++ {
-		txReceipt, _ := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		txReceipt, _, _ := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
 		header, err := l.GetLastBlockHeader()
 		require.NoError(t, err)
 		require.NotNil(t, header)
@@ -407,4 +407,76 @@ func TestGetStateProof(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetFullTxProofAndVerify(t *testing.T) {
+	clientCertTempDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 20*time.Millisecond, 1)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")
+
+	txEnvelopesPerBlock := make([]proto.Message, 0)
+	txReceiptsPerBlock := make([]*types.TxReceipt, 0)
+
+	// 20 blocks, each 1 tx
+	for i := 0; i < 20; i++ {
+		receipt, _, env := putKeySync(t, "bdb", fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i), "alice", aliceSession)
+		txEnvelopesPerBlock = append(txEnvelopesPerBlock, env)
+		txReceiptsPerBlock = append(txReceiptsPerBlock, receipt)
+	}
+
+	p, err := aliceSession.Ledger()
+	require.NoError(t, err)
+
+	t.Run("TestVerifyFullTxProof_Valid", func(t *testing.T) {
+		genesis, err := p.GetBlockHeader(GenesisBlockNumber)
+		require.NoError(t, err)
+
+		blockHeader, err := p.GetBlockHeader(10)
+		require.NoError(t, err)
+		txProof, path, err := p.GetFullTxProofAndVerify(txReceiptsPerBlock[5], blockHeader, txEnvelopesPerBlock[5])
+		require.NoError(t, err)
+		res, err := txProof.Verify(txReceiptsPerBlock[5], txEnvelopesPerBlock[5])
+		require.NoError(t, err)
+		require.True(t, res)
+		res, err = path.Verify(genesis, blockHeader)
+		require.NoError(t, err)
+		require.True(t, res)
+
+		blockHeader, err = p.GetBlockHeader(18)
+		require.NoError(t, err)
+		txProof, path, err = p.GetFullTxProofAndVerify(txReceiptsPerBlock[10], blockHeader, txEnvelopesPerBlock[10])
+		require.NoError(t, err)
+		res, err = txProof.Verify(txReceiptsPerBlock[10], txEnvelopesPerBlock[10])
+		require.NoError(t, err)
+		require.True(t, res)
+		res, err = path.Verify(genesis, blockHeader)
+		require.NoError(t, err)
+		require.True(t, res)
+
+		require.True(t, res)
+	})
+
+	t.Run("TestVerifyFullTxProof_TamperedEnvelop", func(t *testing.T) {
+		blockHeader, err := p.GetBlockHeader(10)
+		require.NoError(t, err)
+		txProof, path, err := p.GetFullTxProofAndVerify(txReceiptsPerBlock[4], blockHeader, txEnvelopesPerBlock[6])
+		require.Error(t, err)
+		require.Nil(t, txProof)
+		require.Nil(t, path)
+	})
+
+	t.Run("TestVerifyFullTxProof_TamperedReceipt", func(t *testing.T) {
+		blockHeader, err := p.GetBlockHeader(10)
+		require.NoError(t, err)
+		receipt := txReceiptsPerBlock[3]
+		orgReceipt := receipt
+		receipt = proto.Clone(orgReceipt).(*types.TxReceipt)
+		receipt.Header.SkipchainHashes[0][0] = receipt.Header.SkipchainHashes[0][0] + 1
+		txProof, path, err := p.GetFullTxProofAndVerify(receipt, blockHeader, txEnvelopesPerBlock[3])
+		require.Error(t, err)
+		require.Nil(t, txProof)
+		require.Nil(t, path)
+	})
 }

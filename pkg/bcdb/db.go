@@ -69,6 +69,16 @@ type Ledger interface {
 	// GetDataProof returns proof of existence of value associated with key in block Merkle-Patricia Trie
 	// Proof itself is a path from node that contains value to root node in MPTrie
 	GetDataProof(blockNum uint64, dbName, key string, isDeleted bool) (*state.Proof, error)
+	// GetFullTxProofAndVerify do full tx existence and validity proof by fetching and validating two ledger skip list paths and one Merkle tree path.
+	// First, it fetches the Merkle tree path within the block with the transaction.
+	// Next, the ledger path from the block with the transaction to the genesis block is fetched.
+	// Then, the ledger path from the last know (a-priori) block to the block with the transaction is fetched.
+	// Finally, these three proofs are validated.
+	// Returns
+	// TxProof - the Merkle tree path within the block with the transaction.
+	// LedgerPath - two concatenated ledger paths [last... block... genesis]
+	// error - in case if verification failed, nil otherwise
+	GetFullTxProofAndVerify(txReceipt *types.TxReceipt, lastKnownBlockHeader *types.BlockHeader, tx proto.Message) (*TxProof, *LedgerPath, error)
 	// NewBlockHeaderDeliveryService creates a delivery service to deliver block header
 	// from a given starting block number present in the config to all the future block
 	// till the service is stopped

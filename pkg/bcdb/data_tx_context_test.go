@@ -747,7 +747,7 @@ func createDB(t *testing.T, dbName string, session DBSession) {
 	require.True(t, exist)
 }
 
-func putKeySync(t *testing.T, dbName, key string, value string, user string, session DBSession) (*types.TxReceipt, string) {
+func putKeySync(t *testing.T, dbName, key string, value string, user string, session DBSession) (*types.TxReceipt, string, proto.Message) {
 	tx, err := session.DataTx()
 	require.NoError(t, err)
 
@@ -767,7 +767,9 @@ func putKeySync(t *testing.T, dbName, key string, value string, user string, ses
 	require.NoError(t, err, fmt.Sprintf("Key = %s, value = %s", key, value))
 	require.NotNil(t, txID)
 	require.NotNil(t, receiptEnv)
-	return receiptEnv.GetResponse().GetReceipt(), txID
+	env, err := tx.CommittedTxEnvelope()
+	require.NoError(t, err)
+	return receiptEnv.GetResponse().GetReceipt(), txID, env
 }
 
 func putMultipleKeysAndValues(t *testing.T, key []string, value []string, user string, session DBSession) (txEnvelopes []proto.Message) {
