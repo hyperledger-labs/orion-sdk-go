@@ -429,9 +429,10 @@ func TestGetFullTxProofAndVerify(t *testing.T) {
 	p, err := aliceSession.Ledger()
 	require.NoError(t, err)
 
+	genesis, err := p.GetBlockHeader(GenesisBlockNumber)
+	require.NoError(t, err)
+
 	t.Run("TestVerifyFullTxProof_Valid", func(t *testing.T) {
-		genesis, err := p.GetBlockHeader(GenesisBlockNumber)
-		require.NoError(t, err)
 
 		blockHeader, err := p.GetBlockHeader(10)
 		require.NoError(t, err)
@@ -454,8 +455,32 @@ func TestGetFullTxProofAndVerify(t *testing.T) {
 		res, err = path.Verify(genesis, blockHeader)
 		require.NoError(t, err)
 		require.True(t, res)
+	})
 
+	t.Run("TestVerifyFullTxProof tx in latest block", func(t *testing.T) {
+		lastBlockReceipt := txReceiptsPerBlock[len(txReceiptsPerBlock) - 1]
+		lastBlockTx := txEnvelopesPerBlock[len(txReceiptsPerBlock) - 1]
+		blockHeader, err := p.GetBlockHeader(lastBlockReceipt.GetHeader().GetBaseHeader().GetNumber())
+		require.NoError(t, err)
+		txProof, path, err := p.GetFullTxProofAndVerify(lastBlockReceipt, blockHeader, lastBlockTx)
+		require.NoError(t, err)
+		res, err := txProof.Verify(lastBlockReceipt, lastBlockTx)
+		require.NoError(t, err)
 		require.True(t, res)
+		res, err = path.Verify(genesis, blockHeader)
+		require.NoError(t, err)
+		require.True(t, res)
+	})
+
+	t.Run("TestVerifyFullTxProof tx in block after latest", func(t *testing.T) {
+		lastBlockReceipt := txReceiptsPerBlock[len(txReceiptsPerBlock) - 1]
+		lastBlockTx := txEnvelopesPerBlock[len(txReceiptsPerBlock) - 1]
+		txReceiptsPerBlock[len(txReceiptsPerBlock) - 1].GetHeader().GetBaseHeader().GetNumber()
+		blockHeader, err := p.GetBlockHeader(lastBlockReceipt.GetHeader().GetBaseHeader().GetNumber() - 1)
+		require.NoError(t, err)
+		_, _, err = p.GetFullTxProofAndVerify(lastBlockReceipt, blockHeader, lastBlockTx)
+		require.Error(t, err)
+		require.Equal(t,"something wrong with blocks order: genesis: 1, tx block header 22, last know block header: 21", err.Error())
 	})
 
 	t.Run("TestVerifyFullTxProof_TamperedEnvelop", func(t *testing.T) {
