@@ -1,0 +1,13 @@
+connectionConfig:
+  replicaSet:
+    - id: "orion-server1"
+      endpoint: "http://127.0.0.1:6001"
+  rootCAs: "../crypto/CA/CA.pem"
+
+sessionConfig:
+  userConfig:
+    userID: "auditor"
+    certPath: "../crypto/auditor/auditor.pem"
+    privateKeyPath: "../crypto/auditor/auditor.key"
+  txTimeout: 20s
+  queryTimeout: 10s

@@ -271,8 +271,23 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 	}
 
 	if response.StatusCode != http.StatusOK {
-		d.logger.Errorf("error response from the server, %s", response.Status)
-		return nil, errors.New(fmt.Sprintf("error response from the server, %s", response.Status))
+		var errMsg string
+		if response.Body != nil {
+			errRes := &types.HttpResponseErr{}
+			if err := json.NewDecoder(response.Body).Decode(errRes); err != nil {
+				d.logger.Errorf("failed to parse the server's error message, due to %s", err)
+				errMsg = "(failed to parse the server's error message)"
+			} else {
+				errMsg = errRes.Error()
+			}
+		}
+		err := &httpError{
+			status:     response.Status,
+			statusCode: response.StatusCode,
+			errMsg:     errMsg,
+		}
+		d.logger.Errorf("error response from the server, %s", err)
+		return nil, err
 	}
 
 	resEnv := &types.GetClusterStatusResponseEnvelope{}
@@ -316,7 +331,7 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 	}
 
 	d.logger.Debugf("Cluster Status (from %s): Leader: %s, Active: %v, Version: %v",
-		statusResp.GetLeader(), statusResp.GetActive(), statusResp.GetVersion())
+		replica.String(), statusResp.GetLeader(), statusResp.GetActive(), statusResp.GetVersion())
 
 	return verifier, err
 }
