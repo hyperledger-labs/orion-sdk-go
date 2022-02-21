@@ -120,11 +120,11 @@ func setupTestServer(t *testing.T, demoDir string) (*server.BCDBHTTPServer, stri
 					Address: "127.0.0.1",
 					Port:    peerPort,
 				},
-				TLS:     config.TLSConf{
+				TLS: config.TLSConf{
 					Enabled: false,
 				},
 			},
-			Bootstrap:   config.BootstrapConf{},
+			Bootstrap: config.BootstrapConf{},
 		},
 
 		SharedConfig: &config.SharedConfiguration{

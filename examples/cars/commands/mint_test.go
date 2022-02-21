@@ -27,14 +27,13 @@ func TestMint(t *testing.T) {
 	defer func() {
 		if testServer != nil {
 			err = testServer.Stop()
-			require.NoError(t,err)
+			require.NoError(t, err)
 		}
 	}()
 	require.NoError(t, err)
 	err = testServer.Start()
 	require.NoError(t, err)
 	require.Eventually(t, func() bool { return testServer.IsLeader() == nil }, 30*time.Second, 100*time.Millisecond)
-
 
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)

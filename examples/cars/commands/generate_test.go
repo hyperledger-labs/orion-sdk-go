@@ -21,5 +21,5 @@ func TestGenerate(t *testing.T) {
 
 	serverUrl, err := loadServerUrl(demoDir)
 	require.NoError(t, err)
-	require.True(t, strings.HasPrefix( serverUrl.String(), "http://127.0.0.1:32"))
+	require.True(t, strings.HasPrefix(serverUrl.String(), "http://127.0.0.1:32"))
 }

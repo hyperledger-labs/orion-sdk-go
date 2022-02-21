@@ -1,12 +1,16 @@
+// Copyright IBM Corp. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
-	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"path"
 	"testing"
+
+	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDataContext_ExecuteJsonQueryExample(t *testing.T) {

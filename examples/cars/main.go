@@ -68,7 +68,6 @@ func executeForArgs(args []string, lg *logger.SugarLogger) (output string, exit 
 	toBuyerID := transferOwnership.Flag("buyer", "buyer user ID").Short('b').Required().String()
 	toCarRegistry := transferOwnership.Flag("car", "car registration plate").Short('c').Required().String()
 
-
 	listCar := app.Command("list-car", "List a car record")
 	lsCarUserID := listCar.Flag("user", "user ID").Short('u').Required().String()
 	lsCarCar := listCar.Flag("car", "car registration plate").Short('c').Required().String()
