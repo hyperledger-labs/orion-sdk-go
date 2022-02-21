@@ -13,3 +13,6 @@ examples/cars/cars
 *.out
 .idea
 
+# Server binary for testing
+/bin/
+
