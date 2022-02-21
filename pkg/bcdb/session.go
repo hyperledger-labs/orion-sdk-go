@@ -253,8 +253,9 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 		return nil, err
 	}
 
-	signature, err := cryptoservice.SignQuery(d.signer, &types.GetConfigQuery{
-		UserId: d.userID,
+	signature, err := cryptoservice.SignQuery(d.signer, &types.GetClusterStatusQuery{
+		UserId:         d.userID,
+		NoCertificates: false,
 	})
 	if err != nil {
 		d.logger.Errorf("failed signed transaction, %s", err)

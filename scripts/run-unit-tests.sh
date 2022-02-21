@@ -15,6 +15,8 @@ run_tests() {
 }
 
 main() {
+    make binary
+
     # default behavior is to run all tests
     local -a package_spec=("${TEST_PKGS:-github.com/hyperledger-labs/orion-sdk-go/...}")
 

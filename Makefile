@@ -9,7 +9,7 @@ COVERAGE_MODE    = atomic
 COVERAGE_PROFILE = $(COVERAGE_DIR)/profile.out
 COVERAGE_XML     = $(COVERAGE_DIR)/coverage.xml
 COVERAGE_HTML    = $(COVERAGE_DIR)/index.html
-BIN = $(CURDIR)/.bin
+BIN = $(CURDIR)/bin
 
 $(BIN):
 	@mkdir -p $@
@@ -44,6 +44,10 @@ fmt:
 goimports:
 	find . -name \*.go -not -path "./pkg/types/*" -exec goimports -w -l {} \;
 
+.PHONY: binary
+binary:
+	go build -o $(BIN)/bdb github.com/hyperledger-labs/orion-server/cmd/bdb
+
 .PHONY: test
 test-script:
 	scripts/run-unit-tests.sh
@@ -63,7 +67,8 @@ test-short:   ARGS=-short
 test-verbose: ARGS=-v
 test-race:    ARGS=-race
 $(TEST_TARGETS): test
-check test tests: 
+check test tests:
+	go build -o $(BIN)/bdb github.com/hyperledger-labs/orion-server/cmd/bdb
 	go test -timeout $(TIMEOUT) $(ARGS) $(TESTPKGS)
 
 test-coverage-tools: | $(GOCOVMERGE) $(GOCOV) $(GOCOVXML) 
