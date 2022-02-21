@@ -122,7 +122,8 @@ func TestSessionWithoutServerTLSAndWithClientTLS(t *testing.T) {
 	// New session with admin user context
 	_, err = openUserSessionWithQueryTimeoutAndTLS(bcdb, "admin", certTempDir, 0, true)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot create a signature verifier: failed to obtain the servers' certificates")
+	require.Contains(t, err.Error(), "cannot update the replica set and signature verifier: failed to obtain the latest cluster status: failed to get cluster status from replica set: [Id: testNode1, Role: UNKNOWN, URL:")
+	require.Contains(t, err.Error(), "http: server gave HTTP response to HTTPS client")
 }
 
 func TestSessionWithServerTLSAndNotConfiguredClient(t *testing.T) {
@@ -139,7 +140,8 @@ func TestSessionWithServerTLSAndNotConfiguredClient(t *testing.T) {
 	// New session with admin user context
 	_, err = openUserSessionWithQueryTimeoutAndTLS(bcdb, "admin", certTempDir, 0, true)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot create a signature verifier: failed to obtain the servers' certificates")
+	require.Contains(t, err.Error(), "cannot update the replica set and signature verifier: failed to obtain the latest cluster status: failed to get cluster status from replica set: [Id: testNode1, Role: UNKNOWN, URL:")
+	require.Contains(t, err.Error(), "error response from the server, 400 Bad Request")
 }
 
 func TestSessionServerTLSAndClientTLSIncorrectClientCA(t *testing.T) {
@@ -156,7 +158,7 @@ func TestSessionServerTLSAndClientTLSIncorrectClientCA(t *testing.T) {
 	// New session with admin user context
 	_, err = openUserSessionWithQueryTimeoutAndTLS(bcdb, "admin", certTempDir, 0, true)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot create a signature verifier: failed to obtain the servers' certificates")
+	require.Contains(t, err.Error(), "cannot update the replica set and signature verifier: failed to obtain the latest cluster status: failed to get cluster status from replica set: [Id: testNode1, Role: UNKNOWN, URL:")
 }
 
 func TestSessionServerTLSNoClientTLSIncorrectCAOnClientSide(t *testing.T) {
@@ -173,7 +175,8 @@ func TestSessionServerTLSNoClientTLSIncorrectCAOnClientSide(t *testing.T) {
 	// New session with admin user context
 	_, err = openUserSessionWithQueryTimeoutAndTLS(bcdb, "admin", certTempDir, 0, false)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot create a signature verifier: failed to obtain the servers' certificates")
+	require.Contains(t, err.Error(), "cannot update the replica set and signature verifier: failed to obtain the latest cluster status: failed to get cluster status from replica set: [Id: testNode1, Role: UNKNOWN, URL:")
+	require.Contains(t, err.Error(), "x509: certificate signed by unknown authority")
 }
 
 // Generates correct TLS CA certificate for server, correct TLS server certificates, but client side TLS certificates signed by incorrect CA
