@@ -130,7 +130,7 @@ func buyerValidateTransfer(buyerID, sellerID, dmvID, carReg string, buyerTx bcdb
 	for _, dr := range reads {
 		switch {
 		case strings.HasPrefix(dr.GetKey(), CarRecordKeyPrefix):
-			if CarRecordKeyPrefix + carReg !=  dr.GetKey() {
+			if CarRecordKeyPrefix+carReg != dr.GetKey() {
 				return errors.New("not the car I wanted!")
 			}
 		default:

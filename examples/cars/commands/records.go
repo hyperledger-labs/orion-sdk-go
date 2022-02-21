@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	CarRecordKeyPrefix             = "car~"
-	MintRequestRecordKeyPrefix     = "mint-request~"
+	CarRecordKeyPrefix         = "car~"
+	MintRequestRecordKeyPrefix = "mint-request~"
 )
 
 type MintRequestRecord struct {

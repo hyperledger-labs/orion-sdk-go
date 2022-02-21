@@ -1,13 +1,17 @@
+// Copyright IBM Corp. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
 	"encoding/pem"
 	"fmt"
-	"github.com/pkg/errors"
 	"io/ioutil"
 	"os"
 	"path"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"

@@ -458,8 +458,8 @@ func TestGetFullTxProofAndVerify(t *testing.T) {
 	})
 
 	t.Run("TestVerifyFullTxProof tx in latest block", func(t *testing.T) {
-		lastBlockReceipt := txReceiptsPerBlock[len(txReceiptsPerBlock) - 1]
-		lastBlockTx := txEnvelopesPerBlock[len(txReceiptsPerBlock) - 1]
+		lastBlockReceipt := txReceiptsPerBlock[len(txReceiptsPerBlock)-1]
+		lastBlockTx := txEnvelopesPerBlock[len(txReceiptsPerBlock)-1]
 		blockHeader, err := p.GetBlockHeader(lastBlockReceipt.GetHeader().GetBaseHeader().GetNumber())
 		require.NoError(t, err)
 		txProof, path, err := p.GetFullTxProofAndVerify(lastBlockReceipt, blockHeader, lastBlockTx)
@@ -473,14 +473,14 @@ func TestGetFullTxProofAndVerify(t *testing.T) {
 	})
 
 	t.Run("TestVerifyFullTxProof tx in block after latest", func(t *testing.T) {
-		lastBlockReceipt := txReceiptsPerBlock[len(txReceiptsPerBlock) - 1]
-		lastBlockTx := txEnvelopesPerBlock[len(txReceiptsPerBlock) - 1]
-		txReceiptsPerBlock[len(txReceiptsPerBlock) - 1].GetHeader().GetBaseHeader().GetNumber()
+		lastBlockReceipt := txReceiptsPerBlock[len(txReceiptsPerBlock)-1]
+		lastBlockTx := txEnvelopesPerBlock[len(txReceiptsPerBlock)-1]
+		txReceiptsPerBlock[len(txReceiptsPerBlock)-1].GetHeader().GetBaseHeader().GetNumber()
 		blockHeader, err := p.GetBlockHeader(lastBlockReceipt.GetHeader().GetBaseHeader().GetNumber() - 1)
 		require.NoError(t, err)
 		_, _, err = p.GetFullTxProofAndVerify(lastBlockReceipt, blockHeader, lastBlockTx)
 		require.Error(t, err)
-		require.Equal(t,"something wrong with blocks order: genesis: 1, tx block header 22, last know block header: 21", err.Error())
+		require.Equal(t, "something wrong with blocks order: genesis: 1, tx block header 22, last know block header: 21", err.Error())
 	})
 
 	t.Run("TestVerifyFullTxProof_TamperedEnvelop", func(t *testing.T) {
