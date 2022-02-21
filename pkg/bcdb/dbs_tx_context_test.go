@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/orion-sdk-go/internal"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
 	sdkConfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
@@ -314,7 +315,8 @@ func TestDBsContext_MalformedRequest(t *testing.T) {
 		},
 	})
 	require.Error(t, err)
-	require.EqualError(t, err, "cannot create a signature verifier: failed to obtain the servers' certificates")
+	expectedErr := fmt.Sprintf("cannot update the replica set and signature verifier: failed to obtain the latest cluster status: failed to get cluster status from replica set: [Id: testNode1, Role: UNKNOWN, URL: http://localhost:%s]; version: <nil>, last error: error response from the server, 401 Unauthorized", serverPort)
+	require.EqualError(t, err, expectedErr)
 }
 
 func TestDBsContext_ExistsFailureScenarios(t *testing.T) {
@@ -361,10 +363,8 @@ func TestDBsContext_ExistsFailureScenarios(t *testing.T) {
 					userID:     "testUserId",
 					restClient: restClient,
 					logger:     logger,
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 				},
 				createdDBs: map[string]*types.DBIndex{},

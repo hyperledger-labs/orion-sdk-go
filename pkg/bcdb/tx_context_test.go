@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/orion-sdk-go/internal"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
@@ -45,10 +46,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -67,10 +66,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -90,10 +87,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -114,10 +109,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -139,12 +132,9 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
-					},
-					verifier: verifier,
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
+					}, verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
 						process: syncSubmit,
 						resp:    serverTimeoutResponse(),
@@ -164,10 +154,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -187,10 +175,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifierFails,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -210,10 +196,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -233,10 +217,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -258,10 +240,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -284,10 +264,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifierFails,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -308,10 +286,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -330,10 +306,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -354,10 +328,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -379,10 +351,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifierFails,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -402,10 +372,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -424,10 +392,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -448,10 +414,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifier,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -473,10 +437,8 @@ func TestTxCommit(t *testing.T) {
 					userID:   "testUser",
 					signer:   emptySigner,
 					userCert: []byte{1, 2, 3},
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 					verifier: verifierFails,
 					restClient: NewRestClient("testUser", &mockHttpClient{
@@ -539,10 +501,8 @@ func TestTxQuery(t *testing.T) {
 				userID:   "testUser",
 				signer:   emptySigner,
 				userCert: []byte{1, 2, 3},
-				replicaSet: map[string]*url.URL{
-					"node1": {
-						Path: "http://localhost:8888",
-					},
+				replicaSet: []*internal.ReplicaWithRole{
+					{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 				},
 				verifier: verifier,
 				restClient: NewRestClient("testUser", &mockHttpClient{
@@ -560,10 +520,8 @@ func TestTxQuery(t *testing.T) {
 				userID:   "testUser",
 				signer:   emptySigner,
 				userCert: []byte{1, 2, 3},
-				replicaSet: map[string]*url.URL{
-					"node1": {
-						Path: "http://localhost:8888",
-					},
+				replicaSet: []*internal.ReplicaWithRole{
+					{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 				},
 				verifier: verifier,
 				restClient: NewRestClient("testUser", &mockHttpClient{
@@ -582,10 +540,8 @@ func TestTxQuery(t *testing.T) {
 				userID:   "testUser",
 				signer:   emptySigner,
 				userCert: []byte{1, 2, 3},
-				replicaSet: map[string]*url.URL{
-					"node1": {
-						Path: "http://localhost:8888",
-					},
+				replicaSet: []*internal.ReplicaWithRole{
+					{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 				},
 				verifier: verifier,
 				restClient: NewRestClient("testUser", &mockHttpClient{
@@ -603,10 +559,8 @@ func TestTxQuery(t *testing.T) {
 				userID:   "testUser",
 				signer:   emptySigner,
 				userCert: []byte{1, 2, 3},
-				replicaSet: map[string]*url.URL{
-					"node1": {
-						Path: "http://localhost:8888",
-					},
+				replicaSet: []*internal.ReplicaWithRole{
+					{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 				},
 				verifier: verifierFails,
 				restClient: NewRestClient("testUser", &mockHttpClient{

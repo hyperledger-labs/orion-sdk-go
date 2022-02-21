@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/hyperledger-labs/orion-sdk-go/internal"
 	"github.com/hyperledger-labs/orion-server/pkg/certificateauthority"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
 	"github.com/hyperledger-labs/orion-server/pkg/crypto"
@@ -32,7 +33,8 @@ type dbSession struct {
 	signer             Signer
 	verifier           SignatureVerifier
 	userCert           []byte
-	replicaSet         map[string]*url.URL
+	replicaSet         internal.ReplicaSet
+	replicaSetVersion  *types.Version
 	rootCAs            *certificateauthority.CACertCollection
 	tlsEnabled         bool
 	tlsRootCAs         *certificateauthority.CACertCollection
@@ -226,28 +228,41 @@ func (d *dbSession) newCommonTxContext(options ...TxContextOption) (*commonTxCon
 	return commonTxCtx, nil
 }
 
-func (d *dbSession) sigVerifier(httpClient *http.Client) (SignatureVerifier, error) {
-	var verifier SignatureVerifier
-	var err error
-	for _, replica := range d.replicaSet {
-		//TODO choose the cert-set from the best replica - the one  with the highest config version. See:
-		// https://github.com/hyperledger-labs/orion-sdk-go/issues/27
-		verifier, err = d.getNodesCerts(replica, httpClient)
-		if err == nil {
-			break
-		}
-		d.logger.Errorf("failed to obtain the servers' certificates from replica: %s, error: %s", replica, err)
+// updateReplicaSetAndVerifier connects to the cluster, pulls the most recent cluster status, builds a signature
+// verifier from it, and updates the replica-set.
+func (d *dbSession) updateReplicaSetAndVerifier(httpClient *http.Client, tlsEnabled bool) error {
+	// get the latest status from replica set
+	clusterStatusEnv, err := d.getLatestClusterStatus(httpClient)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain the latest cluster status")
 	}
 
-	if verifier == nil {
-		d.logger.Errorf("failed to obtain the servers' certificates, bootstrapReplicaSet: %s", d.replicaSet)
-		return nil, errors.New("failed to obtain the servers' certificates")
+	if d.replicaSetVersion != nil && compareVersion(clusterStatusEnv.GetResponse().GetVersion(), d.replicaSetVersion) < 0 {
+		d.logger.Debugf("Cluster config version from server: [%v] is smaller than the latest replica set version: [%v], skipping update.")
+		return nil
 	}
-	return verifier, nil
+
+	// create the verifier and verify the cluster status response envelope
+	verifier, err := d.createSignatureVerifier(clusterStatusEnv)
+	if err != nil {
+		return errors.Wrap(err, "failed to create signature verifier form servers' certificates")
+	}
+
+	replicaSet, err := internal.ClusterStatusToReplicaSet(clusterStatusEnv.GetResponse(), tlsEnabled)
+	if err != nil {
+		return errors.Wrap(err, "failed to create replica set with role from cluster status")
+	}
+
+	d.verifier = verifier
+	d.replicaSet = replicaSet
+	d.replicaSetVersion = clusterStatusEnv.GetResponse().GetVersion()
+
+	d.logger.Debugf("updated replica set, version: %+v, set: %v", d.replicaSetVersion, d.replicaSet)
+
+	return nil
 }
 
-func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (SignatureVerifier, error) {
-	nodesCerts := map[string]*x509.Certificate{}
+func (d *dbSession) getClusterStatusFrom(replica *url.URL, httpClient *http.Client) (*types.GetClusterStatusResponseEnvelope, error) {
 	getStatus := &url.URL{
 		Path: constants.GetClusterStatus,
 	}
@@ -288,10 +303,53 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 	}
 
 	statusResp := resEnv.GetResponse()
-	nodes := statusResp.GetNodes()
+
+	d.logger.Debugf("Cluster status (from: %s) version: %+v", replica.String(), statusResp.GetVersion())
+
+	return resEnv, nil
+}
+
+// getLatestClusterStatus get the most updated cluster status out of all servers in the replica set.
+// If the replica set is empty, use the bootstrap replica set.
+func (d *dbSession) getLatestClusterStatus(httpClient *http.Client) (*types.GetClusterStatusResponseEnvelope, error) {
+	latestStatusEnv := &types.GetClusterStatusResponseEnvelope{}
+	latestFrom := ""
+	var lastErr error
+
+	for _, replica := range d.replicaSet {
+		statusRespEnv, err := d.getClusterStatusFrom(replica.URL, httpClient)
+		if err != nil {
+			d.logger.Debugf("Failed to get cluster status from server: %s; because: %s", replica.String(), err)
+			lastErr = err
+			continue
+		}
+
+		latestVersion := latestStatusEnv.GetResponse().GetVersion()
+		fetchedVersion := statusRespEnv.GetResponse().GetVersion()
+		if compareVersion(fetchedVersion, latestVersion) > 0 {
+			latestStatusEnv = statusRespEnv
+			latestFrom = fmt.Sprintf("%s", replica.String())
+			d.logger.Debugf("Got latest cluster status from server: %s", latestFrom)
+		}
+	}
+
+	if latestStatusEnv.GetResponse() == nil {
+		return nil, errors.New(fmt.Sprintf("failed to get cluster status from replica set: %+v; version: %+v, last error: %s", d.replicaSet, d.replicaSetVersion, lastErr))
+	}
+
+	d.logger.Debugf("Latest cluster status (from: %s) is: %+v", latestFrom, latestStatusEnv.GetResponse())
+
+	return latestStatusEnv, nil
+}
+
+// createSignatureVerifier creates a SignatureVerifier and verifies the cluster status response envelope with it
+func (d *dbSession) createSignatureVerifier(clusterStatusEnv *types.GetClusterStatusResponseEnvelope) (SignatureVerifier, error) {
+	clusterStatus := clusterStatusEnv.GetResponse()
+	nodes := clusterStatus.GetNodes()
 	numNodes := len(nodes)
+	nodesCerts := map[string]*x509.Certificate{}
 	for i, node := range nodes {
-		d.logger.Debugf("Cluster Nodes (from %s): [%d/%d]: %s", replica.String(), i+1, numNodes, nodeConfigToString(node))
+		d.logger.Debugf("Cluster Nodes: [%d/%d]: %s", i+1, numNodes, nodeConfigToString(node))
 		err := d.rootCAs.VerifyLeafCert(node.Certificate)
 		if err != nil {
 			return nil, err
@@ -308,21 +366,21 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 		return nil, err
 	}
 
-	respBytes, err := json.Marshal(statusResp)
+	respBytes, err := json.Marshal(clusterStatus)
 	if err != nil {
 		return nil, err
 	}
 
 	if err = verifier.Verify(
-		statusResp.GetHeader().GetNodeId(),
+		clusterStatus.GetHeader().GetNodeId(),
 		respBytes,
-		resEnv.GetSignature()); err != nil {
+		clusterStatusEnv.GetSignature()); err != nil {
 		d.logger.Errorf("failed to verify configuration response, error = %s", err)
 		return nil, errors.Errorf("failed to verify configuration response, error = %s", err)
 	}
 
-	d.logger.Debugf("Cluster Status (from %s): Leader: %s, Active: %v, Version: %v",
-		statusResp.GetLeader(), statusResp.GetActive(), statusResp.GetVersion())
+	d.logger.Debugf("Cluster Status: Leader: %s, Active: %v, Version: %v",
+		clusterStatus.GetLeader(), clusterStatus.GetActive(), clusterStatus.GetVersion())
 
 	return verifier, err
 }
@@ -369,4 +427,24 @@ func computeTxID(userCert []byte) (string, error) {
 
 func nodeConfigToString(n *types.NodeConfig) string {
 	return fmt.Sprintf("Id: %s, Address: %s, Port: %d, Cert-hash: %x", n.Id, n.Address, n.Port, crc32.ChecksumIEEE(n.Certificate))
+}
+
+func compareVersion(x, y *types.Version) int {
+	if x.GetBlockNum() > y.GetBlockNum() {
+		return 1
+	}
+
+	if x.GetBlockNum() < y.GetBlockNum() {
+		return -1
+	}
+
+	if x.GetTxNum() > y.GetTxNum() {
+		return 1
+	}
+
+	if x.GetTxNum() < y.GetTxNum() {
+		return -1
+	}
+
+	return 0
 }

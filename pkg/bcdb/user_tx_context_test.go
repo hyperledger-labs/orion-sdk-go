@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/orion-sdk-go/internal"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
 	sdkConfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
@@ -101,6 +103,9 @@ func TestUserContext_MalformedRequest(t *testing.T) {
 	require.NoError(t, err)
 	StartTestServer(t, testServer)
 
+	serverPort, err := testServer.Port()
+	require.NoError(t, err)
+
 	bcdb, _ := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
 
 	// New session with admin user context
@@ -111,7 +116,8 @@ func TestUserContext_MalformedRequest(t *testing.T) {
 			PrivateKeyPath: path.Join(clientCertTemDir, "admin.key"),
 		},
 	})
-	require.EqualError(t, err, "cannot create a signature verifier: failed to obtain the servers' certificates")
+	expectedErr := fmt.Sprintf("cannot update the replica set and signature verifier: failed to obtain the latest cluster status: failed to get cluster status from replica set: [Id: testNode1, Role: UNKNOWN, URL: http://localhost:%s]; version: <nil>, last error: error response from the server, 401 Unauthorized", serverPort)
+	require.EqualError(t, err, expectedErr)
 }
 
 func TestUserContext_GetUserFailureScenarios(t *testing.T) {
@@ -158,10 +164,8 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 					userID:     "testUserId",
 					restClient: restClient,
 					logger:     logger,
-					replicaSet: map[string]*url.URL{
-						"node1": {
-							Path: "http://localhost:8888",
-						},
+					replicaSet: []*internal.ReplicaWithRole{
+						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
 				},
 			}
@@ -237,10 +241,8 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 			restClient: restClient,
 			logger:     logger,
 			verifier:   verifier,
-			replicaSet: map[string]*url.URL{
-				"node1": {
-					Path: "http://localhost:8888",
-				},
+			replicaSet: []*internal.ReplicaWithRole{
+				{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 			},
 		},
 	}

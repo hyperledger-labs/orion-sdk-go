@@ -196,7 +196,7 @@ func createTestLogger(t *testing.T) *logger.SugarLogger {
 		OutputPath:    []string{"stdout"},
 		ErrOutputPath: []string{"stderr"},
 		Encoding:      "console",
-		Name:          "bcdb-client",
+		Name:          "orion-client",
 	}
 	logger, err := logger.New(c)
 	require.NoError(t, err)
@@ -252,6 +252,7 @@ func createDBInstanceWithTLSConfig(t *testing.T, cryptoDir string, serverPort st
 				Endpoint: fmt.Sprintf("http://localhost:%s", serverPort),
 			},
 		},
+		Logger: createTestLogger(t),
 	}
 	updateClientConfig(t, cryptoDir, serverPort, conf, tlsEnabled, clientTLSRequired)
 	bcdb, err := Create(conf)

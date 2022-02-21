@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/orion-sdk-go/internal"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/pkg/certificateauthority"
 	"github.com/hyperledger-labs/orion-server/pkg/crypto"
@@ -41,8 +42,7 @@ type DBSession interface {
 
 var ErrTxSpent = errors.New("transaction committed or aborted")
 
-// TxContet an abstract API to capture general purpose
-// functionality for all types of transactions context
+// TxContext is an abstract API to capture general purpose functionality for all types of transactions context.
 type TxContext interface {
 	// Commit submits transaction to the server, can be sync or async.
 	// Sync option returns tx id and tx receipt envelope and
@@ -151,7 +151,7 @@ func Create(connectionConfig *config.ConnectionConfig) (BCDB, error) {
 			OutputPath:    []string{"stdout"},
 			ErrOutputPath: []string{"stderr"},
 			Encoding:      "console",
-			Name:          "bcdb-client",
+			Name:          "orion-client",
 		}
 		var err error
 		dbLogger, err = logger.New(c)
@@ -198,7 +198,7 @@ func Create(connectionConfig *config.ConnectionConfig) (BCDB, error) {
 	}
 
 	db := &bDB{
-		bootstrapReplicaSet: urls,
+		bootstrapReplicaMap: urls,
 		rootCAs:             rootCACerts,
 		logger:              dbLogger,
 	}
@@ -231,7 +231,7 @@ func Create(connectionConfig *config.ConnectionConfig) (BCDB, error) {
 }
 
 type bDB struct {
-	bootstrapReplicaSet  map[string]*url.URL
+	bootstrapReplicaMap  map[string]*url.URL
 	rootCAs              *certificateauthority.CACertCollection
 	tlsEnabled           bool
 	tlsRootCAs           *certificateauthority.CACertCollection
@@ -262,13 +262,20 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 		userID:       cfg.UserConfig.UserID,
 		signer:       signer,
 		userCert:     certBytes,
-		replicaSet:   b.bootstrapReplicaSet,
 		rootCAs:      b.rootCAs,
 		tlsEnabled:   b.tlsEnabled,
 		tlsRootCAs:   b.tlsRootCAs,
 		txTimeout:    cfg.TxTimeout,
 		queryTimeout: cfg.QueryTimeout,
 		logger:       b.logger,
+	}
+
+	for id, url := range b.bootstrapReplicaMap {
+		session.replicaSet = append(session.replicaSet, &internal.ReplicaWithRole{
+			Id:   id,
+			URL:  url,
+			Role: internal.ReplicaRole_UNKNOWN,
+		})
 	}
 
 	if b.tlsEnabled {
@@ -301,10 +308,10 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 		session.clientTlsConfig = clientTlsConfig
 	}
 	httpClient := newHTTPClient(session.tlsEnabled, session.clientTlsConfig)
-	session.verifier, err = session.sigVerifier(httpClient)
+	err = session.updateReplicaSetAndVerifier(httpClient, session.tlsEnabled)
 	if err != nil {
-		b.logger.Errorf("cannot create a signature verifier, error: %s", err)
-		return nil, errors.Wrap(err, "cannot create a signature verifier")
+		b.logger.Errorf("cannot update the replica set and signature verifier, error: %s", err)
+		return nil, errors.Wrap(err, "cannot update the replica set and signature verifier")
 	}
 
 	return session, nil

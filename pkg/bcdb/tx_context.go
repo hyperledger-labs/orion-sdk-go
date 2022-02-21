@@ -1,5 +1,6 @@
 // Copyright IBM Corp. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 package bcdb
 
 import (
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/orion-sdk-go/internal"
 	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
 	"github.com/hyperledger-labs/orion-server/pkg/logger"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
@@ -26,7 +28,7 @@ type commonTxContext struct {
 	txID          string
 	signer        Signer
 	userCert      []byte
-	replicaSet    map[string]*url.URL
+	replicaSet    internal.ReplicaSet
 	verifier      SignatureVerifier
 	restClient    RestClient
 	txEnvelope    proto.Message
@@ -47,11 +49,16 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 		return "", nil, ErrTxSpent
 	}
 
-	replica := t.selectReplica()
+	var err error
+	replica, err := t.selectReplica()
+	if err != nil {
+		t.logger.Errorf("failed to select replica, due to %s", err)
+		return t.txID, nil, errors.WithMessage(err, "failed to select replica")
+	}
 	postEndpointResolved := replica.ResolveReference(&url.URL{Path: postEndpoint})
 
 	t.logger.Debugf("compose transaction enveloped with txID = %s", t.txID)
-	var err error
+
 	t.txEnvelope, err = tx.composeEnvelope(t.txID)
 	if err != nil {
 		t.logger.Errorf("failed to compose transaction envelope, due to %s", err)
@@ -142,12 +149,14 @@ func (t *commonTxContext) abort(tx txContext) error {
 	return nil
 }
 
-func (t *commonTxContext) selectReplica() *url.URL {
-	// Pick first replica to send request to
+func (t *commonTxContext) selectReplica() (url *url.URL, err error) {
+	// Pick first replica to send request to, as that is the leader.
+	// TODO a cyclic retry mechanism for when the last choice failed to connect.
 	for _, replica := range t.replicaSet {
-		return replica
+		return replica.URL, nil
 	}
-	return nil
+
+	return nil, errors.New("empty replica set")
 }
 
 func (t *commonTxContext) handleRequest(rawurl string, msgToSign, res proto.Message) error {
@@ -176,7 +185,14 @@ func (t *commonTxContext) handleGetPostRequest(rawurl, httpMethod string, postDa
 	if err != nil {
 		return err
 	}
-	restURL := t.selectReplica().ResolveReference(parsedURL).String()
+
+	replicaURL, err := t.selectReplica()
+	if err != nil {
+		return errors.WithMessage(err, "failed to select replica")
+	}
+
+	restURL := replicaURL.ResolveReference(parsedURL).String()
+
 	ctx := context.Background()
 	if t.queryTimeout > 0 {
 		contextTimeout := t.queryTimeout
