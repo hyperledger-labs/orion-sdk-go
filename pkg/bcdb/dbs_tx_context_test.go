@@ -81,8 +81,14 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 			"attr2": types.IndexAttributeType_NUMBER,
 			"attr3": types.IndexAttributeType_STRING,
 		}
+		//creating testDB-1 with index
 		err = tx.CreateDB("testDB-1", index)
 		require.NoError(t, err)
+
+		for _, dbName := range []string{"testDB-2", "testDB-3"} {
+			err = tx.CreateDB(dbName, nil)
+			require.NoError(t, err)
+		}
 
 		txId, receiptEnv, err := tx.Commit(true)
 		require.NoError(t, err)
@@ -95,19 +101,39 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		// Check database status, whenever created or not
 		tx, err = adminSession.DBsTx()
 		require.NoError(t, err)
-		exist, err := tx.Exists("testDB-1")
+
+		for _, dbName := range []string{"testDB-1", "testDB-2", "testDB-3"} {
+			exist, err := tx.Exists(dbName)
+			require.NoError(t, err)
+			require.True(t, exist)
+		}
+
+		//check whether index exists for testDB-1
+		actualIndex, err := tx.GetDBIndex("testDB-1")
 		require.NoError(t, err)
-		require.True(t, exist)
+		require.Equal(t, actualIndex, index)
+
+		//check non-existence of index for testDB-2
+		actualIndex, err = tx.GetDBIndex("testDB-2")
+		require.NoError(t, err)
+		require.Nil(t, actualIndex)
 
 		pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
 		require.NoError(t, err)
 		dbPerm := map[string]types.Privilege_Access{
 			"testDB-1": 1,
+			"testDB-2": 1,
 		}
 		addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 		userSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
 
 		putKeySync(t, "testDB-1", "key1", `{"attr1":false}`, "alice", userSession)
+
+		tx, err = userSession.DBsTx()
+		require.NoError(t, err)
+		actualIndex, err = tx.GetDBIndex("testDB-3")
+		require.Contains(t, err.Error(), "the user [alice] has no permission to read from database [testDB-3]")
+		require.Nil(t, actualIndex)
 
 		q, err := userSession.JSONQuery()
 		require.NoError(t, err)
@@ -119,6 +145,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 			}
 		}
 	`
+		//execute query on testDB-1
 		kvs, err := q.Execute("testDB-1", query)
 		require.NoError(t, err)
 		require.Len(t, kvs, 1)
@@ -143,6 +170,11 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 			},
 		}
 		require.ElementsMatch(t, kvs, expectedKVs)
+
+		//execute query on testDB-2 that does not have an index
+		kvs, err = q.Execute("testDB-2", query)
+		require.Contains(t, err.Error(), "[attr1] given in the query condition is not indexed")
+		require.Nil(t, kvs)
 	})
 
 	t.Run("database creation fails due to bad index", func(t *testing.T) {
@@ -156,7 +188,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 			"attr2": types.IndexAttributeType_NUMBER,
 			"attr3": types.IndexAttributeType_STRING,
 		}
-		err = tx.CreateDB("testDB-2", index)
+		err = tx.CreateDB("testDB-4", index)
 		require.NoError(t, err)
 
 		txId, receiptEnv, err := tx.Commit(true)
@@ -170,7 +202,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		// Check database status, whenever created or not
 		tx, err = adminSession.DBsTx()
 		require.NoError(t, err)
-		exist, err := tx.Exists("testDB-2")
+		exist, err := tx.Exists("testDB-4")
 		require.NoError(t, err)
 		require.False(t, exist)
 	})

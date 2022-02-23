@@ -3,6 +3,8 @@
 package bcdb
 
 import (
+	"encoding/json"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
 	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
@@ -24,6 +26,12 @@ type DBsTxContext interface {
 	DeleteDB(dbName string) error
 	// Exists checks whenever database is already created
 	Exists(dbName string) (bool, error)
+	// GetDBIndex returns the index definition associated with the given database.
+	// The index definition is of form map["name"]types.IndexAttributeType where
+	// name denotes the field name in the JSON document and types.IndexAttributeType
+	// denotes one of the three value types: STRING, BOOLEAN, and INT64. When a database
+	// does not have an index definition, GetDBIndex would return a nil map
+	GetDBIndex(dbName string) (map[string]types.IndexAttributeType, error)
 }
 
 type dbsTxContext struct {
@@ -80,6 +88,38 @@ func (d *dbsTxContext) Exists(dbName string) (bool, error) {
 	}
 
 	return resEnv.GetResponse().GetExist(), nil
+}
+
+func (d *dbsTxContext) GetDBIndex(dbName string) (map[string]types.IndexAttributeType, error) {
+	if d.txSpent {
+		return nil, ErrTxSpent
+	}
+
+	path := constants.URLForGetDBIndex(dbName)
+	resEnv := &types.GetDBIndexResponseEnvelope{}
+	err := d.handleRequest(
+		path,
+		&types.GetDBIndexQuery{
+			UserId: d.userID,
+			DbName: dbName,
+		},
+		resEnv,
+	)
+	if err != nil {
+		d.logger.Errorf("failed to execute database index query, path = %s, due to %s", path, err)
+		return nil, err
+	}
+
+	if resEnv.GetResponse().GetIndex() == "" {
+		return nil, nil
+	}
+
+	index := map[string]types.IndexAttributeType{}
+	if err = json.Unmarshal([]byte(resEnv.GetResponse().GetIndex()), &index); err != nil {
+		return nil, err
+	}
+
+	return index, nil
 }
 
 func (d *dbsTxContext) cleanCtx() {
