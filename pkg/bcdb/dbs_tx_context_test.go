@@ -228,8 +228,8 @@ func TestDBsContext_CheckStatusTimeout(t *testing.T) {
 	require.Greater(t, len(txId), 0)
 	require.NotNil(t, receiptEnv)
 
-	sessionOneNano := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Nanosecond)
-	sessionTenSeconds := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Second*10)
+	sessionOneNano := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Nanosecond, false)
+	sessionTenSeconds := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Second*10, false)
 
 	// Check database status with timeout
 	tx1, err := sessionOneNano.DBsTx()

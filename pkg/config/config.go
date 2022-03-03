@@ -5,10 +5,11 @@ package config
 import (
 	"time"
 
+	"github.com/hyperledger-labs/orion-server/config"
 	"github.com/hyperledger-labs/orion-server/pkg/logger"
 )
 
-// Replica
+// Replica configuration
 type Replica struct {
 	// ID replica's ID
 	ID string
@@ -24,8 +25,30 @@ type ConnectionConfig struct {
 	ReplicaSet []*Replica
 	// Keeps path to the server's root CA
 	RootCAs []string
+	// Server side TLS configuration - servers TLS CA configuration
+	TLSConfig ServerTLSConfig
 	// Logger instance, if nil an internal logger is created
 	Logger *logger.SugarLogger
+}
+
+// ServerTLSConfig holds server side TLS configuration settings.
+type ServerTLSConfig struct {
+	// Require server-side TLS.
+	Enabled bool
+	// Whether the target server (cluster) requires client authentication.
+	ClientAuthRequired bool
+	// caConfig defines the paths to the x509 certificates
+	// of the root and intermediate certificate authorities that issued
+	// all the certificates used for client-server communication.
+	CaConfig config.CAConfiguration
+}
+
+// ClientTLSConfig holds client side TLS configuration settings.
+type ClientTLSConfig struct {
+	// X.509 certificate used for creating TLS client connections.
+	ClientCertificatePath string
+	// Private key used for creating TLS client connections.
+	ClientKeyPath string
 }
 
 // SessionConfig keeps per database session
@@ -38,6 +61,8 @@ type SessionConfig struct {
 	TxTimeout time.Duration
 	// The query timeout - SDK will wait for query result maximum `QueryTimeout` time.
 	QueryTimeout time.Duration
+	// Client side TLS configuration - client TLS certificate and private key
+	ClientTLS ClientTLSConfig
 }
 
 // UserConfig user related information

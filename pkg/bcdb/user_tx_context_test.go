@@ -40,7 +40,7 @@ func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {
 	}
 	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 
-	sessionOneNano := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Nanosecond)
+	sessionOneNano := openUserSessionWithQueryTimeout(t, bcdb, "admin", clientCertTemDir, time.Nanosecond, false)
 	tx, err := sessionOneNano.UsersTx()
 	require.NoError(t, err)
 	require.NotNil(t, tx)

@@ -383,8 +383,8 @@ func TestDataContext_GetTimeout(t *testing.T) {
 	}
 	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
 	sessionNoTimeout := openUserSession(t, bcdb, "alice", clientCertTemDir)
-	sessionOneNanoTimeout := openUserSessionWithQueryTimeout(t, bcdb, "alice", clientCertTemDir, time.Nanosecond)
-	sessionTenSecondTimeout := openUserSessionWithQueryTimeout(t, bcdb, "alice", clientCertTemDir, time.Second*10)
+	sessionOneNanoTimeout := openUserSessionWithQueryTimeout(t, bcdb, "alice", clientCertTemDir, time.Nanosecond, false)
+	sessionTenSecondTimeout := openUserSessionWithQueryTimeout(t, bcdb, "alice", clientCertTemDir, time.Second*10, false)
 
 	putKeySync(t, "bdb", "key1", "value1", "alice", sessionNoTimeout)
 

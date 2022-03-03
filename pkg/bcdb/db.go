@@ -4,9 +4,11 @@
 package bcdb
 
 import (
+	"crypto/tls"
 	"encoding/pem"
 	"io/ioutil"
 	"net/url"
+	"os"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
@@ -141,8 +143,8 @@ type Signer interface {
 
 // Create prepares connection context to work with BCDB instance
 // loads root CA certificates
-func Create(config *config.ConnectionConfig) (BCDB, error) {
-	dbLogger := config.Logger
+func Create(connectionConfig *config.ConnectionConfig) (BCDB, error) {
+	dbLogger := connectionConfig.Logger
 	if dbLogger == nil {
 		c := &logger.Config{
 			Level:         "info",
@@ -158,15 +160,9 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 		}
 	}
 
-	var rootCAs [][]byte
-	for _, rootCAPath := range config.RootCAs {
-		rootCABytes, err := ioutil.ReadFile(rootCAPath)
-		if err != nil {
-			dbLogger.Errorf("failed to read root CA certificate, due to %s", err)
-			return nil, errors.Wrap(err, "failed to read root CA certificate")
-		}
-		asn1Data, _ := pem.Decode(rootCABytes)
-		rootCAs = append(rootCAs, asn1Data.Bytes)
+	rootCAs, err := loadCACertificates(connectionConfig.RootCAs, dbLogger)
+	if err != nil {
+		return nil, err
 	}
 	rootCACerts, err := certificateauthority.NewCACertCollection(rootCAs, nil)
 	if err != nil {
@@ -180,26 +176,67 @@ func Create(config *config.ConnectionConfig) (BCDB, error) {
 
 	// Verify replica set URIs
 	urls := map[string]*url.URL{}
-	for _, uri := range config.ReplicaSet {
+	for _, uri := range connectionConfig.ReplicaSet {
 		replicaURL, err := url.Parse(uri.Endpoint)
 		if err != nil {
 			dbLogger.Errorf("error parsing replica URI, %s", uri.Endpoint)
 			return nil, errors.Wrapf(err, "error parsing replica URI, %s", uri.Endpoint)
 		}
 		urls[uri.ID] = replicaURL
+
+		if connectionConfig.TLSConfig.Enabled {
+			if replicaURL.Scheme != "https" {
+				dbLogger.Errorf("configuration error, tls in use, but url is %s", uri.Endpoint)
+				return nil, errors.Wrapf(err, "configuration error, tls in use, but url is %s", uri.Endpoint)
+			}
+		} else {
+			if replicaURL.Scheme != "http" {
+				dbLogger.Errorf("configuration error, tls disabled, but url is %s", uri.Endpoint)
+				return nil, errors.Wrapf(err, "configuration error, tls disabled, but url is  %s", uri.Endpoint)
+			}
+		}
 	}
 
-	return &bDB{
+	db := &bDB{
 		bootstrapReplicaSet: urls,
 		rootCAs:             rootCACerts,
 		logger:              dbLogger,
-	}, nil
+	}
+
+	// Loading TLS CA root and intermediate certificates
+	if connectionConfig.TLSConfig.Enabled {
+		tlsRootCAs, err := loadCACertificates(connectionConfig.TLSConfig.CaConfig.RootCACertsPath, dbLogger)
+		if err != nil {
+			return nil, err
+		}
+		tlsIntermediateCAs, err := loadCACertificates(connectionConfig.TLSConfig.CaConfig.IntermediateCACertsPath, dbLogger)
+		tlsCACertCollection, err := certificateauthority.NewCACertCollection(tlsRootCAs, tlsIntermediateCAs)
+		if err != nil {
+			dbLogger.Errorf("failed to create CACertCollection, due to %s", err)
+			return nil, err
+		}
+		if err = tlsCACertCollection.VerifyCollection(); err != nil {
+			dbLogger.Errorf("verification of CA certs collection is failed, due to %s", err)
+			return nil, err
+		}
+		if err != nil {
+			return nil, err
+		}
+		db.tlsRootCAs = tlsCACertCollection
+		db.tlsEnabled = true
+		db.tlsClientAuthRequire = connectionConfig.TLSConfig.ClientAuthRequired
+	}
+
+	return db, nil
 }
 
 type bDB struct {
-	bootstrapReplicaSet map[string]*url.URL
-	rootCAs             *certificateauthority.CACertCollection
-	logger              *logger.SugarLogger
+	bootstrapReplicaSet  map[string]*url.URL
+	rootCAs              *certificateauthority.CACertCollection
+	tlsEnabled           bool
+	tlsRootCAs           *certificateauthority.CACertCollection
+	tlsClientAuthRequire bool
+	logger               *logger.SugarLogger
 }
 
 // Session parses sessions configuration and opens session to BCDB, takes
@@ -227,11 +264,43 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 		userCert:     certBytes,
 		replicaSet:   b.bootstrapReplicaSet,
 		rootCAs:      b.rootCAs,
+		tlsEnabled:   b.tlsEnabled,
+		tlsRootCAs:   b.tlsRootCAs,
 		txTimeout:    cfg.TxTimeout,
 		queryTimeout: cfg.QueryTimeout,
 		logger:       b.logger,
 	}
-	httpClient := newHTTPClient()
+
+	if b.tlsEnabled {
+		clientTlsConfig := &tls.Config{
+			RootCAs:    b.tlsRootCAs.GetCertPool(),
+			ClientCAs:  b.tlsRootCAs.GetCertPool(),
+			MinVersion: tls.VersionTLS12,
+		}
+		if b.tlsClientAuthRequire {
+			clientKeyBytes, err := os.ReadFile(cfg.ClientTLS.ClientKeyPath)
+			if err != nil {
+				b.logger.Errorf("cannot read user's tls certificate, from %s, due to %s",
+					cfg.ClientTLS.ClientKeyPath, err)
+				return nil, errors.Wrap(err, "cannot read user's tls certificate")
+			}
+			clientCertBytes, err := os.ReadFile(cfg.ClientTLS.ClientCertificatePath)
+			if err != nil {
+				b.logger.Errorf("cannot read user's tls private key, from %s, due to %s",
+					cfg.ClientTLS.ClientCertificatePath, err)
+				return nil, errors.Wrap(err, "cannot read user's tls private key")
+			}
+			clientKeyPair, err := tls.X509KeyPair(clientCertBytes, clientKeyBytes)
+			if err != nil {
+				b.logger.Error("cannot create x509 key pair", err)
+				return nil, errors.Wrap(err, "cannot create x509 key pair")
+			}
+			clientTlsConfig.Certificates = []tls.Certificate{clientKeyPair}
+			session.clientAuthRequired = true
+		}
+		session.clientTlsConfig = clientTlsConfig
+	}
+	httpClient := newHTTPClient(session.tlsEnabled, session.clientTlsConfig)
 	session.verifier, err = session.sigVerifier(httpClient)
 	if err != nil {
 		b.logger.Errorf("cannot create a signature verifier, error: %s", err)
@@ -239,4 +308,18 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 	}
 
 	return session, nil
+}
+
+func loadCACertificates(certPaths []string, dbLogger *logger.SugarLogger) ([][]byte, error) {
+	var rootCAs [][]byte
+	for _, rootCAPath := range certPaths {
+		rootCABytes, err := ioutil.ReadFile(rootCAPath)
+		if err != nil {
+			dbLogger.Errorf("failed to read root CA certificate, due to %s", err)
+			return nil, errors.Wrap(err, "failed to read root CA certificate")
+		}
+		asn1Data, _ := pem.Decode(rootCABytes)
+		rootCAs = append(rootCAs, asn1Data.Bytes)
+	}
+	return rootCAs, nil
 }
