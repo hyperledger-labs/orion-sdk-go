@@ -15,7 +15,7 @@ import (
 )
 
 func TestConfigTxContext_GetClusterConfig(t *testing.T) {
-	cryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	cryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
 	testServer, nodePort, peerPort, err := SetupTestServer(t, cryptoDir)
 	defer func() {
 		if testServer != nil {
@@ -42,15 +42,15 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	require.Equal(t, "testNode1", clusterConfig.Nodes[0].Id)
 	require.Equal(t, "127.0.0.1", clusterConfig.Nodes[0].Address)
 	require.Equal(t, nodePort, clusterConfig.Nodes[0].Port)
-	serverCertBytes, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "server")
+	serverCertBytes, _ := testutils.LoadTestCrypto(t, cryptoDir, "server")
 	require.Equal(t, serverCertBytes.Raw, clusterConfig.Nodes[0].Certificate)
 
 	require.Equal(t, 1, len(clusterConfig.Admins))
 	require.Equal(t, "admin", clusterConfig.Admins[0].Id)
-	adminCertBytes, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "admin")
+	adminCertBytes, _ := testutils.LoadTestCrypto(t, cryptoDir, "admin")
 	require.Equal(t, adminCertBytes.Raw, clusterConfig.Admins[0].Certificate)
 
-	caCert, _ := testutils.LoadTestClientCA(t, cryptoDir, testutils.RootCAFileName)
+	caCert, _ := testutils.LoadTestCA(t, cryptoDir, testutils.RootCAFileName)
 	require.True(t, len(clusterConfig.CertAuthConfig.Roots) > 0)
 	require.Equal(t, caCert.Raw, clusterConfig.CertAuthConfig.Roots[0])
 
@@ -74,7 +74,7 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 }
 
 func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
-	cryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	cryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, cryptoDir)
 	defer func() {
 		if testServer != nil {
@@ -97,9 +97,9 @@ func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
 }
 
 func TestConfigTxContext_SetClusterConfig(t *testing.T) {
-	cryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "server", "server2"})
-	admin2Cert, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "admin2")
-	server2Cert, _ := testutils.LoadTestClientCrypto(t, cryptoDir, "server2")
+	cryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "admin2", "server", "server2"})
+	admin2Cert, _ := testutils.LoadTestCrypto(t, cryptoDir, "admin2")
+	server2Cert, _ := testutils.LoadTestCrypto(t, cryptoDir, "server2")
 
 	testServer, _, _, err := SetupTestServer(t, cryptoDir)
 	defer func() {
@@ -266,7 +266,7 @@ func TestConfigTxContext_SetClusterConfig(t *testing.T) {
 }
 
 func TestConfigTxContext_AddAdmin(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "server"})
+	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "admin2", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 
 	defer func() {
@@ -280,13 +280,13 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
 
-	adminCert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin")
+	adminCert, _ := testutils.LoadTestCrypto(t, clientCryptoDir, "admin")
 	admin := &types.Admin{
 		Id:          "admin",
 		Certificate: adminCert.Raw,
 	}
 
-	admin2Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin2")
+	admin2Cert, _ := testutils.LoadTestCrypto(t, clientCryptoDir, "admin2")
 	admin2 := &types.Admin{Id: "admin2", Certificate: admin2Cert.Raw}
 
 	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
@@ -333,7 +333,7 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_DeleteAdmin(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "admin3", "server"})
+	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "admin2", "admin3", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
@@ -346,11 +346,11 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
 
-	adminCert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin")
+	adminCert, _ := testutils.LoadTestCrypto(t, clientCryptoDir, "admin")
 	admin := &types.Admin{Id: "admin", Certificate: adminCert.Raw}
 
-	admin2Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin2")
-	admin3Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin3")
+	admin2Cert, _ := testutils.LoadTestCrypto(t, clientCryptoDir, "admin2")
+	admin3Cert, _ := testutils.LoadTestCrypto(t, clientCryptoDir, "admin3")
 
 	admin2 := &types.Admin{Id: "admin2", Certificate: admin2Cert.Raw}
 	admin3 := &types.Admin{Id: "admin3", Certificate: admin3Cert.Raw}
@@ -417,7 +417,7 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_UpdateAdmin(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "admin2", "adminUpdated", "server"})
+	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "admin2", "adminUpdated", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
@@ -430,8 +430,8 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 	serverPort, err := testServer.Port()
 	require.NoError(t, err)
 
-	admin2Cert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "admin2")
-	adminUpdatedCert, _ := testutils.LoadTestClientCrypto(t, clientCryptoDir, "adminUpdated")
+	admin2Cert, _ := testutils.LoadTestCrypto(t, clientCryptoDir, "admin2")
+	adminUpdatedCert, _ := testutils.LoadTestCrypto(t, clientCryptoDir, "adminUpdated")
 
 	admin2 := &types.Admin{Id: "admin2", Certificate: admin2Cert.Raw}
 
@@ -495,7 +495,7 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 }
 
 func TestConfigTxContext_UpdateCAConfig(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
@@ -524,9 +524,9 @@ func TestConfigTxContext_UpdateCAConfig(t *testing.T) {
 	require.Nil(t, receiptEnv)
 
 	// 2. add a Root CA & Intermediate CA
-	clientCryptoDir2 := testutils.GenerateTestClientCrypto(t, []string{"alice"}, true)
-	certRootCA2, _ := testutils.LoadTestClientCA(t, clientCryptoDir2, testutils.RootCAFileName)
-	certIntCA2, _ := testutils.LoadTestClientCA(t, clientCryptoDir2, testutils.IntermediateCAFileName)
+	clientCryptoDir2 := testutils.GenerateTestCrypto(t, []string{"alice"}, true)
+	certRootCA2, _ := testutils.LoadTestCA(t, clientCryptoDir2, testutils.RootCAFileName)
+	certIntCA2, _ := testutils.LoadTestCA(t, clientCryptoDir2, testutils.IntermediateCAFileName)
 
 	tx2, err := session.ConfigTx()
 	require.NoError(t, err)
@@ -554,7 +554,7 @@ func TestConfigTxContext_UpdateCAConfig(t *testing.T) {
 }
 
 func TestConfigTxContext_UpdateRaftConfig(t *testing.T) {
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
@@ -610,7 +610,7 @@ func TestConfigTxContext_UpdateRaftConfig(t *testing.T) {
 func TestConfigTxContext_AddClusterNode(t *testing.T) {
 	t.Skip("Add node is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/40")
 
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
@@ -667,7 +667,7 @@ func TestConfigTxContext_AddClusterNode(t *testing.T) {
 func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/40")
 
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
@@ -753,7 +753,7 @@ func TestConfigTxContext_DeleteClusterNode(t *testing.T) {
 func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/40")
 
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {
@@ -801,7 +801,7 @@ func TestConfigTxContext_UpdateClusterNode(t *testing.T) {
 func TestConfigTx_CommitAbortFinality(t *testing.T) {
 	t.Skip("Add/Remove/Update node is a config update, TODO in issue: https://github.com/hyperledger-labs/orion-server/issues/40")
 
-	clientCryptoDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
 	defer func() {
 		if testServer != nil {

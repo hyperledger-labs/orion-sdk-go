@@ -20,7 +20,7 @@ import (
 )
 
 func TestBlockHeaderDeliveryService(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -185,7 +185,7 @@ func TestBlockHeaderDeliveryService(t *testing.T) {
 	})
 
 	t.Run("failed run", func(t *testing.T) {
-		clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+		clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 		testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 		require.NoError(t, err)
 		_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")

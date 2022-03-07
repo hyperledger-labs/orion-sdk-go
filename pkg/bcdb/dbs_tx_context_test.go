@@ -21,7 +21,7 @@ import (
 )
 
 func TestDBsContext_CheckStatusOfDefaultDB(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -39,7 +39,7 @@ func TestDBsContext_CheckStatusOfDefaultDB(t *testing.T) {
 }
 
 func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -209,7 +209,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 }
 
 func TestDBsContext_CheckStatusTimeout(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -246,7 +246,7 @@ func TestDBsContext_CheckStatusTimeout(t *testing.T) {
 }
 
 func TestDBsContext_CommitAbortFinality(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -285,7 +285,7 @@ func TestDBsContext_CommitAbortFinality(t *testing.T) {
 }
 
 func TestDBsContext_MalformedRequest(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -381,7 +381,7 @@ func TestDBsContext_ExistsFailureScenarios(t *testing.T) {
 }
 
 func TestDBsContext_MultipleOperations(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -433,7 +433,7 @@ func TestDBsContext_MultipleOperations(t *testing.T) {
 }
 
 func TestDBsContext_AttemptDeleteSystemDatabase(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
