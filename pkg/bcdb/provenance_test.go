@@ -17,7 +17,7 @@ import (
 )
 
 func TestGetHistoricalData(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 1)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestGetHistoricalData(t *testing.T) {
 }
 
 func TestGetHistoricalDataAt(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 5)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -201,7 +201,7 @@ func TestGetHistoricalDataAt(t *testing.T) {
 }
 
 func TestGetPreviousOrNextHistoricalData(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 5)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -321,7 +321,7 @@ func TestGetPreviousOrNextHistoricalData(t *testing.T) {
 }
 
 func TestReadWriteAccessBytUserAndKey(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "eve", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "bob", "eve", "server"})
 	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 1)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -465,7 +465,7 @@ func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 }
 
 func TestGetTxIDsSubmittedByUser(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "eve", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "bob", "eve", "server"})
 	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 10)
 	defer testServer.Stop()
 	require.NoError(t, err)

@@ -36,6 +36,6 @@ func TestCars_Generate(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, name := range []string{"admin", "dmv", "dealer", "alice", "bob", "server"} {
-		_, _ = testutils.LoadTestClientCrypto(t, path.Join(tempDir, "crypto", name), name)
+		_, _ = testutils.LoadTestCrypto(t, path.Join(tempDir, "crypto", name), name)
 	}
 }

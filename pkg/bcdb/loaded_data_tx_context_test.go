@@ -14,7 +14,7 @@ import (
 )
 
 func TestLoadedDataContext_CommitConstructedMultiSign(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "alice", "bob", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "bob", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
@@ -219,7 +219,7 @@ func TestLoadedDataContext_CommitConstructedMultiSign(t *testing.T) {
 }
 
 func TestLoadedDataContext_ErrorCase(t *testing.T) {
-	clientCertTemDir := testutils.GenerateTestClientCrypto(t, []string{"admin", "server"})
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
 	defer testServer.Stop()
 	require.NoError(t, err)
