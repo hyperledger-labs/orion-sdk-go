@@ -116,7 +116,7 @@ func TestUserContext_MalformedRequest(t *testing.T) {
 			PrivateKeyPath: path.Join(clientCertTemDir, "admin.key"),
 		},
 	})
-	expectedErr := fmt.Sprintf("cannot update the replica set and signature verifier: failed to obtain the latest cluster status: failed to get cluster status from replica set: [Id: testNode1, Role: UNKNOWN, URL: http://localhost:%s]; version: <nil>, last error: error response from the server, 401 Unauthorized", serverPort)
+	expectedErr := fmt.Sprintf("cannot update the replica set and signature verifier: failed to obtain the latest cluster status: failed to get cluster status from replica set: [Id: testNode1, Role: UNKNOWN, URL: http://127.0.0.1:%s]; version: <nil>, last error: error response from the server, 401 Unauthorized", serverPort)
 	require.EqualError(t, err, expectedErr)
 }
 

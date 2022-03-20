@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"hash/crc32"
 	"net"
 	"net/http"
@@ -194,6 +195,18 @@ func (d *dbSession) JSONQuery() (JSONQuery, error) {
 	return &JSONQueryExecutor{
 		commonCtx,
 	}, nil
+}
+
+func (d *dbSession) ReplicaSet(refresh bool) ([]*config.Replica, error) {
+	if refresh {
+		httpClient := newHTTPClient(d.tlsEnabled, d.clientTlsConfig)
+		if err := d.updateReplicaSetAndVerifier(httpClient, d.tlsEnabled);  err != nil {
+			d.logger.Errorf("cannot update the replica set and signature verifier, error: %s", err)
+			return nil, errors.Wrap(err, "cannot update the replica set and signature verifier")
+		}
+	}
+
+	return d.replicaSet.ToConfigReplicaSet(), nil
 }
 
 func (d *dbSession) newCommonTxContext(options ...TxContextOption) (*commonTxContext, error) {

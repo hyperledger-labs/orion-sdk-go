@@ -137,5 +137,7 @@ func prepareData(configFile string) (bcdb.DBSession, error) {
 		return nil, err
 	}
 
+	fmt.Println("Opened session to database, configuration: ", c.SessionConfig)
+
 	return session, err
 }

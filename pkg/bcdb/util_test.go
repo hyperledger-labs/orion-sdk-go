@@ -249,7 +249,7 @@ func createDBInstanceWithTLSConfig(t *testing.T, cryptoDir string, serverPort st
 		ReplicaSet: []*sdkconfig.Replica{
 			{
 				ID:       "testNode1",
-				Endpoint: fmt.Sprintf("http://localhost:%s", serverPort),
+				Endpoint: fmt.Sprintf("http://127.0.0.1:%s", serverPort),
 			},
 		},
 		Logger: createTestLogger(t),

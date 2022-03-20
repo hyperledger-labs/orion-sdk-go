@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"sort"
 
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
@@ -51,6 +52,38 @@ func (r ReplicaSet) SortByRole() {
 		return
 	}
 	sort.Slice(r, func(i, j int) bool { return r[i].Role < r[j].Role })
+}
+
+// ToConfigReplicaSet returns an array of config.Replica objects that corresponds the ReplicaSet.
+func (r ReplicaSet) ToConfigReplicaSet() []*config.Replica {
+	if r == nil {
+		return nil
+	}
+
+	var configReplicaSet []*config.Replica
+	for _, v := range r {
+		configReplicaSet = append(configReplicaSet, &config.Replica{
+			ID:       v.Id,
+			Endpoint: v.URL.String(),
+		})
+	}
+
+	return configReplicaSet
+}
+
+// ToReplicaMap returns map of ID[URL] that corresponds the ReplicaSet.
+func (r ReplicaSet) ToReplicaMap() map[string]*url.URL {
+	replicaMap := make(map[string]*url.URL)
+
+	if r == nil {
+		return nil
+	}
+
+	for _, v := range r {
+		replicaMap[v.Id] = v.URL
+	}
+
+	return replicaMap
 }
 
 // ClusterStatusToReplicaSet creates a sorted array of ReplicaWithRole objects, leader first.
