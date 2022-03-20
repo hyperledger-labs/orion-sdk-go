@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-sdk-go/internal"
@@ -38,6 +39,10 @@ type DBSession interface {
 	Provenance() (Provenance, error)
 	Ledger() (Ledger, error)
 	JSONQuery() (JSONQuery, error)
+	// ReplicaSet returns the set of replicas the session is currently using. If `refresh` is `true`, the session will
+	// also query the cluster for the most recent replica set before returning.
+	// Note that when a DBSession is first created, it queries the cluster for the most recent replica set.
+	ReplicaSet(refresh bool) ([]*config.Replica, error)
 }
 
 var ErrTxSpent = errors.New("transaction committed or aborted")
@@ -167,11 +172,11 @@ func Create(connectionConfig *config.ConnectionConfig) (BCDB, error) {
 	rootCACerts, err := certificateauthority.NewCACertCollection(rootCAs, nil)
 	if err != nil {
 		dbLogger.Errorf("failed to create CACertCollection, due to %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create CACertCollection")
 	}
 	if err = rootCACerts.VerifyCollection(); err != nil {
-		dbLogger.Errorf("verification of CA certs collection is failed, due to %s", err)
-		return nil, err
+		dbLogger.Errorf("verification of CA certs collection failed, due to %s", err)
+		return nil, errors.Wrap(err, "verification of CA certs collection failed")
 	}
 
 	// Verify replica set URIs
@@ -231,6 +236,7 @@ func Create(connectionConfig *config.ConnectionConfig) (BCDB, error) {
 }
 
 type bDB struct {
+	mutex               sync.Mutex
 	bootstrapReplicaMap  map[string]*url.URL
 	rootCAs              *certificateauthority.CACertCollection
 	tlsEnabled           bool
@@ -239,8 +245,9 @@ type bDB struct {
 	logger               *logger.SugarLogger
 }
 
-// Session parses sessions configuration and opens session to BCDB, takes
-// care to read user
+// Session parses the session configuration and opens a user session to the Orion cluster.
+// When a session is created, the cluster is queried for the latest cluster status using the BCDB existing replica set.
+// The returned cluster status is used to update the replica set of the session and the BCDB instance.
 func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 	signer, err := crypto.NewSigner(&crypto.SignerOptions{
 		KeyFilePath: cfg.UserConfig.PrivateKeyPath,
@@ -314,7 +321,16 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 		return nil, errors.Wrap(err, "cannot update the replica set and signature verifier")
 	}
 
+	b.updateReplicaMap(session.replicaSet.ToReplicaMap())
+
 	return session, nil
+}
+
+func (b *bDB) updateReplicaMap(replicaMap map[string]*url.URL) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	b.bootstrapReplicaMap = replicaMap
 }
 
 func loadCACertificates(certPaths []string, dbLogger *logger.SugarLogger) ([][]byte, error) {
