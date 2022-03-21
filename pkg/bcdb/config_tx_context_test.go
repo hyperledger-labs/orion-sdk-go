@@ -88,7 +88,7 @@ func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	bcdb := createDBInstance(t, cryptoDir, serverPort)
-	session := openUserSessionWithQueryTimeout(t, bcdb, "admin", cryptoDir, time.Nanosecond)
+	session := openUserSessionWithQueryTimeout(t, bcdb, "admin", cryptoDir, time.Nanosecond, false)
 
 	tx, err := session.ConfigTx()
 	require.Error(t, err)

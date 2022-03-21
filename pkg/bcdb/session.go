@@ -6,6 +6,7 @@ package bcdb
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -27,15 +28,19 @@ import (
 
 //TODO refresh replicaSet and signature verifier when cluster config changes.
 type dbSession struct {
-	userID       string
-	signer       Signer
-	verifier     SignatureVerifier
-	userCert     []byte
-	replicaSet   map[string]*url.URL
-	rootCAs      *certificateauthority.CACertCollection
-	txTimeout    time.Duration
-	queryTimeout time.Duration
-	logger       *logger.SugarLogger
+	userID             string
+	signer             Signer
+	verifier           SignatureVerifier
+	userCert           []byte
+	replicaSet         map[string]*url.URL
+	rootCAs            *certificateauthority.CACertCollection
+	tlsEnabled         bool
+	tlsRootCAs         *certificateauthority.CACertCollection
+	clientAuthRequired bool
+	clientTlsConfig    *tls.Config
+	txTimeout          time.Duration
+	queryTimeout       time.Duration
+	logger             *logger.SugarLogger
 }
 
 // TxContextOption is a function that operates on a commonTxContext and applies a configuration option.
@@ -190,7 +195,7 @@ func (d *dbSession) JSONQuery() (JSONQuery, error) {
 }
 
 func (d *dbSession) newCommonTxContext(options ...TxContextOption) (*commonTxContext, error) {
-	httpClient := newHTTPClient()
+	httpClient := newHTTPClient(d.tlsEnabled, d.clientTlsConfig)
 
 	commonTxCtx := &commonTxContext{
 		userID:        d.userID,
@@ -324,7 +329,7 @@ func (d *dbSession) getNodesCerts(replica *url.URL, httpClient *http.Client) (Si
 
 //TODO expose HTTP parameters, make client configurable, with good defaults. See:
 // https://github.com/hyperledger-labs/orion-sdk-go/issues/28
-func newHTTPClient() *http.Client {
+func newHTTPClient(tlsEnabled bool, tlsConfig *tls.Config) *http.Client {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
@@ -339,6 +344,9 @@ func newHTTPClient() *http.Client {
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		},
+	}
+	if tlsEnabled {
+		httpClient.Transport.(*http.Transport).TLSClientConfig = tlsConfig
 	}
 	return httpClient
 }

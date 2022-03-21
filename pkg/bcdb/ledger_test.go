@@ -158,7 +158,7 @@ func TestGetLedgerPath(t *testing.T) {
 
 func TestGetTransactionProof(t *testing.T) {
 	clientCertTempDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 5*time.Second, 10)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 5*time.Second, 10, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")
@@ -233,7 +233,7 @@ func TestGetTransactionProof(t *testing.T) {
 
 func TestGetTransactionReceipt(t *testing.T) {
 	clientCertTempDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 5*time.Second, 10)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 5*time.Second, 10, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")
@@ -310,7 +310,7 @@ func TestGetTransactionReceipt(t *testing.T) {
 
 func TestGetStateProof(t *testing.T) {
 	clientCertTempDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 20*time.Second, 10)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 20*time.Second, 10, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")
@@ -411,7 +411,7 @@ func TestGetStateProof(t *testing.T) {
 
 func TestGetFullTxProofAndVerify(t *testing.T) {
 	clientCertTempDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 20*time.Millisecond, 1)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 20*time.Millisecond, 1, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTempDir, "alice")

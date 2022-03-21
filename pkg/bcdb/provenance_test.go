@@ -18,7 +18,7 @@ import (
 
 func TestGetHistoricalData(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 1)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 1, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
@@ -92,7 +92,7 @@ func TestGetHistoricalData(t *testing.T) {
 
 func TestGetHistoricalDataAt(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 5)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 5, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
@@ -202,7 +202,7 @@ func TestGetHistoricalDataAt(t *testing.T) {
 
 func TestGetPreviousOrNextHistoricalData(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 5)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 5, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
@@ -322,7 +322,7 @@ func TestGetPreviousOrNextHistoricalData(t *testing.T) {
 
 func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "bob", "eve", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 1)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 1, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	bcdb, adminSession, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
@@ -466,7 +466,7 @@ func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 
 func TestGetTxIDsSubmittedByUser(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "bob", "eve", "server"})
-	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 10)
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 10, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
 	bcdb, adminSession, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
