@@ -61,7 +61,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		require.NotNil(t, receiptEnv)
 		receipt := receiptEnv.GetResponse().GetReceipt()
 		require.True(t, len(receipt.GetHeader().GetValidationInfo()) > 0)
-		require.True(t, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag == types.Flag_VALID)
+		require.Equal(t, types.Flag_VALID, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag)
 
 		// Check database status, whenever created or not
 		tx, err = session.DBsTx()
@@ -69,6 +69,20 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		exist, err := tx.Exists("testDB")
 		require.NoError(t, err)
 		require.True(t, exist)
+
+		// Create same database again
+		tx, err = session.DBsTx()
+		require.NoError(t, err)
+
+		err = tx.CreateDB("testDB", nil)
+		require.NoError(t, err)
+
+		txId, receiptEnv, err = tx.Commit(true)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "[testDB] already exists")
+		receipt = receiptEnv.GetResponse().GetReceipt()
+		require.True(t, len(receipt.GetHeader().GetValidationInfo()) > 0)
+		require.Equal(t, types.Flag_INVALID_INCORRECT_ENTRIES, receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()].Flag)
 	})
 
 	t.Run("create a database with index", func(t *testing.T) {
@@ -156,7 +170,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 				Value: []byte(`{"attr1":false}`),
 				Metadata: &types.Metadata{
 					Version: &types.Version{
-						BlockNum: 5,
+						BlockNum: 6,
 						TxNum:    0,
 					},
 					AccessControl: &types.AccessControl{
