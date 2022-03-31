@@ -332,6 +332,74 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 	require.NotNil(t, clusterConfig2)
 }
 
+func TestConfigTxContext_AddUserAdmin(t *testing.T) {
+	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "admin2", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
+
+	defer func() {
+		if testServer != nil {
+			_ = testServer.Stop()
+		}
+	}()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+
+	serverPort, err := testServer.Port()
+	require.NoError(t, err)
+
+	admin2Cert, _ := testutils.LoadTestCrypto(t, clientCryptoDir, "admin2")
+	admin2user := &types.User{
+		Id:          "admin2",
+		Certificate: admin2Cert.Raw,
+		Privilege: &types.Privilege{
+			Admin: true,
+		},
+	}
+	admin2 := &types.Admin{Id: "admin2", Certificate: admin2Cert.Raw}
+
+	bcdb := createDBInstance(t, clientCryptoDir, serverPort)
+	session := openUserSession(t, bcdb, "admin", clientCryptoDir)
+
+	// try to add admin2 with user tx
+	tx1, err := session.UsersTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx1)
+
+	err = tx1.PutUser(admin2user, nil)
+	require.NoError(t, err)
+
+	txID, receiptEnv, err := tx1.Commit(true)
+	require.EqualError(t, err, "transaction txID = "+txID+" is not valid, flag: INVALID_NO_PERMISSION, reason: the user [admin2] is marked as admin user. Only via a cluster configuration transaction, the [admin2] can be added as admin")
+
+	// add admin2 with config tx
+	tx2, err := session.ConfigTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx2)
+
+	err = tx2.AddAdmin(admin2)
+	require.NoError(t, err)
+
+	txID, receiptEnv, err = tx2.Commit(true)
+	require.NoError(t, err)
+	require.NotNil(t, txID)
+	require.NotNil(t, receiptEnv)
+
+	// get admin2
+	tx3, err := session.UsersTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx3)
+
+	user, err := tx3.GetUser("admin2")
+	require.NoError(t, err)
+	require.NotNil(t, user)
+	require.True(t, user.Privilege.Admin)
+
+	txID, receiptEnv, err = tx3.Commit(true)
+	require.NoError(t, err)
+	require.NotNil(t, txID)
+	require.NotNil(t, receiptEnv)
+}
+
 func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	clientCryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "admin2", "admin3", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCryptoDir)
