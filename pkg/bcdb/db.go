@@ -102,10 +102,10 @@ type Provenance interface {
 	GetPreviousHistoricalData(dbName, key string, version *types.Version) ([]*types.ValueWithMetadata, error)
 	// GetNextHistoricalData returns value succeeds given version, including its metadata
 	GetNextHistoricalData(dbName, key string, version *types.Version) ([]*types.ValueWithMetadata, error)
-	// GetDataReadByUser returns all user reads
-	GetDataReadByUser(userID string) ([]*types.KVWithMetadata, error)
-	// GetDataWrittenByUser returns all user writes
-	GetDataWrittenByUser(userID string) ([]*types.KVWithMetadata, error)
+	// GetDataReadByUser returns all user reads grouped by databases
+	GetDataReadByUser(userID string) (map[string]*types.KVsWithMetadata, error)
+	// GetDataWrittenByUser returns all user writes grouped by databases
+	GetDataWrittenByUser(userID string) (map[string]*types.KVsWithMetadata, error)
 	// GetReaders returns all users who read value associated with the key
 	GetReaders(dbName, key string) ([]string, error)
 	// GetWriters returns all users who wrote value associated with the key
@@ -236,7 +236,7 @@ func Create(connectionConfig *config.ConnectionConfig) (BCDB, error) {
 }
 
 type bDB struct {
-	mutex               sync.Mutex
+	mutex                sync.Mutex
 	bootstrapReplicaMap  map[string]*url.URL
 	rootCAs              *certificateauthority.CACertCollection
 	tlsEnabled           bool
