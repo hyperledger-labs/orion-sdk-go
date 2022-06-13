@@ -150,7 +150,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		require.Contains(t, err.Error(), "the user [alice] has no permission to read from database [testDB-3]")
 		require.Nil(t, actualIndex)
 
-		q, err := userSession.JSONQuery()
+		q, err := userSession.Query()
 		require.NoError(t, err)
 		require.NotNil(t, q)
 		query := `
@@ -161,7 +161,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		}
 	`
 		//execute query on testDB-1
-		kvs, err := q.Execute("testDB-1", query)
+		kvs, err := q.ExecuteJSONQuery("testDB-1", query)
 		require.NoError(t, err)
 		require.Len(t, kvs, 1)
 		expectedKVs := []*types.KVWithMetadata{
@@ -187,7 +187,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		require.ElementsMatch(t, kvs, expectedKVs)
 
 		//execute query on testDB-2 that does not have an index
-		kvs, err = q.Execute("testDB-2", query)
+		kvs, err = q.ExecuteJSONQuery("testDB-2", query)
 		require.Contains(t, err.Error(), "[attr1] given in the query condition is not indexed")
 		require.Nil(t, kvs)
 	})
