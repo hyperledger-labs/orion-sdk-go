@@ -397,14 +397,16 @@ func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 			keys := make([]string, 0)
 			reads, err := p.GetDataReadByUser(tt.user)
 			require.NoError(t, err)
-			for _, k := range reads {
+			require.Len(t, reads, 1)
+			for _, k := range reads["bdb"].GetKVs() {
 				keys = append(keys, k.GetKey())
 			}
 			require.ElementsMatch(t, tt.readKeys, keys)
 			keys = make([]string, 0)
 			writes, err := p.GetDataWrittenByUser(tt.user)
 			require.NoError(t, err)
-			for _, k := range writes {
+			require.Len(t, writes, 1)
+			for _, k := range writes["bdb"].GetKVs() {
 				keys = append(keys, k.GetKey())
 			}
 			require.ElementsMatch(t, tt.writtenKeys, keys)

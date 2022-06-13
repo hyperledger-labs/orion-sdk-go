@@ -98,7 +98,7 @@ func (p *provenance) GetNextHistoricalData(dbName, key string, version *types.Ve
 	return resEnv.GetResponse().GetValues(), nil
 }
 
-func (p *provenance) GetDataReadByUser(userID string) ([]*types.KVWithMetadata, error) {
+func (p *provenance) GetDataReadByUser(userID string) (map[string]*types.KVsWithMetadata, error) {
 	path := constants.URLForGetDataReadBy(userID)
 	resEnv := &types.GetDataProvenanceResponseEnvelope{}
 	err := p.handleRequest(
@@ -112,10 +112,10 @@ func (p *provenance) GetDataReadByUser(userID string) ([]*types.KVWithMetadata, 
 		p.logger.Errorf("failed to execute data read by user query %s, due to %s", path, err)
 		return nil, err
 	}
-	return resEnv.GetResponse().GetKVs(), nil
+	return resEnv.GetResponse().GetDBKeyValues(), nil
 }
 
-func (p *provenance) GetDataWrittenByUser(userID string) ([]*types.KVWithMetadata, error) {
+func (p *provenance) GetDataWrittenByUser(userID string) (map[string]*types.KVsWithMetadata, error) {
 	path := constants.URLForGetDataWrittenBy(userID)
 	resEnv := &types.GetDataProvenanceResponseEnvelope{}
 	err := p.handleRequest(
@@ -130,7 +130,7 @@ func (p *provenance) GetDataWrittenByUser(userID string) ([]*types.KVWithMetadat
 		return nil, err
 	}
 
-	return resEnv.GetResponse().GetKVs(), nil
+	return resEnv.GetResponse().GetDBKeyValues(), nil
 }
 
 func (p *provenance) GetReaders(dbName, key string) ([]string, error) {

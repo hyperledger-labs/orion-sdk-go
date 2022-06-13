@@ -137,8 +137,10 @@ func executeProvenanceExample(cryptoDir string, configFile string) error {
 		return err
 	}
 	fmt.Println("All user reads for user alice are:")
-	for i := 0; i < len(res5); i++ {
-		fmt.Printf("value: %s, version: %s\n", res5[i].GetValue(), res5[i].GetMetadata().GetVersion())
+	for dbName, reads := range res5 {
+		for _, kv := range reads.KVs {
+			fmt.Printf("dbname: %s, key: %s, value: %s, version: %s\n", dbName, kv.GetKey(), kv.GetValue(), kv.GetMetadata().GetVersion())
+		}
 	}
 
 	fmt.Println("Getting all user writes for user alice")
@@ -148,8 +150,10 @@ func executeProvenanceExample(cryptoDir string, configFile string) error {
 		return err
 	}
 	fmt.Println("All user writes for user alice are:")
-	for i := 0; i < len(res6); i++ {
-		fmt.Printf("value: %s, version: %s\n", res6[i].GetValue(), res6[i].GetMetadata().GetVersion())
+	for dbName, writes := range res6 {
+		for _, kv := range writes.KVs {
+			fmt.Printf("dbname: %s, key: %s, value: %s, version: %s\n", dbName, kv.GetKey(), kv.GetValue(), kv.GetMetadata().GetVersion())
+		}
 	}
 
 	return nil
