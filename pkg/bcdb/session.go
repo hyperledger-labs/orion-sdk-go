@@ -186,13 +186,13 @@ func (d *dbSession) Ledger() (Ledger, error) {
 	}, nil
 }
 
-// JSONQuery returns handler to access bcdb data through JSON query
-func (d *dbSession) JSONQuery() (JSONQuery, error) {
+// Query returns handler to access bcdb data through JSON query
+func (d *dbSession) Query() (Query, error) {
 	commonCtx, err := d.newCommonTxContext()
 	if err != nil {
 		return nil, err
 	}
-	return &JSONQueryExecutor{
+	return &QueryExecutor{
 		commonCtx,
 	}, nil
 }

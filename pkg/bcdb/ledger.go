@@ -101,7 +101,7 @@ func (l *ledger) GetLedgerPath(startBlock, endBlock uint64) (*LedgerPath, error)
 }
 
 func (l *ledger) GetTransactionProof(blockNum uint64, txIndex int) (*TxProof, error) {
-	path := constants.URLTxProof(blockNum, txIndex)
+	path := constants.URLTxProof(blockNum, uint64(txIndex))
 	resEnv := &types.GetTxProofResponseEnvelope{}
 	err := l.handleRequest(
 		path,

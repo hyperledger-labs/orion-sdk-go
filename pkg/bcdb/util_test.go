@@ -79,6 +79,9 @@ func SetupTestServerWithParamsAndTLS(t *testing.T, cryptoTempDir string, blockTi
 					Transaction:               10,
 					ReorderedTransactionBatch: 10,
 				},
+				QueryProcessing: config.QueryProcessingConf{
+					ResponseSizeLimitInBytes: 50,
+				},
 				LogLevel: "info",
 			},
 			BlockCreation: config.BlockCreationConf{

@@ -218,7 +218,7 @@ func insertData(session bcdb.DBSession) error {
 }
 
 func validQueries(session bcdb.DBSession) error {
-	q, err := session.JSONQuery()
+	q, err := session.Query()
 	if err != nil {
 		fmt.Printf("Failed to return handler to access bcdb data through JSON query, reason: %s\n", err.Error())
 		return err
@@ -243,7 +243,7 @@ func validQueries(session bcdb.DBSession) error {
 		}
 	}
 	`
-	kvs, err := q.Execute("db", query1)
+	kvs, err := q.ExecuteJSONQuery("db", query1)
 	if err != nil {
 		fmt.Printf("Failed to execute JSON query, reason: %s\n", err.Error())
 		return err
@@ -274,7 +274,7 @@ func validQueries(session bcdb.DBSession) error {
 		}
 	}
 	`
-	kvs, err = q.Execute("db", query2)
+	kvs, err = q.ExecuteJSONQuery("db", query2)
 	if err != nil {
 		fmt.Printf("Failed to execute JSON query, reason: %s\n", err.Error())
 		return err
@@ -309,7 +309,7 @@ func validQueries(session bcdb.DBSession) error {
 		}
 	}
 	`
-	kvs, err = q.Execute("db", query3)
+	kvs, err = q.ExecuteJSONQuery("db", query3)
 	if err != nil {
 		fmt.Printf("Failed to execute JSON query, reason: %s\n", err.Error())
 		return err
@@ -339,7 +339,7 @@ func validQueries(session bcdb.DBSession) error {
 		}
 	}
 	`
-	kvs, err = q.Execute("db", query4)
+	kvs, err = q.ExecuteJSONQuery("db", query4)
 	if err != nil {
 		fmt.Printf("Failed to execute JSON query, reason: %s\n", err.Error())
 		return err
@@ -370,7 +370,7 @@ func validQueries(session bcdb.DBSession) error {
 		}
 	}
 	`
-	kvs, err = q.Execute("db", query5)
+	kvs, err = q.ExecuteJSONQuery("db", query5)
 	if err != nil {
 		fmt.Printf("Failed to execute JSON query, reason: %s\n", err.Error())
 		return err
@@ -402,7 +402,7 @@ func validQueries(session bcdb.DBSession) error {
 		}
 	}
 	`
-	kvs, err = q.Execute("db", query6)
+	kvs, err = q.ExecuteJSONQuery("db", query6)
 	if err != nil {
 		fmt.Printf("Failed to execute JSON query, reason: %s\n", err.Error())
 		return err
@@ -425,7 +425,7 @@ func validQueries(session bcdb.DBSession) error {
 }
 
 func invalidQuery(session bcdb.DBSession) error {
-	q, err := session.JSONQuery()
+	q, err := session.Query()
 	if err != nil {
 		fmt.Printf("Failed to return handler to access bcdb data through JSON query, reason: %s\n", err.Error())
 		return err
@@ -442,7 +442,7 @@ func invalidQuery(session bcdb.DBSession) error {
 		}
 	}
 	`
-	_, err = q.Execute("db", query)
+	_, err = q.ExecuteJSONQuery("db", query)
 	if err != nil {
 		fmt.Printf("As expected, failed to execute JSON query, reason: %s\n", err.Error())
 	} else {

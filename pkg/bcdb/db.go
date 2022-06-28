@@ -38,7 +38,7 @@ type DBSession interface {
 	ConfigTx() (ConfigTxContext, error)
 	Provenance() (Provenance, error)
 	Ledger() (Ledger, error)
-	JSONQuery() (JSONQuery, error)
+	Query() (Query, error)
 	// ReplicaSet returns the set of replicas the session is currently using. If `refresh` is `true`, the session will
 	// also query the cluster for the most recent replica set before returning.
 	// Note that when a DBSession is first created, it queries the cluster for the most recent replica set.
@@ -114,30 +114,52 @@ type Provenance interface {
 	GetTxIDsSubmittedByUser(userID string) ([]string, error)
 }
 
-// JSONQuery provides method to execute json query on a given user database
-// The query is a json string which must contain predicates under the field
-// selector. The first field in the selector can be a combinational operator
-// such as "$and" or "$or" followed by a list of attributes and a list of
-// conditions per attributes. A query example is shown below
-//
-// {
-//   "selector": {
-// 		"$and": {            -- top level combinational operator
-// 			"attr1": {          -- a field in the json document
-// 				"$gte": "a",    -- value criteria for the field
-// 				"$lt": "b"      -- value criteria for the field
-// 			},
-// 			"attr2": {          -- a field in the json document
-// 				"$eq": true     -- value criteria for the field
-// 			},
-// 			"attr3": {          -- a field in the json document
-// 				"$lt": "a2"     -- a field in the json document
-// 			}
-// 		}
-//   }
-// }
-type JSONQuery interface {
-	Execute(dbName, query string) ([]*types.KVWithMetadata, error)
+type RangeQueryResponse struct {
+	KVs            []*types.KVWithMetadata
+	PendingResults bool
+	NextStartKey   string
+}
+
+// Query provides method to execute json query and range query on a
+// given database.
+type Query interface {
+	// ExecuteJSONQuery executes a given JSON query on a given database.
+	// The JSON query is a json string which must contain predicates under the field
+	// selector. The first field in the selector can be a combinational operator
+	// such as "$and" or "$or" followed by a list of attributes and a list of
+	// conditions per attributes. A query example is shown below
+	//
+	// {
+	//   "selector": {
+	// 		"$and": {            -- top level combinational operator
+	// 			"attr1": {          -- a field in the json document
+	// 				"$gte": "a",    -- value criteria for the field
+	// 				"$lt": "b"      -- value criteria for the field
+	// 			},
+	// 			"attr2": {          -- a field in the json document
+	// 				"$eq": true     -- value criteria for the field
+	// 			},
+	// 			"attr3": {          -- a field in the json document
+	// 				"$lt": "a2"     -- a field in the json document
+	// 			}
+	// 		}
+	//   }
+	// }
+	ExecuteJSONQuery(dbName, query string) ([]*types.KVWithMetadata, error)
+	// GetDataByRange executes a range query on a given database. The startKey is
+	// inclusive but endKey is not. When the startKey is an empty string, it denotes
+	// `fetch keys from the beginning` while an empty endKey denotes `fetch keys till the
+	// the end`. The limit denotes the number of records to be fetched in total. However,
+	// when the limit is set to 0, it denotes no limit. The iterator returned by
+	// GetDataByRange is used to retrieve the records.
+	GetDataByRange(dbName, startKey, endKey string, limit uint64) (Iterator, error)
+}
+
+// Iterator implements methods to iterate over a set records
+type Iterator interface {
+	// Next returns the next record. If there is no more records, it would return a nil value
+	// and a false value.
+	Next() (*types.KVWithMetadata, bool, error)
 }
 
 //go:generate mockery --dir . --name Signer --case underscore --output mocks/

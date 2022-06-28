@@ -365,6 +365,8 @@ github.com/hyperledger-labs/orion-server v0.2.3 h1:vY9IQRO2sHdWUwLNKz6J7x+kZJXYL
 github.com/hyperledger-labs/orion-server v0.2.3/go.mod h1:8kXVAU1wvFYGbFL1qmXwMi2i8gKV2smOdp1F1kq0HMk=
 github.com/hyperledger-labs/orion-server v0.2.4-0.20220531080909-badd4d7bb1f5 h1:qy4M67EISCrlmCmH1ePY0PPVXDoUKHL9Ir9pGQzZULg=
 github.com/hyperledger-labs/orion-server v0.2.4-0.20220531080909-badd4d7bb1f5/go.mod h1:8kXVAU1wvFYGbFL1qmXwMi2i8gKV2smOdp1F1kq0HMk=
+github.com/hyperledger-labs/orion-server v0.2.4-0.20220621134147-6a9aeaf38f9a h1:2gWosqOFXOyB+Daox6chgWrExTEqJ4O0UwogZjkQ3Mo=
+github.com/hyperledger-labs/orion-server v0.2.4-0.20220621134147-6a9aeaf38f9a/go.mod h1:8kXVAU1wvFYGbFL1qmXwMi2i8gKV2smOdp1F1kq0HMk=
 github.com/iancoleman/strcase v0.2.0/go.mod h1:iwCmte+B7n89clKwxIoIXy/HfoL7AsD47ZCWhYzw7ho=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
