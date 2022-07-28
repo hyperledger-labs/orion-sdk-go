@@ -21,7 +21,7 @@ func TestGetHistoricalData(t *testing.T) {
 	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 1, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
+	_, adminSession, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	// 15 blocks, 1 tx each
 	for i := 0; i < 5; i++ {
@@ -67,7 +67,7 @@ func TestGetHistoricalData(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, err := aliceSession.Provenance()
+			p, err := adminSession.Provenance()
 			require.NoError(t, err)
 			hData, err := p.GetHistoricalData("bdb", tt.key)
 			if !tt.wantErr {
@@ -95,7 +95,7 @@ func TestGetHistoricalDataAt(t *testing.T) {
 	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 5, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
+	_, adminSession, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	// 5 blocks, 5 tx each
 	for i := 0; i < 5; i++ {
@@ -182,7 +182,7 @@ func TestGetHistoricalDataAt(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, err := aliceSession.Provenance()
+			p, err := adminSession.Provenance()
 			require.NoError(t, err)
 			got, err := p.GetHistoricalDataAt("bdb", tt.key, tt.version)
 			if !tt.wantErr {
@@ -205,7 +205,7 @@ func TestGetPreviousOrNextHistoricalData(t *testing.T) {
 	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTemDir, time.Second, 5, false, false)
 	defer testServer.Stop()
 	require.NoError(t, err)
-	_, _, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
+	_, adminSession, aliceSession := startServerConnectOpenAdminCreateUserAndUserSession(t, testServer, clientCertTemDir, "alice")
 
 	// 25 blocks, 5 tx each
 	for i := 0; i < 5; i++ {
@@ -284,7 +284,7 @@ func TestGetPreviousOrNextHistoricalData(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, err := aliceSession.Provenance()
+			p, err := adminSession.Provenance()
 			require.NoError(t, err)
 			hPrevData, err := p.GetPreviousHistoricalData("bdb", tt.key, tt.version)
 			require.NoError(t, err)
@@ -371,6 +371,7 @@ func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 		readKeys    []string
 		writtenKeys []string
 		txReceipt   []*types.TxReceipt
+		session     DBSession
 		wantErr     bool
 	}{
 		{
@@ -379,6 +380,7 @@ func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 			readKeys:    usersReadKey[0],
 			writtenKeys: usersWrittenKey[0],
 			txReceipt:   usersTxReceipt[0],
+			session:     bobSession,
 			wantErr:     false,
 		},
 		{
@@ -387,12 +389,13 @@ func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 			readKeys:    usersReadKey[1],
 			writtenKeys: usersWrittenKey[1],
 			txReceipt:   usersTxReceipt[1],
+			session:     eveSession,
 			wantErr:     false,
 		},
 	}
 	for _, tt := range userTests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, err := aliceSession.Provenance()
+			p, err := tt.session.Provenance()
 			require.NoError(t, err)
 			keys := make([]string, 0)
 			reads, err := p.GetDataReadByUser(tt.user)
@@ -454,7 +457,7 @@ func TestReadWriteAccessBytUserAndKey(t *testing.T) {
 
 	for _, tt := range keyTests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, err := aliceSession.Provenance()
+			p, err := adminSession.Provenance()
 			require.NoError(t, err)
 			readers, err := p.GetReaders("bdb", tt.key)
 			require.NoError(t, err)

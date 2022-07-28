@@ -50,7 +50,11 @@ func ListCar(demoDir, userID, carRegistration string, provenance bool, lg *logge
 	}
 
 	if provenance {
-		provQ, err := session.Provenance()
+		adminSession, err := createUserSession(demoDir, db, "admin")
+		if err != nil {
+			return "", errors.Wrap(err, "error creating admin session with the database")
+		}
+		provQ, err := adminSession.Provenance()
 		if err != nil {
 			return "", errors.Wrap(err, "error creating provenance query")
 		}
