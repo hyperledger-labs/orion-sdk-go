@@ -421,5 +421,5 @@ func prepareData(cryptoDir string, configFile string) (bcdb.DBSession, error) {
 	}
 	fmt.Printf("Transaction number %s committed successfully\n", txID)
 
-	return aliceSession, err
+	return session, err
 }

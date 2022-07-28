@@ -286,7 +286,7 @@ func TestGetTransactionReceipt(t *testing.T) {
 			txIdx:      0,
 			txID:       "not_exist",
 			wantErr:    true,
-			errMessage: "error handling request, server returned: status: 404 Not Found, status code: 404, message: error while processing 'GET /ledger/tx/receipt/not_exist' because TxID not found: not_exist",
+			errMessage: "error handling request, server returned: status: 404 Not Found, status code: 404, message: error while processing 'GET /ledger/tx/receipt/not_exist' because txID not found: not_exist",
 		},
 	}
 
