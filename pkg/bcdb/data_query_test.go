@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"sort"
 	"testing"
 
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestDataJSONQuery(t *testing.T) {
@@ -132,7 +134,18 @@ func TestDataJSONQuery(t *testing.T) {
 				},
 			},
 		}
-		require.ElementsMatch(t, expectedKVs, kvs)
+
+		sort.Slice(kvs, func(i, j int) bool {
+			return kvs[i].GetKey() < kvs[j].GetKey()
+		})
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedKVs,
+			},
+			&types.DataQueryResponse{
+				KVs: kvs,
+			},
+		))
 	})
 
 	t.Run("equal on string", func(t *testing.T) {
@@ -161,7 +174,18 @@ func TestDataJSONQuery(t *testing.T) {
 				},
 			},
 		}
-		require.ElementsMatch(t, expectedKVs, kvs)
+
+		sort.Slice(kvs, func(i, j int) bool {
+			return kvs[i].GetKey() < kvs[j].GetKey()
+		})
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedKVs,
+			},
+			&types.DataQueryResponse{
+				KVs: kvs,
+			},
+		))
 	})
 
 	t.Run("equal on number", func(t *testing.T) {
@@ -190,7 +214,18 @@ func TestDataJSONQuery(t *testing.T) {
 				},
 			},
 		}
-		require.ElementsMatch(t, expectedKVs, kvs)
+
+		sort.Slice(kvs, func(i, j int) bool {
+			return kvs[i].GetKey() < kvs[j].GetKey()
+		})
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedKVs,
+			},
+			&types.DataQueryResponse{
+				KVs: kvs,
+			},
+		))
 	})
 
 	t.Run("not equal on number", func(t *testing.T) {
@@ -243,7 +278,18 @@ func TestDataJSONQuery(t *testing.T) {
 				},
 			},
 		}
-		require.ElementsMatch(t, expectedKVs, kvs)
+
+		sort.Slice(kvs, func(i, j int) bool {
+			return kvs[i].GetKey() < kvs[j].GetKey()
+		})
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedKVs,
+			},
+			&types.DataQueryResponse{
+				KVs: kvs,
+			},
+		))
 	})
 
 	t.Run("multiple conditions", func(t *testing.T) {
@@ -295,7 +341,18 @@ func TestDataJSONQuery(t *testing.T) {
 				},
 			},
 		}
-		require.ElementsMatch(t, expectedKVs, kvs)
+
+		sort.Slice(kvs, func(i, j int) bool {
+			return kvs[i].GetKey() < kvs[j].GetKey()
+		})
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedKVs,
+			},
+			&types.DataQueryResponse{
+				KVs: kvs,
+			},
+		))
 	})
 
 	t.Run("syntax error", func(t *testing.T) {
@@ -364,12 +421,9 @@ func TestRangeQuery(t *testing.T) {
 						TxNum:    0,
 					},
 					AccessControl: &types.AccessControl{
-						ReadUsers: map[string]bool{
-							"alice": true,
-						},
-						ReadWriteUsers: map[string]bool{
-							"alice": true,
-						},
+						ReadUsers:          map[string]bool{"alice": true},
+						ReadWriteUsers:     map[string]bool{"alice": true},
+						SignPolicyForWrite: 0,
 					},
 				},
 			})
@@ -389,7 +443,20 @@ func TestRangeQuery(t *testing.T) {
 		}
 
 		require.Equal(t, len(expectedResult), len(actualResult))
-		require.ElementsMatch(t, expectedResult, actualResult)
+		sort.Slice(expectedResult, func(i, j int) bool {
+			return expectedResult[i].GetKey() < expectedResult[j].GetKey()
+		})
+		sort.Slice(actualResult, func(i, j int) bool {
+			return actualResult[i].GetKey() < actualResult[j].GetKey()
+		})
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedResult,
+			},
+			&types.DataQueryResponse{
+				KVs: actualResult,
+			},
+		))
 	})
 
 	t.Run("full scan with a higher limit", func(t *testing.T) {
@@ -433,7 +500,20 @@ func TestRangeQuery(t *testing.T) {
 		}
 
 		require.Equal(t, len(expectedResult), len(actualResult))
-		require.ElementsMatch(t, expectedResult, actualResult)
+		sort.Slice(expectedResult, func(i, j int) bool {
+			return expectedResult[i].GetKey() < expectedResult[j].GetKey()
+		})
+		sort.Slice(actualResult, func(i, j int) bool {
+			return actualResult[i].GetKey() < actualResult[j].GetKey()
+		})
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedResult,
+			},
+			&types.DataQueryResponse{
+				KVs: actualResult,
+			},
+		))
 	})
 
 	t.Run("full scan with a lower limit", func(t *testing.T) {
@@ -477,7 +557,20 @@ func TestRangeQuery(t *testing.T) {
 		}
 
 		require.Equal(t, len(expectedResult), len(actualResult))
-		require.ElementsMatch(t, expectedResult, actualResult)
+		sort.Slice(expectedResult, func(i, j int) bool {
+			return expectedResult[i].GetKey() < expectedResult[j].GetKey()
+		})
+		sort.Slice(actualResult, func(i, j int) bool {
+			return actualResult[i].GetKey() < actualResult[j].GetKey()
+		})
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedResult,
+			},
+			&types.DataQueryResponse{
+				KVs: actualResult,
+			},
+		))
 	})
 
 	t.Run("empty scan", func(t *testing.T) {
@@ -544,7 +637,20 @@ func TestRangeQuery(t *testing.T) {
 		}
 
 		require.Equal(t, len(expectedResult), len(actualResult))
-		require.ElementsMatch(t, expectedResult, actualResult)
+		sort.Slice(expectedResult, func(i, j int) bool {
+			return expectedResult[i].GetKey() < expectedResult[j].GetKey()
+		})
+		sort.Slice(actualResult, func(i, j int) bool {
+			return actualResult[i].GetKey() < actualResult[j].GetKey()
+		})
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedResult,
+			},
+			&types.DataQueryResponse{
+				KVs: actualResult,
+			},
+		))
 	})
 
 	t.Run("partial scan with a limit", func(t *testing.T) {
@@ -588,6 +694,19 @@ func TestRangeQuery(t *testing.T) {
 		}
 
 		require.Equal(t, len(expectedResult), len(actualResult))
-		require.ElementsMatch(t, expectedResult, actualResult)
+		sort.Slice(expectedResult, func(i, j int) bool {
+			return expectedResult[i].GetKey() < expectedResult[j].GetKey()
+		})
+		sort.Slice(actualResult, func(i, j int) bool {
+			return actualResult[i].GetKey() < actualResult[j].GetKey()
+		})
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedResult,
+			},
+			&types.DataQueryResponse{
+				KVs: actualResult,
+			},
+		))
 	})
 }

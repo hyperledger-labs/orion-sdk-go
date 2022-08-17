@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestDBsContext_CheckStatusOfDefaultDB(t *testing.T) {
@@ -184,7 +185,14 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 				},
 			},
 		}
-		require.ElementsMatch(t, kvs, expectedKVs)
+		require.True(t, proto.Equal(
+			&types.DataQueryResponse{
+				KVs: expectedKVs,
+			},
+			&types.DataQueryResponse{
+				KVs: kvs,
+			},
+		))
 
 		//execute query on testDB-2 that does not have an index
 		kvs, err = q.ExecuteJSONQuery("testDB-2", query)

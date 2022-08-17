@@ -4,11 +4,11 @@
 package bcdb
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
 	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 type DataTxContext interface {

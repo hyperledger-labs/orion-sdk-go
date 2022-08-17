@@ -357,8 +357,8 @@ github.com/hidal-go/hidalgo v0.0.0-20190814174001-42e03f3b5eaa/go.mod h1:bPkrxDl
 github.com/hidal-go/hidalgo v0.0.0-20201109092204-05749a6d73df h1:bvz3e467dv98bVHQ9F5QbGKtGvyQO3rPD8lwu6fZ/D4=
 github.com/hidal-go/hidalgo v0.0.0-20201109092204-05749a6d73df/go.mod h1:bPkrxDlroXxigw8BMWTEPTv4W5/rQwNgg2BECXsgyX0=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
-github.com/hyperledger-labs/orion-server v0.2.5 h1:aFudmB9SAnsT5v8jhazkuszEu0pdJNFqaYZF2GpvAuI=
-github.com/hyperledger-labs/orion-server v0.2.5/go.mod h1:8kXVAU1wvFYGbFL1qmXwMi2i8gKV2smOdp1F1kq0HMk=
+github.com/hyperledger-labs/orion-server v0.2.6-0.20220828084308-c4591bc4f62e h1:owEJSbpCduFcqextpvxM0QuK4jDJ5fTJB+3Ssl5Z+u4=
+github.com/hyperledger-labs/orion-server v0.2.6-0.20220828084308-c4591bc4f62e/go.mod h1:2r+yOJL1a7r/ZZbc1t0LDhT3fRSv1WcQ33OLh/dHIuw=
 github.com/iancoleman/strcase v0.2.0/go.mod h1:iwCmte+B7n89clKwxIoIXy/HfoL7AsD47ZCWhYzw7ho=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=

@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-sdk-go/internal/test"
 	sdkconfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/config"
@@ -24,6 +23,7 @@ import (
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func SetupTestServer(t *testing.T, cryptoTempDir string) (*server.BCDBHTTPServer, uint32, uint32, error) {

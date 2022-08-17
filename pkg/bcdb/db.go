@@ -11,7 +11,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-sdk-go/internal"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/pkg/certificateauthority"
@@ -20,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/orion-server/pkg/state"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 // BCDB Blockchain Database interface, defines set of APIs

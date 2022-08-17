@@ -7,10 +7,10 @@ import (
 	"path"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestLoadedDataContext_CommitConstructedMultiSign(t *testing.T) {

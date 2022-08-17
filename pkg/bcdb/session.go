@@ -9,9 +9,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"hash/crc32"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -24,8 +24,10 @@ import (
 	"github.com/hyperledger-labs/orion-server/pkg/crypto"
 	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
 	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/marshal"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 //TODO refresh replicaSet and signature verifier when cluster config changes.
@@ -310,10 +312,13 @@ func (d *dbSession) getClusterStatusFrom(replica *url.URL, httpClient *http.Clie
 	}
 
 	resEnv := &types.GetClusterStatusResponseEnvelope{}
-	err = json.NewDecoder(response.Body).Decode(resEnv)
+
+	responseBytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
+
+	err = protojson.Unmarshal(responseBytes, resEnv)
 
 	statusResp := resEnv.GetResponse()
 
@@ -379,7 +384,7 @@ func (d *dbSession) createSignatureVerifier(clusterStatusEnv *types.GetClusterSt
 		return nil, err
 	}
 
-	respBytes, err := json.Marshal(clusterStatus)
+	respBytes, err := marshal.DefaultMarshaler().Marshal(clusterStatus)
 	if err != nil {
 		return nil, err
 	}

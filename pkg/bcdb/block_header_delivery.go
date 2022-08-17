@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
 	"github.com/hyperledger-labs/orion-server/pkg/logger"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"google.golang.org/protobuf/proto"
 )
 
 // BlockHeaderDeliveryConfig holds the configuration of the

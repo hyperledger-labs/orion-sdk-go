@@ -7,10 +7,10 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/marshal"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"google.golang.org/protobuf/proto"
 )
 
 func marshalOrPanic(msg proto.Message) []byte {
@@ -22,12 +22,8 @@ func marshalOrPanic(msg proto.Message) []byte {
 }
 
 func marshalToStringOrPanic(msg proto.Message) string {
-	m := jsonpb.Marshaler{
-		EmitDefaults: true,
-		Indent:       "  ",
-	}
-	envStr, _ := m.MarshalToString(msg)
-	return envStr
+	envStr, _ := marshal.DefaultMarshaler().Marshal(msg)
+	return string(envStr)
 }
 
 func saveTxEvidence(demoDir, txID string, txEnv proto.Message, txReceipt *types.TxReceiptResponseEnvelope, lg *logger.SugarLogger) error {

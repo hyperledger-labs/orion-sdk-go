@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 //go:generate mockery --dir . --name RestClient --case underscore --output mocks/

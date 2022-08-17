@@ -4,7 +4,6 @@ package bcdb
 
 import (
 	"bytes"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -15,15 +14,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-sdk-go/internal"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
 	sdkConfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/pkg/constants"
+	"github.com/hyperledger-labs/orion-server/pkg/marshal"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {
@@ -208,7 +208,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 		},
 		Signature: []byte{0},
 	}
-	queryResultBytes, err := json.Marshal(queryResult)
+	queryResultBytes, err := marshal.DefaultMarshaler().Marshal(queryResult)
 	require.NoError(t, err)
 	require.NotNil(t, queryResultBytes)
 
@@ -256,27 +256,36 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 			require.NotNil(t, tx.Payload)
 			require.Equal(t, "testUserId", tx.Payload.UserId)
 			require.Equal(t, 1, len(tx.Payload.UserWrites))
-			require.Equal(t, &types.UserWrite{
-				User: &types.User{
-					Id:          "carol",
-					Certificate: []byte{1, 1, 1},
+			require.True(t, proto.Equal(
+				&types.UserWrite{
+					User: &types.User{
+						Id:          "carol",
+						Certificate: []byte{1, 1, 1},
+					},
 				},
-			}, tx.Payload.UserWrites[0])
+				tx.Payload.UserWrites[0],
+			))
+			// require.Equal(t, &types.UserWrite{
+			// 	User: &types.User{
+			// 		Id:          "carol",
+			// 		Certificate: []byte{1, 1, 1},
+			// 	},
+			// }, tx.Payload.UserWrites[0])
 
 			require.Equal(t, 1, len(tx.Payload.UserReads))
-			require.Equal(t, &types.UserRead{
+			require.True(t, proto.Equal(&types.UserRead{
 				UserId: "alice",
 				Version: &types.Version{
 					TxNum:    1,
 					BlockNum: 1,
 				},
-			}, tx.Payload.UserReads[0])
+			}, tx.Payload.UserReads[0]))
 
 			require.Equal(t, 1, len(tx.Payload.UserDeletes))
 
-			require.Equal(t, &types.UserDelete{
+			require.True(t, proto.Equal(&types.UserDelete{
 				UserId: "bob",
-			}, tx.Payload.UserDeletes[0])
+			}, tx.Payload.UserDeletes[0]))
 		}).
 		Return(okResponse(), nil)
 

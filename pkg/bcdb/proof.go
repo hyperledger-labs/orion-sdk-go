@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/crypto"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 // TxProof keeps Merkle tree proof for specific transaction
@@ -26,12 +26,12 @@ type TxProof struct {
 func (p *TxProof) Verify(receipt *types.TxReceipt, tx proto.Message) (bool, error) {
 	txEnv, ok := tx.(*types.DataTxEnvelope)
 	if !ok {
-		return false, errors.Errorf("tx [%s] is not data transaction, only data transaction supported so far", tx.String())
+		return false, errors.Errorf("tx [%v] is not data transaction, only data transaction supported so far", tx)
 	}
 	valInfo := receipt.GetHeader().GetValidationInfo()[receipt.GetTxIndex()]
 	txBytes, err := json.Marshal(txEnv)
 	if err != nil {
-		return false, errors.Wrapf(err, "can't serialize tx [%s] to json", tx.String())
+		return false, errors.Wrapf(err, "can't serialize tx [%v] to json", tx)
 	}
 	viBytes, err := json.Marshal(valInfo)
 	if err != nil {
