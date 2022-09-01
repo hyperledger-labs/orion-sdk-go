@@ -8,7 +8,7 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	protoiface "google.golang.org/protobuf/runtime/protoiface"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 
 	time "time"
 )
@@ -42,11 +42,11 @@ func (_m *RestClient) Query(ctx context.Context, endpoint string, httpMethod str
 }
 
 // Submit provides a mock function with given fields: ctx, endpoint, msg, serverTimeout
-func (_m *RestClient) Submit(ctx context.Context, endpoint string, msg protoiface.MessageV1, serverTimeout time.Duration) (*http.Response, error) {
+func (_m *RestClient) Submit(ctx context.Context, endpoint string, msg protoreflect.ProtoMessage, serverTimeout time.Duration) (*http.Response, error) {
 	ret := _m.Called(ctx, endpoint, msg, serverTimeout)
 
 	var r0 *http.Response
-	if rf, ok := ret.Get(0).(func(context.Context, string, protoiface.MessageV1, time.Duration) *http.Response); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, protoreflect.ProtoMessage, time.Duration) *http.Response); ok {
 		r0 = rf(ctx, endpoint, msg, serverTimeout)
 	} else {
 		if ret.Get(0) != nil {
@@ -55,7 +55,7 @@ func (_m *RestClient) Submit(ctx context.Context, endpoint string, msg protoifac
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string, protoiface.MessageV1, time.Duration) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string, protoreflect.ProtoMessage, time.Duration) error); ok {
 		r1 = rf(ctx, endpoint, msg, serverTimeout)
 	} else {
 		r1 = ret.Error(1)

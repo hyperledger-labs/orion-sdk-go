@@ -8,15 +8,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-server/pkg/server"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestDataContext_PutAndGetKey(t *testing.T) {
@@ -680,9 +681,36 @@ func TestDataContext_ConstructEnvelopeForMultiSign(t *testing.T) {
 	for _, expectedDBOps := range expectedOps {
 		for _, actualDBOps := range dataTxEnv.Payload.DbOperations {
 			if actualDBOps.DbName == expectedDBOps.DbName {
-				require.ElementsMatch(t, expectedDBOps.DataReads, actualDBOps.DataReads)
-				require.ElementsMatch(t, expectedDBOps.DataWrites, actualDBOps.DataWrites)
-				require.ElementsMatch(t, expectedDBOps.DataDeletes, actualDBOps.DataDeletes)
+				sort.Slice(expectedDBOps.DataReads, func(i, j int) bool {
+					return expectedDBOps.DataReads[i].GetKey() < expectedDBOps.DataReads[j].GetKey()
+				})
+				sort.Slice(expectedDBOps.DataWrites, func(i, j int) bool {
+					return expectedDBOps.DataWrites[i].GetKey() < expectedDBOps.DataWrites[j].GetKey()
+				})
+				sort.Slice(expectedDBOps.DataDeletes, func(i, j int) bool {
+					return expectedDBOps.DataDeletes[i].GetKey() < expectedDBOps.DataDeletes[j].GetKey()
+				})
+				sort.Slice(actualDBOps.DataReads, func(i, j int) bool {
+					return actualDBOps.DataReads[i].GetKey() < actualDBOps.DataReads[j].GetKey()
+				})
+				sort.Slice(actualDBOps.DataWrites, func(i, j int) bool {
+					return actualDBOps.DataWrites[i].GetKey() < actualDBOps.DataWrites[j].GetKey()
+				})
+				sort.Slice(actualDBOps.DataDeletes, func(i, j int) bool {
+					return actualDBOps.DataDeletes[i].GetKey() < actualDBOps.DataDeletes[j].GetKey()
+				})
+				require.True(t, proto.Equal(
+					&types.DBOperation{
+						DataReads:   expectedDBOps.DataReads,
+						DataWrites:  expectedDBOps.DataWrites,
+						DataDeletes: expectedDBOps.DataDeletes,
+					},
+					&types.DBOperation{
+						DataReads:   actualDBOps.DataReads,
+						DataWrites:  actualDBOps.DataWrites,
+						DataDeletes: actualDBOps.DataDeletes,
+					},
+				))
 			}
 		}
 	}

@@ -6,17 +6,21 @@ package bcdb
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-sdk-go/internal"
 	"github.com/hyperledger-labs/orion-server/pkg/cryptoservice"
 	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/marshal"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 const (
@@ -100,14 +104,19 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 	}
 
 	txResponseEnvelope := &types.TxReceiptResponseEnvelope{}
-	err = json.NewDecoder(response.Body).Decode(txResponseEnvelope)
+	responseBytes, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return t.txID, nil, err
+	}
+
+	err = protojson.Unmarshal(responseBytes, txResponseEnvelope)
 	if err != nil {
 		t.logger.Errorf("failed to decode json response, due to %s", err)
 		return t.txID, nil, err
 	}
 
 	nodeID := txResponseEnvelope.GetResponse().GetHeader().GetNodeId()
-	respBytes, err := json.Marshal(txResponseEnvelope.GetResponse())
+	respBytes, err := marshal.DefaultMarshaler().Marshal(txResponseEnvelope.GetResponse())
 	if err != nil {
 		t.logger.Errorf("failed to marshal the response")
 		return t.txID, nil, err
@@ -228,8 +237,12 @@ func (t *commonTxContext) handleGetPostRequest(rawurl, httpMethod string, postDa
 		}
 	}
 
-	err = json.NewDecoder(response.Body).Decode(res)
+	responseBytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
+		return err
+	}
+
+	if err := protojson.Unmarshal(responseBytes, res); err != nil {
 		t.logger.Errorf("failed to decode json response, due to %s", err)
 		return err
 	}
@@ -240,7 +253,7 @@ func (t *commonTxContext) handleGetPostRequest(rawurl, httpMethod string, postDa
 			t.logger.Errorf("failed to recognize resopnse type: %s", err)
 			return err
 		}
-		respBytes, err := json.Marshal(responsePayload)
+		respBytes, err := marshal.DefaultMarshaler().Marshal(responsePayload.(protoreflect.ProtoMessage))
 		if err != nil {
 			t.logger.Errorf("failed to marshal the response")
 			return err
