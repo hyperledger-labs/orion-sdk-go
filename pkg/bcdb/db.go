@@ -59,6 +59,8 @@ type TxContext interface {
 	Abort() error
 	// CommittedTxEnvelope returns transaction envelope, can be called only after Commit(), otherwise will return nil
 	CommittedTxEnvelope() (proto.Message, error)
+
+	TxID() string
 }
 
 type Ledger interface {
