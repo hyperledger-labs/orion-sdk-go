@@ -158,6 +158,10 @@ func (t *commonTxContext) abort(tx txContext) error {
 	return nil
 }
 
+func (t *commonTxContext) TxID() string {
+	return t.txID
+}
+
 func (t *commonTxContext) selectReplica() (url *url.URL, err error) {
 	// Pick first replica to send request to, as that is the leader.
 	// TODO a cyclic retry mechanism for when the last choice failed to connect.

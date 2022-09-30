@@ -52,6 +52,7 @@ func TestDBsContext_CreateDBAndCheckStatus(t *testing.T) {
 		// Start submission session to create a new database
 		tx, err := session.DBsTx()
 		require.NoError(t, err)
+		require.NotEmpty(t, tx.TxID())
 
 		err = tx.CreateDB("testDB", nil)
 		require.NoError(t, err)

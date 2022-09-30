@@ -732,6 +732,8 @@ func connectAndOpenAdminSession(t *testing.T, testServer *server.BCDBHTTPServer,
 func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byte, dbPerm map[string]types.Privilege_Access) {
 	tx, err := session.UsersTx()
 	require.NoError(t, err)
+	txID1 := tx.TxID()
+	require.NotEmpty(t, txID1)
 
 	certBlock, _ := pem.Decode(pemUserCert)
 	err = tx.PutUser(&types.User{
@@ -742,7 +744,8 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 		},
 	}, nil)
 	require.NoError(t, err)
-	_, receiptEnv, err := tx.Commit(true)
+	txID2, receiptEnv, err := tx.Commit(true)
+	require.Equal(t, txID2, txID1)
 	require.NoError(t, err)
 	require.NotNil(t, receiptEnv)
 
@@ -761,6 +764,7 @@ func createDB(t *testing.T, dbName string, session DBSession) {
 	require.NoError(t, err)
 
 	txId, receiptEnv, err := tx.Commit(true)
+
 	require.NoError(t, err)
 	require.True(t, len(txId) > 0)
 	require.NotNil(t, receiptEnv)
@@ -779,6 +783,9 @@ func createDB(t *testing.T, dbName string, session DBSession) {
 func putKeySync(t *testing.T, dbName, key string, value string, user string, session DBSession) (*types.TxReceipt, string, proto.Message) {
 	tx, err := session.DataTx()
 	require.NoError(t, err)
+
+	txId := tx.TxID()
+	require.NotEmpty(t, txId)
 
 	readUsers := make(map[string]bool)
 	readWriteUsers := make(map[string]bool)

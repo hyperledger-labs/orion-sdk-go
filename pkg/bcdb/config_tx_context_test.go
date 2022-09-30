@@ -121,6 +121,7 @@ func TestConfigTxContext_SetClusterConfig(t *testing.T) {
 
 		tx1, err := session.ConfigTx()
 		require.NoError(t, err)
+		require.NotEmpty(t, tx1.TxID())
 
 		clusterConfig, err := tx1.GetClusterConfig()
 		require.NoError(t, err)
