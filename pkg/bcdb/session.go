@@ -46,6 +46,7 @@ type dbSession struct {
 	txTimeout          time.Duration
 	queryTimeout       time.Duration
 	logger             *logger.SugarLogger
+	restClient         RestClient
 }
 
 // TxContextOption is a function that operates on a commonTxContext and applies a configuration option.
@@ -212,7 +213,9 @@ func (d *dbSession) ReplicaSet(refresh bool) ([]*config.Replica, error) {
 }
 
 func (d *dbSession) newCommonTxContext(options ...TxContextOption) (*commonTxContext, error) {
-	httpClient := newHTTPClient(d.tlsEnabled, d.clientTlsConfig)
+	if d.restClient == nil {
+		d.restClient = NewRestClient(d.userID, newHTTPClient(d.tlsEnabled, d.clientTlsConfig), d.signer)
+	}
 
 	commonTxCtx := &commonTxContext{
 		userID:        d.userID,
@@ -220,7 +223,7 @@ func (d *dbSession) newCommonTxContext(options ...TxContextOption) (*commonTxCon
 		userCert:      d.userCert,
 		replicaSet:    d.replicaSet,
 		verifier:      d.verifier,
-		restClient:    NewRestClient(d.userID, httpClient, d.signer),
+		restClient:    d.restClient,
 		commitTimeout: d.txTimeout,
 		queryTimeout:  d.queryTimeout,
 		logger:        d.logger,
