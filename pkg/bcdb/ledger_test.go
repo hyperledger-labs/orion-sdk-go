@@ -380,7 +380,7 @@ func TestGetStateProof(t *testing.T) {
 			key:        "key6_1",
 			value:      []byte("value6_1"),
 			isDeleted:  false,
-			errMessage: "404 Not Found, status code: 404, message: error while processing 'GET /ledger/proof/data/bdb/key6_1?block=19' because block not found: 19",
+			errMessage: "404 Not Found, status code: 404, message: error while processing 'GET /ledger/proof/data/bdb/a2V5Nl8x?block=19' because block not found: 19",
 		},
 	}
 	for _, tt := range tests {
