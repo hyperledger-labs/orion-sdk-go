@@ -77,7 +77,7 @@ func VerifyEvidence(demoDir, userID, txID string, lg *logger.SugarLogger) (out s
 	if err != nil {
 		return "", errors.Wrap(err, "error getting data proof")
 	}
-	okData, err := stateProof.Verify(dataHash, txRcpt.Header.StateMerkelTreeRootHash, false)
+	okData, err := stateProof.Verify(dataHash, txRcpt.Header.StateMerkleTreeRootHash, false)
 	if err != nil {
 		return "", errors.Wrap(err, "error verifying data proof")
 	}

@@ -56,7 +56,7 @@ func (p *TxProof) Verify(receipt *types.TxReceipt, tx proto.Message) (bool, erro
 		}
 	}
 
-	return bytes.Equal(receipt.GetHeader().GetTxMerkelTreeRootHash(), currHash), nil
+	return bytes.Equal(receipt.GetHeader().GetTxMerkleTreeRootHash(), currHash), nil
 }
 
 // LedgerPath contains a skip list path in ledger, in form of block headers.

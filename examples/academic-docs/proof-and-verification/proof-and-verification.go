@@ -58,7 +58,7 @@ func main() {
 	}
 
 	fmt.Println(ms)
-	isSuccess, err := proof.Verify(markSheetHash, txReceipt.Header.StateMerkelTreeRootHash, false)
+	isSuccess, err := proof.Verify(markSheetHash, txReceipt.Header.StateMerkleTreeRootHash, false)
 	if isSuccess {
 		fmt.Println("This marksheet is valid")
 	} else {
@@ -73,7 +73,7 @@ func main() {
 	}
 
 	fmt.Println(ms)
-	isSuccess, err = proof.Verify(markSheetHash, txReceipt.Header.StateMerkelTreeRootHash, false)
+	isSuccess, err = proof.Verify(markSheetHash, txReceipt.Header.StateMerkleTreeRootHash, false)
 	if isSuccess {
 		fmt.Println("marksheet is valid")
 	} else {
