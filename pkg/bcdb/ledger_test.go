@@ -394,7 +394,7 @@ func TestGetStateProof(t *testing.T) {
 				require.NoError(t, err)
 				blockHeader, err := p.GetBlockHeader(tt.block)
 				require.NoError(t, err)
-				res, err := proof.Verify(kvHash, blockHeader.GetStateMerkelTreeRootHash(), tt.isDeleted)
+				res, err := proof.Verify(kvHash, blockHeader.GetStateMerkleTreeRootHash(), tt.isDeleted)
 				require.NoError(t, err)
 				if tt.incorrect {
 					require.False(t, res)

@@ -70,7 +70,7 @@ func ExecuteStateTrieExample(configLocation string) error {
 	}
 
 	fmt.Println("Verify proof using value hash and Merkle-Patricia trie root stored in block header")
-	isCorrect, err := stateProof.Verify(valueHash, receipt1.GetHeader().GetStateMerkelTreeRootHash(), deleted)
+	isCorrect, err := stateProof.Verify(valueHash, receipt1.GetHeader().GetStateMerkleTreeRootHash(), deleted)
 	if err != nil {
 		fmt.Printf("Can't verify value in state trie, reason: %s\n", err.Error())
 		return err
@@ -101,7 +101,7 @@ func ExecuteStateTrieExample(configLocation string) error {
 	}
 
 	fmt.Println("Verify proof using value hash and Merkle-Patricia trie root stored in block header")
-	isCorrect, err = stateProof.Verify(valueHash, receipt2.GetHeader().GetStateMerkelTreeRootHash(), deleted)
+	isCorrect, err = stateProof.Verify(valueHash, receipt2.GetHeader().GetStateMerkleTreeRootHash(), deleted)
 	if err != nil {
 		fmt.Printf("Can't verify value in state trie, reason: %s\n", err.Error())
 		return err
@@ -124,7 +124,7 @@ func ExecuteStateTrieExample(configLocation string) error {
 	}
 
 	fmt.Println("Verify proof using value hash and Merkle-Patricia trie root stored in block header")
-	isCorrect, err = stateProof.Verify(valueHash, receipt2.GetHeader().GetStateMerkelTreeRootHash(), deleted)
+	isCorrect, err = stateProof.Verify(valueHash, receipt2.GetHeader().GetStateMerkleTreeRootHash(), deleted)
 	if err != nil {
 		fmt.Printf("Can't verify value in state trie, reason: %s\n", err.Error())
 		return err
@@ -156,7 +156,7 @@ func ExecuteStateTrieExample(configLocation string) error {
 	}
 
 	fmt.Println("Verify proof using value hash and Merkle-Patricia trie root stored in block header")
-	isCorrect, err = stateProof.Verify(valueHash, receipt2.GetHeader().GetStateMerkelTreeRootHash(), deleted)
+	isCorrect, err = stateProof.Verify(valueHash, receipt2.GetHeader().GetStateMerkleTreeRootHash(), deleted)
 	if err != nil {
 		fmt.Printf("Can't verify value in state trie, reason: %s\n", err.Error())
 		return err
