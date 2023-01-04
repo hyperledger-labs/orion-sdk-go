@@ -384,7 +384,7 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 				if len(deleteUsers) > 0 {
 					for _, userDelete := range deleteUsers {
 						userDelete.GetUserId()
-						dUser, err := userTx.GetUser(userDelete.GetUserId())
+						dUser, _, err := userTx.GetUser(userDelete.GetUserId())
 						if err != nil {
 							return false
 						}
@@ -393,7 +393,7 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 				}
 				if len(updateUsers) > 0 {
 					for _, userUpdate := range updateUsers {
-						uUser, err := userTx.GetUser(userUpdate.User.Id)
+						uUser, _, err := userTx.GetUser(userUpdate.User.Id)
 						if err != nil {
 							return false
 						}

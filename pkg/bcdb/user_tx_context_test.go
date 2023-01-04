@@ -46,7 +46,7 @@ func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {
 	tx, err := sessionOneNano.UsersTx()
 	require.NoError(t, err)
 	require.NotNil(t, tx)
-	alice, err := tx.GetUser("alice")
+	alice, _, err := tx.GetUser("alice")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "queryTimeout error")
 	require.Nil(t, alice)
@@ -75,7 +75,7 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 
 		assertTxFinality(t, TxFinality(i), tx, session)
 
-		val, err := tx.GetUser("bob")
+		val, _, err := tx.GetUser("bob")
 		require.EqualError(t, err, ErrTxSpent.Error())
 		require.Nil(t, val)
 
@@ -88,7 +88,7 @@ func TestUserContext_CommitAbortFinality(t *testing.T) {
 		if TxFinality(i) != TxFinalityAbort {
 			tx, err = session.UsersTx()
 			require.NoError(t, err)
-			val, err = tx.GetUser("alice")
+			val, _, err = tx.GetUser("alice")
 			require.NoError(t, err)
 			require.NotNil(t, val)
 			require.True(t, proto.Equal(&types.User{Id: "alice", Certificate: certBlock.Bytes}, val))
@@ -171,7 +171,7 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 			}
 
 			signer.On("Sign", mock.Anything).Return(nil, nil)
-			user, err := usrCtx.GetUser("alice")
+			user, _, err := usrCtx.GetUser("alice")
 			require.Error(t, err)
 			require.Nil(t, user)
 			require.Contains(t, err.Error(), tt.expectedError)
@@ -289,7 +289,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 		}).
 		Return(okResponse(), nil)
 
-	user, err := usrCtx.GetUser("alice")
+	user, _, err := usrCtx.GetUser("alice")
 	require.NoError(t, err)
 	require.Equal(t, expectedUser, user)
 

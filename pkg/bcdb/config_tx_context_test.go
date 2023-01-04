@@ -390,7 +390,7 @@ func TestConfigTxContext_AddUserAdmin(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, tx3)
 
-	user, err := tx3.GetUser("admin2")
+	user, _, err := tx3.GetUser("admin2")
 	require.NoError(t, err)
 	require.NotNil(t, user)
 	require.True(t, user.Privilege.Admin)
