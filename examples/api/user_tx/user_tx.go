@@ -220,7 +220,7 @@ func executeUserTxExample(cryptoDir string, configFile string) error {
 	}
 
 	fmt.Println("Getting alice's record from database")
-	user, err := tx.GetUser("alice")
+	user, _, err := tx.GetUser("alice")
 	if err != nil || user.GetId() != "alice" {
 		fmt.Printf("Getting user's record from database failed, reason: %s\n", err.Error())
 		return err
@@ -228,7 +228,7 @@ func executeUserTxExample(cryptoDir string, configFile string) error {
 	fmt.Printf("alice information: id: %s, privilege: %s\n", user.GetId(), user.GetPrivilege().String())
 
 	fmt.Println("Getting bob's record from database")
-	user, err = tx.GetUser("bob")
+	user, _, err = tx.GetUser("bob")
 	if err != nil || user.GetId() != "bob" {
 		fmt.Printf("Getting user's record from database failed, reason: %s\n", err.Error())
 		return err

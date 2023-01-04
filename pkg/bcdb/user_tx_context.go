@@ -21,7 +21,7 @@ type UsersTxContext interface {
 	// PutUser introduce new user into database
 	PutUser(user *types.User, acl *types.AccessControl) error
 	// GetUser obtain user's record from database
-	GetUser(userID string) (*types.User, error)
+	GetUser(userID string) (*types.User, *types.Metadata, error)
 	// RemoveUser delete existing user from the database
 	RemoveUser(userID string) error
 }
@@ -54,9 +54,9 @@ func (u *userTxContext) PutUser(user *types.User, acl *types.AccessControl) erro
 	return nil
 }
 
-func (u *userTxContext) GetUser(userID string) (*types.User, error) {
+func (u *userTxContext) GetUser(userID string) (*types.User, *types.Metadata, error) {
 	if u.txSpent {
-		return nil, ErrTxSpent
+		return nil, nil, ErrTxSpent
 	}
 
 	path := constants.URLForGetUser(userID)
@@ -70,7 +70,7 @@ func (u *userTxContext) GetUser(userID string) (*types.User, error) {
 	)
 	if err != nil {
 		u.logger.Errorf("failed to execute user query, Path = %s, due to %s", path, err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	res := resEnv.GetResponse()
@@ -79,7 +79,7 @@ func (u *userTxContext) GetUser(userID string) (*types.User, error) {
 		Version: res.GetMetadata().GetVersion(),
 	})
 
-	return res.GetUser(), nil
+	return res.GetUser(), resEnv.GetResponse().GetMetadata(), nil
 }
 
 func (u *userTxContext) RemoveUser(userID string) error {

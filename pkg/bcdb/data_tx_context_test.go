@@ -751,7 +751,7 @@ func addUser(t *testing.T, userName string, session DBSession, pemUserCert []byt
 
 	tx, err = session.UsersTx()
 	require.NoError(t, err)
-	user, err := tx.GetUser(userName)
+	user, _, err := tx.GetUser(userName)
 	require.NoError(t, err)
 	require.Equal(t, userName, user.GetId())
 }
