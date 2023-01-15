@@ -92,6 +92,10 @@ type Ledger interface {
 	// from a given starting block number present in the config to all the future block
 	// till the service is stopped
 	NewBlockHeaderDeliveryService(conf *BlockHeaderDeliveryConfig) BlockHeaderDelivererService
+	// GetTxContent returns the transaction envelope associated with the block number and transaction index, along
+	// with the validation info and version. Only users that had signed the transaction correctly can get the
+	// transaction content.
+	GetTxContent(blockNum, txIndex uint64) (*types.GetTxResponse, error)
 }
 
 type Provenance interface {

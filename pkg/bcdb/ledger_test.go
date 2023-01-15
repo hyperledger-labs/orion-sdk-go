@@ -4,6 +4,8 @@ package bcdb
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path"
 	"testing"
 	"time"
 
@@ -303,6 +305,250 @@ func TestGetTransactionReceipt(t *testing.T) {
 			} else {
 				require.EqualError(t, err, tt.errMessage)
 				require.Nil(t, receipt)
+			}
+		})
+	}
+}
+
+func TestGetTransactionContent(t *testing.T) {
+	clientCertTempDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "bob", "server"})
+	testServer, _, _, err := SetupTestServerWithParams(t, clientCertTempDir, 5*time.Second, 10, false, false)
+	defer testServer.Stop()
+	require.NoError(t, err)
+
+	StartTestServer(t, testServer)
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTempDir)
+	createDB(t, "testDB", adminSession)
+
+	pemUserCert, err := ioutil.ReadFile(path.Join(clientCertTempDir, "alice.pem"))
+	require.NoError(t, err)
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+	addUser(t, "alice", adminSession, pemUserCert, dbPerm)
+	aliceSession := openUserSession(t, bcdb, "alice", clientCertTempDir)
+
+	pemUserCert, err = ioutil.ReadFile(path.Join(clientCertTempDir, "bob.pem"))
+	require.NoError(t, err)
+	addUser(t, "bob", adminSession, pemUserCert, dbPerm)
+	bobSession := openUserSession(t, bcdb, "bob", clientCertTempDir)
+
+	txEnvelopesPerBlock := make([][]proto.Message, 0)
+
+	// Ten blocks, each 10 tx
+	for i := 0; i < 10; i++ {
+		keys := make([]string, 0)
+		values := make([]string, 0)
+		for j := 0; j < 10; j++ {
+			keys = append(keys, fmt.Sprintf("key%d_%d", i, j))
+			values = append(values, fmt.Sprintf("value%d_%d", i, j))
+		}
+		txEnvelopesPerBlock = append(txEnvelopesPerBlock, putMultipleKeysAndValues(t, keys, values, "alice", aliceSession))
+	}
+
+	// Ten blocks, each 10 multi-sig TX
+	for i := 0; i < 10; i++ {
+		txEnvelopes := []proto.Message{}
+		var keys []string
+		for j := 1; j <= 10; j++ {
+			keys = append(keys, fmt.Sprintf("multi-sig-key%d_%d", i, j))
+		}
+
+		var txId string
+		for _, key := range keys {
+			tx, err := aliceSession.DataTx()
+			require.NoError(t, err)
+
+			err = tx.Put("bdb", key, []byte(key), nil)
+			require.NoError(t, err)
+
+			txEnv, err := tx.SignConstructedTxEnvelopeAndCloseTx()
+			require.NoError(t, err)
+			txEnvelopes = append(txEnvelopes, txEnv)
+
+			tx2, err := bobSession.LoadDataTx(txEnv.(*types.DataTxEnvelope))
+			require.NoError(t, err)
+			txId, _, err = tx2.Commit(false)
+			require.NoError(t, err)
+		}
+
+		waitForTx(t, txId, aliceSession)
+		txEnvelopesPerBlock = append(txEnvelopesPerBlock, txEnvelopes)
+	}
+
+	type testCase struct {
+		name        string
+		userSession DBSession
+		block       uint64
+		txIdx       uint64
+		txID        string
+		errMessage  string
+	}
+
+	dataTxRequests := []testCase{
+		{
+			name:        "block 5, tx 8",
+			userSession: aliceSession,
+			block:       5,
+			txIdx:       8,
+			txID:        txEnvelopesPerBlock[0][8].(*types.DataTxEnvelope).GetPayload().GetTxId(),
+		},
+		{
+			name:        "block 11, tx 2",
+			userSession: aliceSession,
+			block:       11,
+			txIdx:       2,
+			txID:        txEnvelopesPerBlock[6][2].(*types.DataTxEnvelope).GetPayload().GetTxId(),
+		},
+		{
+			name:        "block 15, tx 2, multi-sig, alice",
+			userSession: aliceSession,
+			block:       15,
+			txIdx:       2,
+			txID:        txEnvelopesPerBlock[10][2].(*types.DataTxEnvelope).GetPayload().GetTxId(),
+		},
+		{
+			name:        "block 15, tx 2, multi-sig, bob",
+			userSession: bobSession,
+			block:       15,
+			txIdx:       2,
+			txID:        txEnvelopesPerBlock[10][2].(*types.DataTxEnvelope).GetPayload().GetTxId(),
+		},
+		{
+			name:        "block does not exist: 0",
+			userSession: aliceSession,
+			block:       0,
+			txIdx:       0,
+			errMessage:  "error handling request, server returned: status: 404 Not Found, status code: 404, message: error while processing 'GET /ledger/tx/content/0?idx=0' because block not found: 0",
+		},
+		{
+			name:        "block does not exist: 100",
+			userSession: aliceSession,
+			block:       100,
+			txIdx:       0,
+			errMessage:  "error handling request, server returned: status: 404 Not Found, status code: 404, message: error while processing 'GET /ledger/tx/content/100?idx=0' because requested block number [100] cannot be greater than the last committed block number [24]",
+		},
+		{
+			name:        "tx index out of bound",
+			userSession: aliceSession,
+			block:       10,
+			txIdx:       200,
+			errMessage:  "error handling request, server returned: status: 400 Bad Request, status code: 400, message: error while processing 'GET /ledger/tx/content/10?idx=200' because transaction index out of range: 200",
+		},
+		{
+			name:        "no permission: config",
+			userSession: aliceSession,
+			block:       1,
+			txIdx:       0,
+			errMessage:  "error handling request, server returned: status: 403 Forbidden, status code: 403, message: error while processing 'GET /ledger/tx/content/1?idx=0' because user alice has no permission to access the tx",
+		},
+		{
+			name:        "no permission: db admin",
+			userSession: aliceSession,
+			block:       2,
+			txIdx:       0,
+			errMessage:  "error handling request, server returned: status: 403 Forbidden, status code: 403, message: error while processing 'GET /ledger/tx/content/2?idx=0' because user alice has no permission to access the tx",
+		},
+		{
+			name:        "no permission: user admin",
+			userSession: aliceSession,
+			block:       3,
+			txIdx:       0,
+			errMessage:  "error handling request, server returned: status: 403 Forbidden, status code: 403, message: error while processing 'GET /ledger/tx/content/3?idx=0' because user alice has no permission to access the tx",
+		},
+		{
+			name:        "no permission: wrong user bob",
+			userSession: bobSession,
+			block:       11,
+			txIdx:       2,
+			errMessage:  "error handling request, server returned: status: 403 Forbidden, status code: 403, message: error while processing 'GET /ledger/tx/content/11?idx=2' because user bob has no permission to access the tx",
+		},
+		{
+			name:        "no permission: wrong user admin",
+			userSession: adminSession,
+			block:       11,
+			txIdx:       2,
+			errMessage:  "error handling request, server returned: status: 403 Forbidden, status code: 403, message: error while processing 'GET /ledger/tx/content/11?idx=2' because user admin has no permission to access the tx",
+		},
+	}
+	// data requests
+	for _, tt := range dataTxRequests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := tt.userSession.Ledger()
+			require.NoError(t, err)
+			txEnv, err := p.GetTxContent(tt.block, tt.txIdx)
+			if tt.errMessage == "" {
+				require.NoError(t, err)
+				require.NotNil(t, txEnv)
+				getDataTxEnv := txEnv.GetTxEnvelope().(*types.GetTxResponse_DataTxEnvelope)
+				dataTxEnv := getDataTxEnv.DataTxEnvelope
+				_, ok := dataTxEnv.GetSignatures()["alice"]
+				require.True(t, ok)
+				dataTx := dataTxEnv.GetPayload()
+				require.NotNil(t, dataTx)
+			} else {
+				require.EqualError(t, err, tt.errMessage)
+				require.Nil(t, txEnv)
+			}
+		})
+	}
+
+	adminTxRequests := []testCase{
+		{
+			name:        "block 1, tx 0, config",
+			userSession: adminSession,
+			block:       1,
+			txIdx:       0,
+		},
+		{
+			name:        "block 2, tx 0, db admin",
+			userSession: adminSession,
+			block:       2,
+			txIdx:       0,
+		},
+		{
+			name:        "block 3, tx 0, user admin",
+			userSession: adminSession,
+			block:       3,
+			txIdx:       0,
+		},
+		{
+			name:        "block 4, tx 0, user admin",
+			userSession: adminSession,
+			block:       3,
+			txIdx:       0,
+		},
+	}
+
+	// admin requests
+	for _, tt := range adminTxRequests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := tt.userSession.Ledger()
+			require.NoError(t, err)
+			txEnv, err := p.GetTxContent(tt.block, tt.txIdx)
+			if tt.errMessage == "" {
+				require.NoError(t, err)
+				require.NotNil(t, txEnv)
+
+				switch txEnv.GetTxEnvelope().(type) {
+				case *types.GetTxResponse_DataTxEnvelope:
+					t.Fail()
+				case *types.GetTxResponse_ConfigTxEnvelope:
+					env := txEnv.GetTxEnvelope().(*types.GetTxResponse_ConfigTxEnvelope).ConfigTxEnvelope
+					require.NotEmpty(t, env.GetPayload().GetTxId())
+					require.Equal(t, "", env.GetPayload().GetUserId()) //The genesis block is unsigned by a user
+				case *types.GetTxResponse_UserAdministrationTxEnvelope:
+					env := txEnv.GetTxEnvelope().(*types.GetTxResponse_UserAdministrationTxEnvelope).UserAdministrationTxEnvelope
+					require.NotEmpty(t, env.GetPayload().GetTxId())
+					require.Equal(t, "admin", env.GetPayload().GetUserId())
+				case *types.GetTxResponse_DbAdministrationTxEnvelope:
+					env := txEnv.GetTxEnvelope().(*types.GetTxResponse_DbAdministrationTxEnvelope).DbAdministrationTxEnvelope
+					require.NotEmpty(t, env.GetPayload().GetTxId())
+					require.Equal(t, "admin", env.GetPayload().GetUserId())
+				}
+			} else {
+				require.EqualError(t, err, tt.errMessage)
+				require.Nil(t, txEnv)
 			}
 		})
 	}

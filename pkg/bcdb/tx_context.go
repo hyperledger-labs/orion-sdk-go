@@ -324,6 +324,8 @@ func ResponseSelector(envelop ResponseEnvelop) (ResponseWithHeader, error) {
 		return envelop.(*types.GetDBIndexResponseEnvelope).GetResponse(), nil
 	case *types.GetDataRangeResponseEnvelope:
 		return envelop.(*types.GetDataRangeResponseEnvelope).GetResponse(), nil
+	case *types.GetTxResponseEnvelope:
+		return envelop.(*types.GetTxResponseEnvelope).GetResponse(), nil
 
 	default:
 		return nil, errors.Errorf("unknown response type %T", t)
