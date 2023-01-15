@@ -144,6 +144,32 @@ func (l *ledger) GetTransactionReceipt(txId string) (*types.TxReceipt, error) {
 	return resEnv.GetResponse().GetReceipt(), nil
 }
 
+func (l *ledger) GetTxContent(blockNum, txIndex uint64) (*types.GetTxResponse, error) {
+	path := constants.URLTxContent(blockNum, txIndex)
+	resEnv := &types.GetTxResponseEnvelope{}
+	err := l.handleRequest(
+		path,
+		&types.GetTxContentQuery{
+			UserId:      l.userID,
+			BlockNumber: blockNum,
+			TxIndex:     txIndex,
+		},
+		resEnv,
+	)
+
+	if err != nil {
+		httpError, ok := err.(*httpError)
+		if !ok || httpError.statusCode != http.StatusNotFound {
+			l.logger.Errorf("failed to execute transaction receipt query %s, due to %s", path, err)
+			return nil, err
+		} else {
+			return nil, &ErrorNotFound{err.Error()}
+		}
+	}
+
+	return resEnv.GetResponse(), nil
+}
+
 func (l *ledger) GetDataProof(blockNum uint64, dbName, key string, isDeleted bool) (*state.Proof, error) {
 	path := constants.URLDataProof(blockNum, dbName, key, isDeleted)
 	resEnv := &types.GetDataProofResponseEnvelope{}
