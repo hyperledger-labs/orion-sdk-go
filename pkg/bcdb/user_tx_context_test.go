@@ -52,6 +52,104 @@ func TestUserContext_AddAndRetrieveUserWithAndWithoutTimeout(t *testing.T) {
 	require.Nil(t, alice)
 }
 
+func TestUserContext_AddAndRetrieveUserWithAndWithoutAcl(t *testing.T) {
+	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "bob", "server"})
+	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
+	defer testServer.Stop()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+
+	bcdb, adminSession := connectAndOpenAdminSession(t, testServer, clientCertTemDir)
+
+	pemAdminCert, err := ioutil.ReadFile(path.Join(clientCertTemDir, "admin.pem"))
+	require.NoError(t, err)
+	pemUserCert1, err := ioutil.ReadFile(path.Join(clientCertTemDir, "alice.pem"))
+	require.NoError(t, err)
+	pemUserCert2, err := ioutil.ReadFile(path.Join(clientCertTemDir, "bob.pem"))
+	require.NoError(t, err)
+
+	dbPerm := map[string]types.Privilege_Access{
+		"bdb": 1,
+	}
+
+	aclReadPerm := &types.AccessControl{
+		ReadUsers: map[string]bool{
+			"alice": true,
+		},
+	}
+
+	aclReadWritePerm := &types.AccessControl{
+		ReadWriteUsers: map[string]bool{
+			"bob": true,
+		},
+	}
+
+	// add users through an admin Session
+	err = addUserWithAcl(t, "admin", adminSession, pemAdminCert, dbPerm, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "the user [admin] is an admin user. Only via a cluster configuration transaction, the [admin] can be modified")
+
+	err = addUserWithAcl(t, "alice", adminSession, pemUserCert1, dbPerm, aclReadWritePerm)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "adding users to Acl.ReadWriteUsers is not supported")
+
+	err = addUserWithAcl(t, "alice", adminSession, pemUserCert1, dbPerm, nil)
+	require.NoError(t, err)
+	err = addUserWithAcl(t, "bob", adminSession, pemUserCert2, dbPerm, aclReadPerm)
+	require.NoError(t, err)
+
+	tx, err := adminSession.UsersTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+	alice, aliceMetaData, err := tx.GetUser("alice")
+	require.NoError(t, err)
+	require.NotNil(t, alice)
+	require.Equal(t, (*types.AccessControl)(nil), aliceMetaData.GetAccessControl())
+	bob, bobMetaData, err := tx.GetUser("bob")
+	require.NoError(t, err)
+	require.NotNil(t, bob)
+	require.Equal(t, aclReadPerm, bobMetaData.GetAccessControl())
+
+	// check that alice can get bob info as alice is shown in bob acl
+	aliceSession := openUserSession(t, bcdb, "alice", clientCertTemDir)
+	tx, err = aliceSession.UsersTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+	bob, bobMetaData, err = tx.GetUser("bob")
+	require.NoError(t, err)
+	require.NotNil(t, bob)
+	require.Equal(t, aclReadPerm, bobMetaData.GetAccessControl())
+}
+
+func addUserWithAcl(t *testing.T, userName string, session DBSession, pemUserCert []byte, dbPerm map[string]types.Privilege_Access, acl *types.AccessControl) error {
+	tx, err := session.UsersTx()
+	require.NoError(t, err)
+	txID1 := tx.TxID()
+	require.NotEmpty(t, txID1)
+
+	certBlock, _ := pem.Decode(pemUserCert)
+	err = tx.PutUser(&types.User{
+		Id:          userName,
+		Certificate: certBlock.Bytes,
+		Privilege: &types.Privilege{
+			DbPermission: dbPerm,
+		},
+	}, acl)
+	require.NoError(t, err)
+	txID2, receiptEnv, err := tx.Commit(true)
+	require.Equal(t, txID2, txID1)
+	require.NotNil(t, receiptEnv)
+
+	if err == nil {
+		tx, err = session.UsersTx()
+		require.NoError(t, err)
+		user, _, err := tx.GetUser(userName)
+		require.NoError(t, err)
+		require.Equal(t, userName, user.GetId())
+	}
+	return err
+}
+
 func TestUserContext_CommitAbortFinality(t *testing.T) {
 	clientCertTemDir := testutils.GenerateTestCrypto(t, []string{"admin", "alice", "server"})
 	testServer, _, _, err := SetupTestServer(t, clientCertTemDir)
