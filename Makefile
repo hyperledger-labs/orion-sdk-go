@@ -1,5 +1,6 @@
+# Allow setting different go version from the command line. E.g.,`make GO=go1.19.4 binary`
+GO       ?= go
 TIMEOUT  = 20m
-GO      = go
 PKGS     = $(or $(PKG),$(shell env GO111MODULE=on $(GO) list ./...))
 TESTPKGS = $(shell env GO111MODULE=on $(GO) list -f \
 		   '{{ if or .TestGoFiles .XTestGoFiles }}{{ .ImportPath }}{{ end }}' \
@@ -16,7 +17,7 @@ $(BIN):
 
 $(BIN)/%: | $(BIN)
 	@tmp=$$(mktemp -d); \
-		env GO11MODULE=off GOPATH=$$tmpp GOBIN=$(BIN) go get $(PACKAGE) \
+		env GO11MODULE=off GOPATH=$$tmpp GOBIN=$(BIN) $(GO) get $(PACKAGE) \
 		|| ret=$$?;
 	rm -rf $$tmp ; exit $$ret
 
@@ -46,7 +47,7 @@ goimports:
 
 .PHONY: binary
 binary:
-	go build -o $(BIN)/bdb github.com/hyperledger-labs/orion-server/cmd/bdb
+	$(GO) build -o $(BIN)/bdb github.com/hyperledger-labs/orion-server/cmd/bdb
 
 .PHONY: test
 test-script:
@@ -68,8 +69,8 @@ test-verbose: ARGS=-v
 test-race:    ARGS=-race
 $(TEST_TARGETS): test
 check test tests:
-	go build -o $(BIN)/bdb github.com/hyperledger-labs/orion-server/cmd/bdb
-	go test -timeout $(TIMEOUT) $(ARGS) $(TESTPKGS)
+	$(GO) build -o $(BIN)/bdb github.com/hyperledger-labs/orion-server/cmd/bdb
+	$(GO) test -timeout $(TIMEOUT) $(ARGS) $(TESTPKGS)
 
 test-coverage-tools: | $(GOCOVMERGE) $(GOCOV) $(GOCOVXML) 
 test-coverage: COVERAGE_DIR := $(CURDIR)/test/coverage.$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
