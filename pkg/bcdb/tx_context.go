@@ -116,7 +116,7 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 	}
 
 	nodeID := txResponseEnvelope.GetResponse().GetHeader().GetNodeId()
-	respBytes, err := marshal.DefaultMarshaler().Marshal(txResponseEnvelope.GetResponse())
+	respBytes, err := marshal.DefaultMarshaller().Marshal(txResponseEnvelope.GetResponse())
 	if err != nil {
 		t.logger.Errorf("failed to marshal the response")
 		return t.txID, nil, err
@@ -257,7 +257,7 @@ func (t *commonTxContext) handleGetPostRequest(rawurl, httpMethod string, postDa
 			t.logger.Errorf("failed to recognize resopnse type: %s", err)
 			return err
 		}
-		respBytes, err := marshal.DefaultMarshaler().Marshal(responsePayload.(protoreflect.ProtoMessage))
+		respBytes, err := marshal.DefaultMarshaller().Marshal(responsePayload.(protoreflect.ProtoMessage))
 		if err != nil {
 			t.logger.Errorf("failed to marshal the response")
 			return err

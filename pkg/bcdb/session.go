@@ -30,7 +30,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-//TODO refresh replicaSet and signature verifier when cluster config changes.
+// TODO refresh replicaSet and signature verifier when cluster config changes.
 type dbSession struct {
 	userID             string
 	signer             Signer
@@ -387,7 +387,7 @@ func (d *dbSession) createSignatureVerifier(clusterStatusEnv *types.GetClusterSt
 		return nil, err
 	}
 
-	respBytes, err := marshal.DefaultMarshaler().Marshal(clusterStatus)
+	respBytes, err := marshal.DefaultMarshaller().Marshal(clusterStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -406,16 +406,17 @@ func (d *dbSession) createSignatureVerifier(clusterStatusEnv *types.GetClusterSt
 	return verifier, err
 }
 
-//TODO expose HTTP parameters, make client configurable, with good defaults. See:
+// TODO expose HTTP parameters, make client configurable, with good defaults. See:
 // https://github.com/hyperledger-labs/orion-sdk-go/issues/28
 func newHTTPClient(tlsEnabled bool, tlsConfig *tls.Config) *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
 	httpClient := &http.Client{
 		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
+			Proxy:                 http.ProxyFromEnvironment,
+			DialContext:           dialer.DialContext,
 			ForceAttemptHTTP2:     true,
 			MaxIdleConns:          100,
 			MaxIdleConnsPerHost:   100,
