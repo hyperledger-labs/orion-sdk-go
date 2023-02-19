@@ -22,7 +22,7 @@ func marshalOrPanic(msg proto.Message) []byte {
 }
 
 func marshalToStringOrPanic(msg proto.Message) string {
-	envStr, _ := marshal.DefaultMarshaler().Marshal(msg)
+	envStr, _ := marshal.DefaultMarshaller().Marshal(msg)
 	return string(envStr)
 }
 

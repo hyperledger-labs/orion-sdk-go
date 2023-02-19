@@ -208,7 +208,7 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 		},
 		Signature: []byte{0},
 	}
-	queryResultBytes, err := marshal.DefaultMarshaler().Marshal(queryResult)
+	queryResultBytes, err := marshal.DefaultMarshaller().Marshal(queryResult)
 	require.NoError(t, err)
 	require.NotNil(t, queryResultBytes)
 
