@@ -32,21 +32,22 @@ import (
 
 // TODO refresh replicaSet and signature verifier when cluster config changes.
 type dbSession struct {
-	userID             string
-	signer             Signer
-	verifier           SignatureVerifier
-	userCert           []byte
-	replicaSet         internal.ReplicaSet
-	replicaSetVersion  *types.Version
-	rootCAs            *certificateauthority.CACertCollection
-	tlsEnabled         bool
-	tlsRootCAs         *certificateauthority.CACertCollection
-	clientAuthRequired bool
-	clientTlsConfig    *tls.Config
-	txTimeout          time.Duration
-	queryTimeout       time.Duration
-	logger             *logger.SugarLogger
-	restClient         RestClient
+	userID               string
+	signer               Signer
+	verifier             SignatureVerifier
+	userCert             []byte
+	replicaSet           internal.ReplicaSet
+	replicaSetVersion    *types.Version
+	rootCAs              *certificateauthority.CACertCollection
+	tlsEnabled           bool
+	tlsRootCAs           *certificateauthority.CACertCollection
+	clientAuthRequired   bool
+	clientTlsConfig      *tls.Config
+	txTimeout            time.Duration
+	queryTimeout         time.Duration
+	logger               *logger.SugarLogger
+	restClient           RestClient
+	updateReplicaSetFlag bool
 }
 
 // TxContextOption is a function that operates on a commonTxContext and applies a configuration option.
@@ -202,7 +203,7 @@ func (d *dbSession) Query() (Query, error) {
 
 func (d *dbSession) ReplicaSet(refresh bool) ([]*config.Replica, error) {
 	if refresh {
-		httpClient := newHTTPClient(d.tlsEnabled, d.clientTlsConfig)
+		httpClient := newHTTPClient(d.tlsEnabled, d.clientTlsConfig, nil)
 		if err := d.updateReplicaSetAndVerifier(httpClient, d.tlsEnabled); err != nil {
 			d.logger.Errorf("cannot update the replica set and signature verifier, error: %s", err)
 			return nil, errors.Wrap(err, "cannot update the replica set and signature verifier")
@@ -213,8 +214,28 @@ func (d *dbSession) ReplicaSet(refresh bool) ([]*config.Replica, error) {
 }
 
 func (d *dbSession) newCommonTxContext(options ...TxContextOption) (*commonTxContext, error) {
+	// checkRedirectPolicyFunc specifies a policy of how redirects should be handled when newHTTPClient is created to send a transaction
+	// HTTP client will follow 10 redirects, and then it will return an error. We need to remember that redirect occurred to update replica set for future txs.
+	checkRedirectPolicyFunc := func(req *http.Request, via []*http.Request) error {
+		if len(via) > 10 {
+			return errors.Errorf("Too many redirects: url: '%s', referrer: '%s', #via: %d", req.URL, req.Referer(), len(via))
+		}
+		d.updateReplicaSetFlag = true
+		return nil
+	}
+
+	// updateReplicaSetFlag becomes true when redirection occurred.
+	// In this case we want to update replica set for future requests when they are created
+	if d.updateReplicaSetFlag {
+		_, errRefreshRes := d.ReplicaSet(true)
+		if errRefreshRes != nil {
+			return nil, errRefreshRes
+		}
+		d.updateReplicaSetFlag = false
+	}
+
 	if d.restClient == nil {
-		d.restClient = NewRestClient(d.userID, newHTTPClient(d.tlsEnabled, d.clientTlsConfig), d.signer)
+		d.restClient = NewRestClient(d.userID, newHTTPClient(d.tlsEnabled, d.clientTlsConfig, checkRedirectPolicyFunc), d.signer)
 	}
 
 	commonTxCtx := &commonTxContext{
@@ -256,7 +277,7 @@ func (d *dbSession) updateReplicaSetAndVerifier(httpClient *http.Client, tlsEnab
 	}
 
 	if d.replicaSetVersion != nil && compareVersion(clusterStatusEnv.GetResponse().GetVersion(), d.replicaSetVersion) < 0 {
-		d.logger.Debugf("Cluster config version from server: [%v] is smaller than the latest replica set version: [%v], skipping update.")
+		d.logger.Debugf("Cluster config version from server: [%v] is smaller than the latest replica set version: [%v], skipping update.", clusterStatusEnv.GetResponse().GetVersion(), d.replicaSetVersion)
 		return nil
 	}
 
@@ -274,7 +295,7 @@ func (d *dbSession) updateReplicaSetAndVerifier(httpClient *http.Client, tlsEnab
 	d.verifier = verifier
 	d.replicaSet = replicaSet
 	d.replicaSetVersion = clusterStatusEnv.GetResponse().GetVersion()
-
+	d.updateReplicaSetFlag = false
 	d.logger.Debugf("updated replica set, version: %+v, set: %v", d.replicaSetVersion, d.replicaSet)
 
 	return nil
@@ -408,7 +429,7 @@ func (d *dbSession) createSignatureVerifier(clusterStatusEnv *types.GetClusterSt
 
 // TODO expose HTTP parameters, make client configurable, with good defaults. See:
 // https://github.com/hyperledger-labs/orion-sdk-go/issues/28
-func newHTTPClient(tlsEnabled bool, tlsConfig *tls.Config) *http.Client {
+func newHTTPClient(tlsEnabled bool, tlsConfig *tls.Config, checkRedirectPolicyFunc func(req *http.Request, via []*http.Request) error) *http.Client {
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -424,6 +445,7 @@ func newHTTPClient(tlsEnabled bool, tlsConfig *tls.Config) *http.Client {
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		},
+		CheckRedirect: checkRedirectPolicyFunc,
 	}
 	if tlsEnabled {
 		httpClient.Transport.(*http.Transport).TLSClientConfig = tlsConfig

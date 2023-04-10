@@ -342,7 +342,7 @@ func (b *bDB) Session(cfg *config.SessionConfig) (DBSession, error) {
 		}
 		session.clientTlsConfig = clientTlsConfig
 	}
-	httpClient := newHTTPClient(session.tlsEnabled, session.clientTlsConfig)
+	httpClient := newHTTPClient(session.tlsEnabled, session.clientTlsConfig, nil)
 	err = session.updateReplicaSetAndVerifier(httpClient, session.tlsEnabled)
 	if err != nil {
 		b.logger.Errorf("cannot update the replica set and signature verifier, error: %s", err)

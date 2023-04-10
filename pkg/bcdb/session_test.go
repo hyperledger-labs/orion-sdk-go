@@ -5,6 +5,7 @@ package bcdb
 
 import (
 	"fmt"
+	"github.com/hyperledger-labs/orion-sdk-go/internal/test"
 	"io/ioutil"
 	"path"
 	"testing"
@@ -173,4 +174,140 @@ func TestDbSession_compareVersion(t *testing.T) {
 			require.Equal(t, -1*tc.expected, compareVersion(tc.y, tc.x))
 		})
 	}
+}
+
+// Scenario:
+// - Start a 3 node cluster
+// - Shutdown the leader and wait for a new leader to be chosen
+// - Start original leader again
+// - Commit DataTx
+// - Commit another DataTx and check that replicaSet was updated
+func TestRedirectionSucceed(t *testing.T) {
+	// start a 3-node cluster
+	dir, err := ioutil.TempDir("", "cluster-test")
+	require.NoError(t, err)
+
+	nPort, pPort := test.GetPorts()
+	setupConfig := &setup.Config{
+		NumberOfServers:     3,
+		TestDirAbsolutePath: dir,
+		BDBBinaryPath:       "../../bin/bdb",
+		CmdTimeout:          10 * time.Second,
+		BaseNodePort:        nPort,
+		BasePeerPort:        pPort,
+	}
+	c, err := setup.NewCluster(setupConfig)
+	require.NoError(t, err)
+	defer c.ShutdownAndCleanup()
+
+	require.NoError(t, c.Start())
+	// wait for leader
+	originalLeader := -1
+	require.Eventually(t, func() bool {
+		originalLeader = c.AgreedLeader(t, 0, 1, 2)
+		return originalLeader >= 0
+	}, 30*time.Second, 100*time.Millisecond)
+
+	connConfig := &sdkconfig.ConnectionConfig{
+		RootCAs: []string{path.Join(setupConfig.TestDirAbsolutePath, "ca", testutils.RootCAFileName+".pem")},
+		ReplicaSet: []*sdkconfig.Replica{
+			{
+				ID:       "node-1",
+				Endpoint: c.Servers[0].URL(),
+			},
+			{
+				ID:       "node-2",
+				Endpoint: c.Servers[1].URL(),
+			},
+			{
+				ID:       "node-3",
+				Endpoint: c.Servers[2].URL(),
+			},
+		},
+	}
+
+	// create blockchainDB instance and open admin session for future txs to be sent
+	bcdb, err := Create(connConfig)
+	require.NoError(t, err)
+	require.NotNil(t, bcdb)
+
+	session := openUserSession(t, bcdb, "admin", path.Join(setupConfig.TestDirAbsolutePath, "users"))
+	sessionImpl := session.(*dbSession)
+	require.Len(t, sessionImpl.replicaSet, 3)
+	require.Equal(t, internal.ReplicaRole_LEADER, sessionImpl.replicaSet[0].Role)
+	require.Equal(t, internal.ReplicaRole_FOLLOWER, sessionImpl.replicaSet[1].Role)
+	require.Equal(t, internal.ReplicaRole_FOLLOWER, sessionImpl.replicaSet[2].Role)
+	require.False(t, sessionImpl.updateReplicaSetFlag)
+
+	// shut down the leader and wait for a new leader
+	require.NoError(t, c.ShutdownServer(c.Servers[originalLeader]))
+	newLeader := -1
+	require.Eventually(t, func() bool {
+		newLeader = c.AgreedLeader(t, (originalLeader+1)%3, (originalLeader+2)%3)
+		return (newLeader >= 0) && (newLeader != originalLeader)
+	}, 30*time.Second, 100*time.Millisecond)
+
+	// check that replica set includes a leader, a follower and an unknown node as the last one is down
+	session2 := openUserSession(t, bcdb, "admin", path.Join(setupConfig.TestDirAbsolutePath, "users"))
+	sessionImpl2 := session2.(*dbSession)
+	require.Len(t, sessionImpl2.replicaSet, 3)
+	require.Equal(t, internal.ReplicaRole_LEADER, sessionImpl2.replicaSet[0].Role)
+	require.Equal(t, internal.ReplicaRole_FOLLOWER, sessionImpl2.replicaSet[1].Role)
+	require.Equal(t, internal.ReplicaRole_UNKNOWN, sessionImpl2.replicaSet[2].Role)
+	require.False(t, sessionImpl2.updateReplicaSetFlag)
+
+	// start original leader again, which is now a follower
+	require.NoError(t, c.StartServer(c.Servers[originalLeader]))
+
+	// check that replica set is updated explicitly
+	require.Eventually(t, func() bool {
+		session2.ReplicaSet(true)
+		return len(sessionImpl2.replicaSet) == 3 &&
+			internal.ReplicaRole_LEADER == sessionImpl2.replicaSet[0].Role &&
+			internal.ReplicaRole_FOLLOWER == sessionImpl2.replicaSet[1].Role &&
+			internal.ReplicaRole_FOLLOWER == sessionImpl2.replicaSet[2].Role &&
+			sessionImpl2.updateReplicaSetFlag == false
+	}, 30*time.Second, 100*time.Millisecond)
+
+	// prepare a data tx
+	tx, err := session.DataTx()
+	require.NoError(t, err)
+	err = tx.Put("bdb", "key1", []byte("val1"), &types.AccessControl{
+		ReadUsers: map[string]bool{
+			"admin": true,
+		},
+		ReadWriteUsers: map[string]bool{
+			"admin": true,
+		},
+		SignPolicyForWrite: 0,
+	})
+	require.NoError(t, err)
+	require.False(t, sessionImpl.updateReplicaSetFlag)
+
+	// commit tx
+	// commit should cause a redirection response, means commit succeeds and updateReplicaSetFlag becomes true
+	_, _, err = tx.Commit(true)
+	require.NoError(t, err)
+	require.True(t, sessionImpl.updateReplicaSetFlag)
+
+	// check commit succeeded and data record exists in db
+	tx, err = session.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+	value, _, err := tx.Get("bdb", "key1")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("val1"), value)
+
+	// commit another Tx - lead to update of replicaSet and updateReplicaSetFlag become false again
+	tx, err = session.DataTx()
+	require.NoError(t, err)
+	err = tx.Put("bdb", "key2", []byte("val2"), nil)
+	require.NoError(t, err)
+
+	require.False(t, sessionImpl.updateReplicaSetFlag)
+	newLeaderID := c.Servers[newLeader].ID()
+	require.Equal(t, session.(*dbSession).replicaSet[0].Id, newLeaderID)
+
+	_, _, err = tx.Commit(false)
+	require.NoError(t, err)
 }
