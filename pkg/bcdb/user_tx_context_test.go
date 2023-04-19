@@ -265,6 +265,15 @@ func TestUserContext_GetUserFailureScenarios(t *testing.T) {
 					replicaSet: []*internal.ReplicaWithRole{
 						{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
 					},
+					dbSession: &dbSession{
+						userID: "testUserId",
+						signer: signer,
+						replicaSet: []*internal.ReplicaWithRole{
+							{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
+						},
+						logger:     logger,
+						restClient: restClient,
+					},
 				},
 			}
 
@@ -341,6 +350,16 @@ func TestUserContext_TxSubmissionFullScenario(t *testing.T) {
 			verifier:   verifier,
 			replicaSet: []*internal.ReplicaWithRole{
 				{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
+			},
+			dbSession: &dbSession{
+				userID:   "testUserId",
+				signer:   signer,
+				verifier: verifier,
+				replicaSet: []*internal.ReplicaWithRole{
+					{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
+				},
+				logger:     logger,
+				restClient: restClient,
 			},
 		},
 	}

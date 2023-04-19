@@ -8,6 +8,7 @@ import (
 	"github.com/hyperledger-labs/orion-sdk-go/internal/test"
 	"io/ioutil"
 	"path"
+	"sync"
 	"testing"
 	"time"
 
@@ -310,4 +311,278 @@ func TestRedirectionSucceed(t *testing.T) {
 
 	_, _, err = tx.Commit(false)
 	require.NoError(t, err)
+}
+
+func TestRetryMechanismAfterLeaderShutDown(t *testing.T) {
+	// start a 3-node cluster
+	dir, err := ioutil.TempDir("", "cluster-test")
+	require.NoError(t, err)
+
+	nPort, pPort := test.GetPorts()
+	setupConfig := &setup.Config{
+		NumberOfServers:     3,
+		TestDirAbsolutePath: dir,
+		BDBBinaryPath:       "../../bin/bdb",
+		CmdTimeout:          10 * time.Second,
+		BaseNodePort:        nPort,
+		BasePeerPort:        pPort,
+	}
+	c, err := setup.NewCluster(setupConfig)
+	require.NoError(t, err)
+	defer c.ShutdownAndCleanup()
+
+	require.NoError(t, c.Start())
+	// wait for leader
+	originalLeader := -1
+	require.Eventually(t, func() bool {
+		originalLeader = c.AgreedLeader(t, 0, 1, 2)
+		return originalLeader >= 0
+	}, 30*time.Second, 100*time.Millisecond)
+
+	connConfig := &sdkconfig.ConnectionConfig{
+		RootCAs: []string{path.Join(setupConfig.TestDirAbsolutePath, "ca", testutils.RootCAFileName+".pem")},
+		ReplicaSet: []*sdkconfig.Replica{
+			{
+				ID:       "node-1",
+				Endpoint: c.Servers[0].URL(),
+			},
+			{
+				ID:       "node-2",
+				Endpoint: c.Servers[1].URL(),
+			},
+			{
+				ID:       "node-3",
+				Endpoint: c.Servers[2].URL(),
+			},
+		},
+	}
+
+	// create blockchainDB instance and open admin session for future txs to be sent
+	bcdb, err := Create(connConfig)
+	require.NoError(t, err)
+	require.NotNil(t, bcdb)
+
+	session := openUserSession(t, bcdb, "admin", path.Join(setupConfig.TestDirAbsolutePath, "users"))
+	sessionImpl := session.(*dbSession)
+	require.Len(t, sessionImpl.replicaSet, 3)
+	require.Equal(t, internal.ReplicaRole_LEADER, sessionImpl.replicaSet[0].Role)
+	require.Equal(t, internal.ReplicaRole_FOLLOWER, sessionImpl.replicaSet[1].Role)
+	require.Equal(t, internal.ReplicaRole_FOLLOWER, sessionImpl.replicaSet[2].Role)
+
+	// shut down the leader
+	require.NoError(t, c.ShutdownServer(c.Servers[originalLeader]))
+
+	// wait for a new leader
+	newLeader := -1
+	require.Eventually(t, func() bool {
+		newLeader = c.AgreedLeader(t, (originalLeader+1)%3, (originalLeader+2)%3)
+		return (newLeader >= 0) && (newLeader != originalLeader)
+	}, 30*time.Second, time.Second)
+
+	// prepare a data tx
+	tx, err := session.DataTx()
+	require.NoError(t, err)
+	err = tx.Put("bdb", "key2", []byte("val2"), &types.AccessControl{
+		ReadUsers: map[string]bool{
+			"admin": true,
+		},
+		ReadWriteUsers: map[string]bool{
+			"admin": true,
+		},
+		SignPolicyForWrite: 0,
+	})
+
+	// commit tx, commit should succeed after a new leader was elected, after one retry as the first try is according to old replica set
+	retriesTimoeoutConfig = 30 * time.Second
+	_, _, err = tx.Commit(true)
+	require.NoError(t, err)
+}
+
+func TestRetryMechanismShutDownSuchThatNoLeader(t *testing.T) {
+	// start a 3-node cluster
+	dir, err := ioutil.TempDir("", "cluster-test")
+	require.NoError(t, err)
+
+	nPort, pPort := test.GetPorts()
+	setupConfig := &setup.Config{
+		NumberOfServers:     3,
+		TestDirAbsolutePath: dir,
+		BDBBinaryPath:       "../../bin/bdb",
+		CmdTimeout:          10 * time.Second,
+		BaseNodePort:        nPort,
+		BasePeerPort:        pPort,
+	}
+	c, err := setup.NewCluster(setupConfig)
+	require.NoError(t, err)
+	defer c.ShutdownAndCleanup()
+
+	require.NoError(t, c.Start())
+	// wait for leader
+	originalLeader := -1
+	require.Eventually(t, func() bool {
+		originalLeader = c.AgreedLeader(t, 0, 1, 2)
+		return originalLeader >= 0
+	}, 30*time.Second, 100*time.Millisecond)
+
+	connConfig := &sdkconfig.ConnectionConfig{
+		RootCAs: []string{path.Join(setupConfig.TestDirAbsolutePath, "ca", testutils.RootCAFileName+".pem")},
+		ReplicaSet: []*sdkconfig.Replica{
+			{
+				ID:       "node-1",
+				Endpoint: c.Servers[0].URL(),
+			},
+			{
+				ID:       "node-2",
+				Endpoint: c.Servers[1].URL(),
+			},
+			{
+				ID:       "node-3",
+				Endpoint: c.Servers[2].URL(),
+			},
+		},
+	}
+
+	// create blockchainDB instance and open admin session for future txs to be sent
+	bcdb, err := Create(connConfig)
+	require.NoError(t, err)
+	require.NotNil(t, bcdb)
+
+	session := openUserSession(t, bcdb, "admin", path.Join(setupConfig.TestDirAbsolutePath, "users"))
+	sessionImpl := session.(*dbSession)
+	require.Len(t, sessionImpl.replicaSet, 3)
+	require.Equal(t, internal.ReplicaRole_LEADER, sessionImpl.replicaSet[0].Role)
+	require.Equal(t, internal.ReplicaRole_FOLLOWER, sessionImpl.replicaSet[1].Role)
+	require.Equal(t, internal.ReplicaRole_FOLLOWER, sessionImpl.replicaSet[2].Role)
+
+	// shut down the leader and one of the followers, so no leader
+	require.NoError(t, c.ShutdownServer(c.Servers[originalLeader]))
+	require.NoError(t, c.ShutdownServer(c.Servers[(originalLeader+1)%3]))
+
+	// check that replica set includes a follower, and two unknown nodes
+	session2 := openUserSession(t, bcdb, "admin", path.Join(setupConfig.TestDirAbsolutePath, "users"))
+	sessionImpl2 := session2.(*dbSession)
+	session2.ReplicaSet(true)
+	require.Len(t, sessionImpl2.replicaSet, 3)
+	require.Equal(t, internal.ReplicaRole_FOLLOWER, sessionImpl2.replicaSet[0].Role)
+	require.Equal(t, internal.ReplicaRole_UNKNOWN, sessionImpl2.replicaSet[1].Role)
+	require.Equal(t, internal.ReplicaRole_UNKNOWN, sessionImpl2.replicaSet[2].Role)
+
+	// prepare a data tx
+	tx, err := session.DataTx()
+	require.NoError(t, err)
+	err = tx.Put("bdb", "key2", []byte("val2"), &types.AccessControl{
+		ReadUsers: map[string]bool{
+			"admin": true,
+		},
+		ReadWriteUsers: map[string]bool{
+			"admin": true,
+		},
+		SignPolicyForWrite: 0,
+	})
+
+	// commit tx, commit should fail as no leader, after some retries timeout will occur with server status: 503 Service Unavailable
+	retriesTimoeoutConfig = 10 * time.Second
+	_, _, err = tx.Commit(true)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to submit transaction")
+	require.Contains(t, err.Error(), "a timeout occured after "+retriesTimoeoutConfig.String())
+	require.Contains(t, err.Error(), "Service Unavailable")
+}
+
+func TestRetryMechanismShutDownAndRecover(t *testing.T) {
+	// start a 3-node cluster
+	dir, err := ioutil.TempDir("", "cluster-test")
+	require.NoError(t, err)
+	nPort, pPort := test.GetPorts()
+	setupConfig := &setup.Config{
+		NumberOfServers:     3,
+		TestDirAbsolutePath: dir,
+		BDBBinaryPath:       "../../bin/bdb",
+		CmdTimeout:          10 * time.Second,
+		BaseNodePort:        nPort,
+		BasePeerPort:        pPort,
+	}
+	c, err := setup.NewCluster(setupConfig)
+	require.NoError(t, err)
+	defer c.ShutdownAndCleanup()
+	require.NoError(t, c.Start())
+
+	// wait for leader
+	originalLeader := -1
+	require.Eventually(t, func() bool {
+		originalLeader = c.AgreedLeader(t, 0, 1, 2)
+		return originalLeader >= 0
+	}, 30*time.Second, 100*time.Millisecond)
+	connConfig := &sdkconfig.ConnectionConfig{
+		RootCAs: []string{path.Join(setupConfig.TestDirAbsolutePath, "ca", testutils.RootCAFileName+".pem")},
+		ReplicaSet: []*sdkconfig.Replica{
+			{
+				ID:       "node-1",
+				Endpoint: c.Servers[0].URL(),
+			},
+			{
+				ID:       "node-2",
+				Endpoint: c.Servers[1].URL(),
+			},
+			{
+				ID:       "node-3",
+				Endpoint: c.Servers[2].URL(),
+			},
+		},
+	}
+
+	// create blockchainDB instance and open admin session for future txs to be sent
+	bcdb, err := Create(connConfig)
+	require.NoError(t, err)
+	require.NotNil(t, bcdb)
+	session := openUserSession(t, bcdb, "admin", path.Join(setupConfig.TestDirAbsolutePath, "users"))
+	sessionImpl := session.(*dbSession)
+	require.Len(t, sessionImpl.replicaSet, 3)
+	require.Equal(t, internal.ReplicaRole_LEADER, sessionImpl.replicaSet[0].Role)
+	require.Equal(t, internal.ReplicaRole_FOLLOWER, sessionImpl.replicaSet[1].Role)
+	require.Equal(t, internal.ReplicaRole_FOLLOWER, sessionImpl.replicaSet[2].Role)
+
+	// shut down the leader and one of the followers, so no leader
+	require.NoError(t, c.ShutdownServer(c.Servers[originalLeader]))
+	require.NoError(t, c.ShutdownServer(c.Servers[(originalLeader+1)%3]))
+
+	// prepare a data tx
+	tx, err := session.DataTx()
+	require.NoError(t, err)
+	err = tx.Put("bdb", "key2", []byte("val2"), &types.AccessControl{
+		ReadUsers: map[string]bool{
+			"admin": true,
+		},
+		ReadWriteUsers: map[string]bool{
+			"admin": true,
+		},
+		SignPolicyForWrite: 0,
+	})
+
+	retriesTimoeoutConfig = 30 * time.Second
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		// start one of the servers again, at some time a new leader will be chosen
+		require.NoError(t, c.StartServer(c.Servers[originalLeader]))
+	}()
+
+	// commit transaction
+	_, _, err = tx.Commit(true)
+
+	wg.Wait()
+
+	require.NoError(t, err)
+
+	// validate tx submission
+	tx, err = session.DataTx()
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+	val, meta, err := tx.Get("bdb", "key2")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("val2"), val)
+	require.NotNil(t, meta)
 }

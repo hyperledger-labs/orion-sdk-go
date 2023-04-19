@@ -6,19 +6,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/hyperledger-labs/orion-sdk-go/internal"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
+	"github.com/hyperledger-labs/orion-server/pkg/constants"
+	"github.com/hyperledger-labs/orion-server/pkg/logger"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
 	"testing"
 	"time"
-
-	"github.com/hyperledger-labs/orion-sdk-go/internal"
-	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb/mocks"
-	"github.com/hyperledger-labs/orion-server/pkg/constants"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestTxCommit(t *testing.T) {
@@ -55,6 +55,11 @@ func TestTxCommit(t *testing.T) {
 						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: asyncSubmit,
+							resp:    okResponseAsync(),
+						}, emptySigner), 0, 0),
 				},
 			},
 			wantErr: false,
@@ -75,6 +80,11 @@ func TestTxCommit(t *testing.T) {
 						resp:    serverBadRequestResponse(),
 					}, emptySigner),
 					logger: logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: asyncSubmit,
+							resp:    serverBadRequestResponse(),
+						}, emptySigner), 0, 0),
 				},
 			},
 			wantErr: true,
@@ -97,6 +107,11 @@ func TestTxCommit(t *testing.T) {
 					}, emptySigner),
 					commitTimeout: time.Second * 2,
 					logger:        logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: syncSubmit,
+							resp:    okResponse(),
+						}, emptySigner), time.Second*2, 0),
 				},
 			},
 			syncCommit: true,
@@ -119,6 +134,11 @@ func TestTxCommit(t *testing.T) {
 					}, emptySigner),
 					commitTimeout: time.Second * 2,
 					logger:        logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: syncSubmit,
+							resp:    mvccResponse(),
+						}, emptySigner), time.Second*2, 0),
 				},
 			},
 			syncCommit: true,
@@ -141,6 +161,11 @@ func TestTxCommit(t *testing.T) {
 					}, emptySigner),
 					commitTimeout: time.Second * 2,
 					logger:        logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: syncSubmit,
+							resp:    serverTimeoutResponse(),
+						}, emptySigner), time.Second*2, 0),
 				},
 			},
 			syncCommit: true,
@@ -163,6 +188,11 @@ func TestTxCommit(t *testing.T) {
 						resp:    nil,
 					}, emptySigner),
 					logger: logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: submitErr,
+							resp:    nil,
+						}, emptySigner), 0, 0),
 				},
 			},
 			wantErr: true,
@@ -184,6 +214,11 @@ func TestTxCommit(t *testing.T) {
 						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: asyncSubmit,
+							resp:    okResponseAsync(),
+						}, emptySigner), 0, 0),
 				},
 			},
 			wantErr: true,
@@ -205,6 +240,11 @@ func TestTxCommit(t *testing.T) {
 						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: asyncSubmit,
+							resp:    okResponseAsync(),
+						}, emptySigner), 0, 0),
 				},
 				oldConfig: &types.ClusterConfig{},
 			},
@@ -227,6 +267,11 @@ func TestTxCommit(t *testing.T) {
 					}, emptySigner),
 					commitTimeout: time.Second * 2,
 					logger:        logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: syncSubmit,
+							resp:    okResponse(),
+						}, emptySigner), time.Second*2, 0),
 				},
 				oldConfig: &types.ClusterConfig{},
 			},
@@ -250,6 +295,11 @@ func TestTxCommit(t *testing.T) {
 					}, emptySigner),
 					commitTimeout: time.Second * 2,
 					logger:        logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: syncSubmit,
+							resp:    serverTimeoutResponse(),
+						}, emptySigner), time.Second*2, 0),
 				},
 				oldConfig: &types.ClusterConfig{},
 			},
@@ -273,6 +323,11 @@ func TestTxCommit(t *testing.T) {
 						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: asyncSubmit,
+							resp:    okResponseAsync(),
+						}, emptySigner), 0, 0),
 				},
 				oldConfig: &types.ClusterConfig{},
 			},
@@ -295,6 +350,11 @@ func TestTxCommit(t *testing.T) {
 						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: asyncSubmit,
+							resp:    okResponseAsync(),
+						}, emptySigner), 0, 0),
 				},
 			},
 			wantErr: false,
@@ -316,6 +376,11 @@ func TestTxCommit(t *testing.T) {
 					}, emptySigner),
 					commitTimeout: time.Second * 2,
 					logger:        logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: syncSubmit,
+							resp:    okResponse(),
+						}, emptySigner), time.Second*2, 0),
 				},
 			},
 			syncCommit: true,
@@ -338,6 +403,11 @@ func TestTxCommit(t *testing.T) {
 					}, emptySigner),
 					commitTimeout: time.Second * 2,
 					logger:        logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: syncSubmit,
+							resp:    serverTimeoutResponse(),
+						}, emptySigner), time.Second*2, 0),
 				},
 			},
 			syncCommit: true,
@@ -360,6 +430,11 @@ func TestTxCommit(t *testing.T) {
 						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: asyncSubmit,
+							resp:    okResponseAsync(),
+						}, emptySigner), 0, 0),
 				},
 			},
 			wantErr: true,
@@ -381,6 +456,11 @@ func TestTxCommit(t *testing.T) {
 						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: asyncSubmit,
+							resp:    okResponseAsync(),
+						}, emptySigner), 0, 0),
 				},
 			},
 			wantErr: false,
@@ -402,6 +482,11 @@ func TestTxCommit(t *testing.T) {
 					}, emptySigner),
 					commitTimeout: time.Second,
 					logger:        logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: syncSubmit,
+							resp:    okResponse(),
+						}, emptySigner), time.Second, 0),
 				},
 			},
 			syncCommit: true,
@@ -424,6 +509,11 @@ func TestTxCommit(t *testing.T) {
 					}, emptySigner),
 					commitTimeout: time.Second,
 					logger:        logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: syncSubmit,
+							resp:    serverTimeoutResponse(),
+						}, emptySigner), time.Second, 0),
 				},
 			},
 			syncCommit: true,
@@ -446,6 +536,11 @@ func TestTxCommit(t *testing.T) {
 						resp:    okResponseAsync(),
 					}, emptySigner),
 					logger: logger,
+					dbSession: createDBSession(emptySigner, verifier, logger,
+						NewRestClient("testUser", &mockHttpClient{
+							process: asyncSubmit,
+							resp:    okResponseAsync(),
+						}, emptySigner), 0, 0),
 				},
 			},
 			wantErr: true,
@@ -511,6 +606,11 @@ func TestTxQuery(t *testing.T) {
 				}, emptySigner),
 				queryTimeout: 0,
 				logger:       logger,
+				dbSession: createDBSession(emptySigner, verifier, logger,
+					NewRestClient("testUser", &mockHttpClient{
+						process: querySleep100,
+						resp:    okDataQueryResponse(),
+					}, emptySigner), 0, 0),
 			},
 			wantErr: false,
 		},
@@ -530,6 +630,11 @@ func TestTxQuery(t *testing.T) {
 				}, emptySigner),
 				queryTimeout: time.Millisecond * 10,
 				logger:       logger,
+				dbSession: createDBSession(emptySigner, verifier, logger,
+					NewRestClient("testUser", &mockHttpClient{
+						process: querySleep100,
+						resp:    okDataQueryResponse(),
+					}, emptySigner), 0, time.Millisecond*10),
 			},
 			wantErr: true,
 			errMsg:  "queryTimeout error",
@@ -550,6 +655,11 @@ func TestTxQuery(t *testing.T) {
 				}, emptySigner),
 				queryTimeout: time.Millisecond * 100,
 				logger:       logger,
+				dbSession: createDBSession(emptySigner, verifier, logger,
+					NewRestClient("testUser", &mockHttpClient{
+						process: querySleep10,
+						resp:    okDataQueryResponse(),
+					}, emptySigner), 0, time.Millisecond*100),
 			},
 			wantErr: false,
 		},
@@ -569,6 +679,11 @@ func TestTxQuery(t *testing.T) {
 				}, emptySigner),
 				queryTimeout: time.Millisecond * 100,
 				logger:       logger,
+				dbSession: createDBSession(emptySigner, verifier, logger,
+					NewRestClient("testUser", &mockHttpClient{
+						process: querySleep10,
+						resp:    okDataQueryResponse(),
+					}, emptySigner), 0, time.Millisecond*100),
 			},
 			wantErr: true,
 			errMsg:  "signature verification failed nodeID node1, due to bad-mock-signature",
@@ -821,6 +936,23 @@ func getTimeout(h *http.Header) (time.Duration, error) {
 		return 0, errors.New("timeout can't be negative " + strconv.Quote(timeoutStr))
 	}
 	return timeout, nil
+}
+func createDBSession(emptySigner *mocks.Signer, verifier *mocks.SignatureVerifier, logger *logger.SugarLogger,
+	restClient RestClient, txTimeout time.Duration, queryTimeout time.Duration) *dbSession {
+	dbSession := &dbSession{
+		userID:   "testUser",
+		signer:   emptySigner,
+		verifier: verifier,
+		userCert: []byte{1, 2, 3},
+		replicaSet: []*internal.ReplicaWithRole{
+			{Id: "node1", URL: &url.URL{Path: "http://localhost:8888"}, Role: internal.ReplicaRole_LEADER},
+		},
+		logger:       logger,
+		txTimeout:    txTimeout,
+		queryTimeout: queryTimeout,
+		restClient:   restClient,
+	}
+	return dbSession
 }
 
 // Implements net.Error interface

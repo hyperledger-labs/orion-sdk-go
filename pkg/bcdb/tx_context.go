@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hyperledger-labs/orion-sdk-go/internal"
@@ -27,6 +28,8 @@ const (
 	contextTimeoutMargin = time.Second
 )
 
+var retriesTimoeoutConfig = 5 * time.Second
+
 type commonTxContext struct {
 	userID        string
 	txID          string
@@ -40,6 +43,7 @@ type commonTxContext struct {
 	queryTimeout  time.Duration
 	txSpent       bool
 	logger        *logger.SugarLogger
+	dbSession     *dbSession
 }
 
 type txContext interface {
@@ -54,54 +58,114 @@ func (t *commonTxContext) commit(tx txContext, postEndpoint string, sync bool) (
 	}
 
 	var err error
-	replica, err := t.selectReplica()
-	if err != nil {
-		t.logger.Errorf("failed to select replica, due to %s", err)
-		return t.txID, nil, errors.WithMessage(err, "failed to select replica")
-	}
-	postEndpointResolved := replica.ResolveReference(&url.URL{Path: postEndpoint})
+	var response *http.Response
 
-	t.logger.Debugf("compose transaction enveloped with txID = %s", t.txID)
+	// we do 7 attempts at increasing intervals or up to retriesTimeout
+	retriesTimeout := time.After(retriesTimoeoutConfig)
+	retryInterval := retriesTimoeoutConfig / 64
+	countRetries := 0
 
-	t.txEnvelope, err = tx.composeEnvelope(t.txID)
-	if err != nil {
-		t.logger.Errorf("failed to compose transaction envelope, due to %s", err)
-		return t.txID, nil, err
-	}
 	ctx := context.Background()
-	serverTimeout := time.Duration(0)
-	if sync {
-		serverTimeout = t.commitTimeout
-		contextTimeout := t.commitTimeout + contextTimeoutMargin
-		var cancelFnc context.CancelFunc
-		ctx, cancelFnc = context.WithTimeout(context.Background(), contextTimeout)
-		defer cancelFnc()
-	}
-	defer tx.cleanCtx()
+	var cancelFnc context.CancelFunc
 
-	response, err := t.restClient.Submit(ctx, postEndpointResolved.String(), t.txEnvelope, serverTimeout)
-	if err != nil {
-		t.logger.Errorf("failed to submit transaction txID = %s, due to %s", t.txID, err)
-		return t.txID, nil, err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		var errMsg string
-		if response.StatusCode == http.StatusAccepted {
-			return t.txID, nil, &ServerTimeout{TxID: t.txID}
+	for {
+		replica, err := t.selectReplica()
+		if err != nil {
+			t.logger.Errorf("failed to select replica, due to %s", err)
+			return t.txID, nil, errors.WithMessage(err, "failed to select replica")
 		}
-		if response.Body != nil {
-			errRes := &types.HttpResponseErr{}
-			if err := json.NewDecoder(response.Body).Decode(errRes); err != nil {
-				t.logger.Errorf("failed to parse the server's error message, due to %s", err)
-				errMsg = "(failed to parse the server's error message)"
+		postEndpointResolved := replica.ResolveReference(&url.URL{Path: postEndpoint})
+
+		t.logger.Debugf("compose transaction enveloped with txID = %s", t.txID)
+
+		t.txEnvelope, err = tx.composeEnvelope(t.txID)
+		if err != nil {
+			t.logger.Errorf("failed to compose transaction envelope, due to %s", err)
+			return t.txID, nil, err
+		}
+
+		serverTimeout := time.Duration(0)
+		if sync {
+			serverTimeout = t.commitTimeout
+			contextTimeout := t.commitTimeout + contextTimeoutMargin
+			ctx, cancelFnc = context.WithTimeout(context.Background(), contextTimeout)
+			defer cancelFnc()
+		}
+		defer tx.cleanCtx()
+
+		response, err = t.restClient.Submit(ctx, postEndpointResolved.String(), t.txEnvelope, serverTimeout)
+
+		if err != nil {
+			// if error is not nil we need to check if its due to a connection refused, in such case we want to retry, otherwise we return with error
+			if !strings.Contains(err.Error(), "connection refused") {
+				t.logger.Errorf("failed to submit transaction txID = %s, due to %s", t.txID, err)
+				return t.txID, nil, err
 			} else {
-				errMsg = errRes.Error()
+				t.logger.Warnf("failed to submit transaction txID = %s, due to %s, will try again in %s ", t.txID, err, retryInterval)
+			}
+		} else {
+			// if error is nil we want to check the response, if the response is 503 service unavailable we want to retry
+			if response != nil {
+				if response.StatusCode != http.StatusOK {
+					var errMsg string
+					if response.StatusCode == http.StatusServiceUnavailable {
+						t.logger.Warnf("failed to submit transaction txID = %s, due to cluster leader unavailability, server returned: status: %s, will try again in %s ", t.txID, response.Status, retryInterval)
+					} else {
+						if response.StatusCode == http.StatusAccepted {
+							return t.txID, nil, &ServerTimeout{TxID: t.txID}
+						}
+						if response.Body != nil {
+							errRes := &types.HttpResponseErr{}
+							if err := json.NewDecoder(response.Body).Decode(errRes); err != nil {
+								t.logger.Errorf("failed to parse the server's error message, due to %s", err)
+								errMsg = "(failed to parse the server's error message)"
+							} else {
+								errMsg = errRes.Error()
+							}
+						}
+						return t.txID, nil, errors.Errorf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg)
+					}
+				} else {
+					break
+				}
+			} else {
+				return t.txID, nil, errors.Errorf("failed to submit transaction, server's response is empty")
 			}
 		}
 
-		return t.txID, nil, errors.Errorf("failed to submit transaction, server returned: status: %s, message: %s", response.Status, errMsg)
+		countRetries++
+		select {
+		case <-time.After(retryInterval):
+			retryInterval = 2 * retryInterval
+			_, errReplicaSet := t.dbSession.ReplicaSet(true)
+			if errReplicaSet != nil {
+				return t.txID, nil, errors.Errorf("failed to submit transaction, %s", errReplicaSet.Error())
+			}
+			t.replicaSet = t.dbSession.replicaSet
+			t.verifier = t.dbSession.verifier
+			continue
+		case <-retriesTimeout:
+			if err != nil {
+				t.logger.Errorf("failed to submit transaction after %d retries, a timeout occured after %s, last error was: %s", countRetries, retriesTimoeoutConfig, err)
+				return t.txID, nil, errors.Wrapf(err, "failed to submit transaction after %d retries, a timeout occured after %s, last error was: %s", countRetries, retriesTimoeoutConfig, err)
+			} else {
+				if response != nil {
+					if response.StatusCode == http.StatusServiceUnavailable {
+						t.logger.Errorf("failed to submit transaction after %d retries, a timeout occured after %s, service is unavailable, server returned: status: %s", countRetries, retriesTimoeoutConfig, response.Status)
+						return t.txID, nil, errors.Errorf("failed to submit transaction after %d retries, a timeout occured after %s, service is unavailable, server returned: status: %s", countRetries, retriesTimoeoutConfig, response.Status)
+					} else {
+						t.logger.Errorf("failed to submit transaction after %d retries, a timeout occured after %s, last error was: %s", countRetries, retriesTimoeoutConfig, response.Status)
+						return t.txID, nil, errors.Wrapf(err, "failed to submit transaction after %d retries, a timeout occured after %s, last error was: %s", countRetries, retriesTimoeoutConfig, response.Status)
+					}
+				} else {
+					t.logger.Errorf("failed to submit transaction after %d retries, a timeout occured after %s, server's response is empty", countRetries, retriesTimoeoutConfig)
+					return t.txID, nil, errors.Wrapf(err, "failed to submit transaction after %d retries, a timeout occured after %s, server's response is empty", countRetries, retriesTimoeoutConfig)
+				}
+			}
+		}
 	}
+
+	t.logger.Debugf("succeed to submit transaction after %d ret", countRetries)
 
 	txResponseEnvelope := &types.TxReceiptResponseEnvelope{}
 	responseBytes, err := ioutil.ReadAll(response.Body)
