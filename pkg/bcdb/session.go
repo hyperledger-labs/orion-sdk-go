@@ -248,6 +248,7 @@ func (d *dbSession) newCommonTxContext(options ...TxContextOption) (*commonTxCon
 		commitTimeout: d.txTimeout,
 		queryTimeout:  d.queryTimeout,
 		logger:        d.logger,
+		dbSession:     d,
 	}
 
 	for _, opt := range options {
