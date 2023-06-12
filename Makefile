@@ -48,7 +48,7 @@ goimports:
 .PHONY: binary
 binary:
 	$(GO) build -o $(BIN)/bdb github.com/hyperledger-labs/orion-server/cmd/bdb
-	$(GO) build -o $(BIN)/orion-cli github.com/hyperledger-labs/orion-sdk-go/cli
+	$(GO) build -o $(BIN)/bcdbadmin github.com/hyperledger-labs/orion-sdk-go/cli
 
 .PHONY: test
 test-script:
