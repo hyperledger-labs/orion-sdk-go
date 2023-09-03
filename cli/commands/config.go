@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/pem"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	orionconfig "github.com/hyperledger-labs/orion-server/config"
@@ -11,7 +12,13 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"os"
 	"path"
+	"strconv"
+)
+
+const (
+	ConfigDirName = "configTestRes"
 )
 
 type CliConnectionConfig struct {
@@ -27,39 +34,45 @@ type cliConfigParams struct {
 }
 
 var params cliConfigParams
-var getServerConfigPath string
+var getClusterConfigPath string
 
-func init() {
-	rootCmd.AddCommand(configCmd)
+func configCmd() *cobra.Command {
+	configCmd := &cobra.Command{
+		Use:   "config",
+		Short: "Admin cluster configuration",
+		Long: "The config command allows you to manage the cluster configuration. " +
+			"You can use get to retrieve the current cluster configuration or set to update the cluster configuration",
+	}
+
 	configCmd.PersistentFlags().StringVarP(&params.cliConfigPath, "cli-config-path", "c", "", "set the absolute path of CLI connection configuration file")
 	configCmd.MarkPersistentFlagRequired("cli-config-path")
 
-	configCmd.AddCommand(getConfigCmd, setConfigCmd)
+	configCmd.AddCommand(getConfigCmd(), setConfigCmd())
 
-	getConfigCmd.PersistentFlags().StringVarP(&getServerConfigPath, "server-config-path", "p", "", "set the absolute path to which the server configuration will be saved")
-	getConfigCmd.MarkPersistentFlagRequired("server-config-path")
-
-	//TODO: add flags to setConfig command if needed
+	return configCmd
 }
 
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Admin cluster configuration",
-	Long: "The config command allows you to manage the cluster configuration. " +
-		"You can use get to retrieve the current cluster configuration or set to update the cluster configuration",
+func getConfigCmd() *cobra.Command {
+	getConfigCmd := &cobra.Command{
+		Use:     "get",
+		Short:   "Get cluster configuration",
+		Example: "cli config get -c <path-to-connection-and-session-config> -p <path-to-cluster-config>",
+		RunE:    getConfig,
+	}
+
+	getConfigCmd.PersistentFlags().StringVarP(&getClusterConfigPath, "cluster-config-path", "p", "", "set the absolute path to which the server configuration will be saved")
+	getConfigCmd.MarkPersistentFlagRequired("cluster-config-path")
+
+	return getConfigCmd
 }
 
-var getConfigCmd = &cobra.Command{
-	Use:     "get",
-	Short:   "Get cluster configuration",
-	Example: "cli config get -c <path-to-connection-and-session-config> -p <path-to-cluster-config>",
-	RunE:    getConfig,
-}
-
-var setConfigCmd = &cobra.Command{
-	Use:   "set",
-	Short: "Set cluster configuration",
-	RunE:  setConfig,
+func setConfigCmd() *cobra.Command {
+	setConfigCmd := &cobra.Command{
+		Use:   "set",
+		Short: "Set cluster configuration",
+		RunE:  setConfig,
+	}
+	return setConfigCmd
 }
 
 func getConfig(cmd *cobra.Command, args []string) error {
@@ -79,10 +92,17 @@ func getConfig(cmd *cobra.Command, args []string) error {
 		return errors.Wrapf(err, "failed to fetch cluster config")
 	}
 
-	configCmd.SilenceUsage = true
-	//TODO: parse the cluster config obj to certificate directory and yaml file using WriteClusterConfigToYaml
-	configCmd.Printf(params.cliConfigPath)
-	configCmd.Printf("%v\n", clusterConfig)
+	//configCmd.SilenceUsage = true
+
+	err = parseAndSaveCerts(clusterConfig, getClusterConfigPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to fetch certificates from cluster config")
+	}
+
+	err = WriteClusterConfigToYaml(clusterConfig, getClusterConfigPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create cluster config yaml file")
+	}
 
 	return nil
 }
@@ -116,7 +136,7 @@ func setConfig(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// Read unmarshal the yaml config file into a CliConnectionConfig object.
+// ReadAndConstructCliConnConfig read unmarshal the yaml config file into a CliConnectionConfig object
 func (c *CliConnectionConfig) ReadAndConstructCliConnConfig(filePath string) error {
 	if filePath == "" {
 		return errors.New("path to the shared configuration file is empty")
@@ -174,17 +194,173 @@ func abort(tx bcdb.TxContext) {
 	_ = tx.Abort()
 }
 
-// WriteClusterConfigToYaml writes the shared clusterConfig object to a YAML file.
+// WriteClusterConfigToYaml builds the shared clusterConfig object and writes it to a YAML file.
 func WriteClusterConfigToYaml(clusterConfig *types.ClusterConfig, configYamlFilePath string) error {
-	c, err := yaml.Marshal(clusterConfig)
+	sharedConfiguration := buildSharedClusterConfig(clusterConfig, configYamlFilePath)
+	c, err := yaml.Marshal(sharedConfiguration)
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(path.Join(configYamlFilePath, "config", "config.yml"), c, 0644)
+	err = ioutil.WriteFile(path.Join(configYamlFilePath, ConfigDirName, "shared_cluster_config.yml"), c, 0644)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// parse certificates and save in a folder structure
+func parseAndSaveCerts(clusterConfig *types.ClusterConfig, getClusterConfigPath string) error {
+	for _, node := range clusterConfig.Nodes {
+		nodeCert := node.Certificate
+		nodePemCert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: nodeCert})
+		nodeCertDirPath := path.Join(getClusterConfigPath, ConfigDirName, "nodes")
+		err := os.MkdirAll(nodeCertDirPath, 0755)
+		if err != nil {
+			return err
+		}
+
+		fileName := node.GetId() + ".pem"
+		nodeCertFilePath := path.Join(nodeCertDirPath, fileName)
+
+		err = os.WriteFile(nodeCertFilePath, nodePemCert, 0644)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, adminNode := range clusterConfig.Admins {
+		adminNodeCert := adminNode.Certificate
+		adminNodePemCert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: adminNodeCert})
+		adminNodeCertDirPath := path.Join(getClusterConfigPath, ConfigDirName, "admins")
+		err := os.MkdirAll(adminNodeCertDirPath, 0755)
+		if err != nil {
+			return err
+		}
+
+		fileName := adminNode.GetId() + ".pem"
+		nodeCertFilePath := path.Join(adminNodeCertDirPath, fileName)
+
+		err = os.WriteFile(nodeCertFilePath, adminNodePemCert, 0644)
+		if err != nil {
+			return err
+		}
+	}
+
+	for i, rootCACert := range clusterConfig.CertAuthConfig.Roots {
+		rootCAPemCert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCACert})
+		rootCACertDirPath := path.Join(getClusterConfigPath, ConfigDirName, "rootCAs")
+		err := os.MkdirAll(rootCACertDirPath, 0755)
+		if err != nil {
+			return err
+		}
+
+		fileName := "rootCA" + strconv.Itoa(i) + ".pem"
+		rootCACertFilePath := path.Join(rootCACertDirPath, fileName)
+
+		err = os.WriteFile(rootCACertFilePath, rootCAPemCert, 0644)
+		if err != nil {
+			return err
+		}
+	}
+
+	for i, intermediateCACert := range clusterConfig.CertAuthConfig.Intermediates {
+		intermediateCAPemCert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: intermediateCACert})
+		intermediateCACertDirPath := path.Join(getClusterConfigPath, ConfigDirName, "intermediateCAs")
+		err := os.MkdirAll(intermediateCACertDirPath, 0755)
+		if err != nil {
+			return err
+		}
+
+		fileName := "intermediateCA" + strconv.Itoa(i) + ".pem"
+		intermediateCACertFilePath := path.Join(intermediateCACertDirPath, fileName)
+
+		err = os.WriteFile(intermediateCACertFilePath, intermediateCAPemCert, 0644)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+// buildSharedClusterConfig builds the shared configuration from a clusterConfig
+func buildSharedClusterConfig(clusterConfig *types.ClusterConfig, configYamlFilePath string) *orionconfig.SharedConfiguration {
+	var nodesSharedConfiguration []*orionconfig.NodeConf
+	for _, node := range clusterConfig.Nodes {
+		nodeSharedConfiguration := &orionconfig.NodeConf{
+			NodeID:          node.GetId(),
+			Host:            node.GetAddress(),
+			Port:            node.GetPort(),
+			CertificatePath: path.Join(configYamlFilePath, ConfigDirName, "nodes", node.GetId()+".pem"),
+		}
+		nodesSharedConfiguration = append(nodesSharedConfiguration, nodeSharedConfiguration)
+	}
+
+	var membersSharedConfiguration []*orionconfig.PeerConf
+	for _, member := range clusterConfig.ConsensusConfig.Members {
+		memberSharedConfiguration := &orionconfig.PeerConf{
+			NodeId:   member.GetNodeId(),
+			RaftId:   member.GetRaftId(),
+			PeerHost: member.GetPeerHost(),
+			PeerPort: member.GetPeerPort(),
+		}
+		membersSharedConfiguration = append(membersSharedConfiguration, memberSharedConfiguration)
+	}
+
+	var observersSharedConfiguration []*orionconfig.PeerConf
+	for _, observer := range clusterConfig.ConsensusConfig.Observers {
+		observerSharedConfiguration := &orionconfig.PeerConf{
+			NodeId:   observer.GetNodeId(),
+			RaftId:   observer.GetRaftId(),
+			PeerHost: observer.GetPeerHost(),
+			PeerPort: observer.GetPeerPort(),
+		}
+		observersSharedConfiguration = append(observersSharedConfiguration, observerSharedConfiguration)
+	}
+
+	var rootCACertsPathSharedConfiguration []string
+	for i, root := range clusterConfig.CertAuthConfig.Roots {
+		rootCACertPathSharedConfiguration := "[]"
+		if root != nil {
+			rootCACertPathSharedConfiguration = path.Join(configYamlFilePath, ConfigDirName, "rootCAs", "rootCA"+strconv.Itoa(i)+".pem")
+		}
+		rootCACertsPathSharedConfiguration = append(rootCACertsPathSharedConfiguration, rootCACertPathSharedConfiguration)
+	}
+
+	var intermediateCACertsPathSharedConfiguration []string
+	for i, intermediateCA := range clusterConfig.CertAuthConfig.Intermediates {
+		intermediateCACertPathSharedConfiguration := "[]"
+		if intermediateCA != nil {
+			intermediateCACertPathSharedConfiguration = path.Join(configYamlFilePath, ConfigDirName, "intermediateCAs", "intermediateCA"+strconv.Itoa(i)+".pem")
+		}
+		intermediateCACertsPathSharedConfiguration = append(intermediateCACertsPathSharedConfiguration, intermediateCACertPathSharedConfiguration)
+	}
+
+	sharedConfiguration := &orionconfig.SharedConfiguration{
+		Nodes: nodesSharedConfiguration,
+		Consensus: &orionconfig.ConsensusConf{
+			Algorithm: clusterConfig.ConsensusConfig.Algorithm,
+			Members:   membersSharedConfiguration,
+			Observers: observersSharedConfiguration,
+			RaftConfig: &orionconfig.RaftConf{
+				TickInterval:         clusterConfig.ConsensusConfig.RaftConfig.TickInterval,
+				ElectionTicks:        clusterConfig.ConsensusConfig.RaftConfig.ElectionTicks,
+				HeartbeatTicks:       clusterConfig.ConsensusConfig.RaftConfig.HeartbeatTicks,
+				MaxInflightBlocks:    clusterConfig.ConsensusConfig.RaftConfig.MaxInflightBlocks,
+				SnapshotIntervalSize: clusterConfig.ConsensusConfig.RaftConfig.SnapshotIntervalSize,
+			},
+		},
+		CAConfig: orionconfig.CAConfiguration{
+			RootCACertsPath:         rootCACertsPathSharedConfiguration,
+			IntermediateCACertsPath: intermediateCACertsPathSharedConfiguration,
+		},
+		Admin: orionconfig.AdminConf{
+			ID:              clusterConfig.Admins[0].Id,
+			CertificatePath: path.Join(getClusterConfigPath, ConfigDirName, "admins", clusterConfig.Admins[0].Id+".pem"),
+		},
+		Ledger: orionconfig.LedgerConf{StateMerklePatriciaTrieDisabled: clusterConfig.LedgerConfig.StateMerklePatriciaTrieDisabled},
+	}
+
+	return sharedConfiguration
 }
