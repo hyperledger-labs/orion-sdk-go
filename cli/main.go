@@ -3,8 +3,14 @@
 
 package main
 
-import "github.com/hyperledger-labs/orion-sdk-go/cli/commands"
+import (
+	"github.com/hyperledger-labs/orion-sdk-go/cli/commands"
+	"os"
+)
 
 func main() {
-	commands.Execute()
+	cmd := commands.InitializeOrionCli()
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }

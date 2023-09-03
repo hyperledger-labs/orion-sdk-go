@@ -2,16 +2,19 @@ package commands
 
 import (
 	"github.com/spf13/cobra"
-	"os"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "bcdbadmin",
-	Short: "Config Orion via CLI.",
+func rootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "bcdbadmin",
+		Short: "Config Orion via CLI.",
+	}
+	return rootCmd
 }
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+func InitializeOrionCli() *cobra.Command {
+	cmd := rootCmd()
+	cmd.AddCommand(VersionCmd())
+	cmd.AddCommand(configCmd())
+	return cmd
 }
