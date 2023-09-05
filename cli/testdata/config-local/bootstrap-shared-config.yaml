@@ -14,7 +14,7 @@ nodes:
   - nodeId: orion-server1
     host: 127.0.0.1
     port: 6001
-    certificatePath: ../crypto/server/server.pem
+    certificatePath: ../testdata/crypto/server/server.pem
 
 # consensus carries the definitions of the clustered consensus algorithm, members, and parameters.
 consensus:
@@ -66,7 +66,7 @@ consensus:
 caConfig:
   # The paths to root certificates. At least one is required. for example:
   #   rootCACertsPath: ./testdata/rootcaA.cert, ./testdata/rootcaB.cert
-  rootCACertsPath: ../crypto/CA/CA.pem
+  rootCACertsPath: ../testdata/crypto/CA/CA.pem
 
   # The paths to intermediate certificates. Optional. For example:
   #   intermediateCACertsPath: ./testdata/midcaA.cert, ./testdata/midcaB.cert
@@ -78,4 +78,4 @@ admin:
   id: admin
   # identity.certificatePath denotes the path
   # to the x509 certificate of the cluster admin
-  certificatePath: ../crypto/admin/admin.pem
+  certificatePath: ../testdata/crypto/admin/admin.pem

@@ -92,8 +92,6 @@ func getConfig(cmd *cobra.Command, args []string) error {
 		return errors.Wrapf(err, "failed to fetch cluster config")
 	}
 
-	//configCmd.SilenceUsage = true
-
 	err = parseAndSaveCerts(clusterConfig, getClusterConfigPath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to fetch certificates from cluster config")
@@ -108,7 +106,6 @@ func getConfig(cmd *cobra.Command, args []string) error {
 }
 
 func setConfig(cmd *cobra.Command, args []string) error {
-
 	_, err := orionconfig.Read(params.cliConfigPath)
 	if err != nil {
 		return err
