@@ -72,7 +72,7 @@ type ConfigTxContext interface {
 	// GetClusterConfig returns the current cluster config.
 	// A ConfigTxContext only gets the current config once, subsequent calls return a cached value.
 	// The value returned is a deep clone of the cached value and can be manipulated.
-	GetClusterConfig() (*types.ClusterConfig, error)
+	GetClusterConfig() (*types.ClusterConfig, *types.Version, error)
 
 	// SetClusterConfig sets a new cluster config object that was possibly manipulated as the pending config
 	// object. The object is deep-cloned, so further manipulation to the input will not be reflected on the pending
@@ -324,12 +324,12 @@ func (c *configTxContext) UpdateRaftConfig(raftConfig *types.RaftConfig) error {
 	return nil
 }
 
-func (c *configTxContext) GetClusterConfig() (*types.ClusterConfig, error) {
+func (c *configTxContext) GetClusterConfig() (*types.ClusterConfig, *types.Version, error) {
 	if c.txSpent {
-		return nil, ErrTxSpent
+		return nil, nil, ErrTxSpent
 	}
 	// deep clone
-	return proto.Clone(c.oldConfig).(*types.ClusterConfig), nil
+	return proto.Clone(c.oldConfig).(*types.ClusterConfig), proto.Clone(c.readOldConfigVersion).(*types.Version), nil
 }
 
 func (c *configTxContext) SetClusterConfig(newConfig *types.ClusterConfig) error {

@@ -326,7 +326,7 @@ func assertTxFinality(t *testing.T, txFinality TxFinality, tx TxContext, userSes
 				if err != nil {
 					return false
 				}
-				clusterConfig, err := cfgTx.GetClusterConfig()
+				clusterConfig, _, err := cfgTx.GetClusterConfig()
 				if err != nil || clusterConfig == nil {
 					return false
 				}

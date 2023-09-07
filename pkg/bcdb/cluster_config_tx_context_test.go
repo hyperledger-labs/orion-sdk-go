@@ -72,9 +72,10 @@ func TestClusterConfig_ClusterNode(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, tx)
 
-	clusterConfig, err := tx.GetClusterConfig()
+	clusterConfig, version, err := tx.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfig)
+	require.NotNil(t, version)
 
 	require.Len(t, clusterConfig.GetNodes(), 3)
 	require.Len(t, clusterConfig.GetConsensusConfig().GetMembers(), 3)
@@ -107,8 +108,9 @@ func TestClusterConfig_ClusterNode(t *testing.T) {
 		func() bool {
 			tx, err = session.ConfigTx()
 			require.NoError(t, err)
-			clusterConfig, err = tx.GetClusterConfig()
+			clusterConfig, version, err = tx.GetClusterConfig()
 			require.NoError(t, err)
+			require.NotNil(t, version)
 
 			if len(clusterConfig.GetNodes()) == 4 {
 				return true
@@ -144,8 +146,9 @@ func TestClusterConfig_ClusterNode(t *testing.T) {
 		func() bool {
 			tx, err = session.ConfigTx()
 			require.NoError(t, err)
-			clusterConfig, err = tx.GetClusterConfig()
+			clusterConfig, version, err = tx.GetClusterConfig()
 			require.NoError(t, err)
+			require.NotNil(t, version)
 
 			found, index = NodeExists("node-4", clusterConfig.Nodes)
 			if found && clusterConfig.Nodes[index].Address == "10.0.0.10" {
@@ -179,8 +182,9 @@ func TestClusterConfig_ClusterNode(t *testing.T) {
 		func() bool {
 			tx, err = session.ConfigTx()
 			require.NoError(t, err)
-			clusterConfig, err = tx.GetClusterConfig()
+			clusterConfig, version, err = tx.GetClusterConfig()
 			require.NoError(t, err)
+			require.NotNil(t, version)
 
 			if len(clusterConfig.GetNodes()) == 3 {
 				return true
