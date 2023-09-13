@@ -130,6 +130,7 @@ func TestConfigTxContext_SetClusterConfig(t *testing.T) {
 		require.NotNil(t, clusterConfig)
 		require.NotNil(t, version)
 		require.Equal(t, version.BlockNum, uint64(1))
+		require.Equal(t, version.TxNum, uint64(0))
 
 		// These Raft parameters will not have an effect on the operation of the test node until it is restarted, but
 		// the config will be committed.
@@ -153,6 +154,7 @@ func TestConfigTxContext_SetClusterConfig(t *testing.T) {
 		require.Equal(t, maxInflightBlocks, clusterConfig2.GetConsensusConfig().GetRaftConfig().MaxInflightBlocks)
 		require.NotNil(t, version)
 		require.Equal(t, version.BlockNum, uint64(2))
+		require.Equal(t, version.TxNum, uint64(0))
 	})
 
 	// Setting a new config and update on it
