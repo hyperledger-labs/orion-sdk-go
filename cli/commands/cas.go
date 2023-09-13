@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CasCmd() *cobra.Command {
+func casCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "CAs",
 		Short: "manage CA's",

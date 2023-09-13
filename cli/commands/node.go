@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NodeCmd() *cobra.Command {
+func nodeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "node",
 		Short: "manage cluster",

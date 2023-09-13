@@ -1,16 +1,17 @@
 package commands
 
 import (
-	"github.com/hyperledger-labs/orion-server/config"
-	"github.com/hyperledger-labs/orion-server/pkg/server"
+	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"testing"
-	"time"
 )
 
 func TestInvalidFlagsGetConfigCommand(t *testing.T) {
@@ -53,71 +54,78 @@ func TestInvalidFlagsGetConfigCommand(t *testing.T) {
 }
 
 func TestGetConfigCommand(t *testing.T) {
-	// 1. Create BCDBHTTPServer and start server
-	testServer, err := SetupTestServer(t)
-	defer testServer.Stop()
+	// 1. Create crypto material and start server
+	tempDir, err := ioutil.TempDir(os.TempDir(), "ExampleTest")
 	require.NoError(t, err)
-	StartTestServer(t, testServer)
+
+	testServer, _, _, err := util.SetupTestEnv(t, tempDir, uint32(6003))
+	require.NoError(t, err)
+	defer testServer.Stop()
+	util.StartTestServer(t, testServer)
 
 	// 2. Get cluster config from the server by the CLI GetConfig command
 	rootCmd := InitializeOrionCli()
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
-	rootCmd.SetArgs([]string{"config", "get", "-c", "../testdata/connection-session-config.yml", "-p", filepath.Join(pwd, "..", "..")})
+	testConfigFilePath := path.Join(tempDir, "config.yml")
+	rootCmd.SetArgs([]string{"config", "get", "-c", testConfigFilePath, "-p", filepath.Join(pwd, "..", "..")})
 	err = rootCmd.Execute()
 	require.NoError(t, err)
 
-	// 3. Check the server response - check expected certs, server config
-	err = compareFiles("../testdata/crypto/admin/admin.pem", "../../configTestRes/admins/admin.pem")
+	// 3. Check the server response
+	// check that certs are equal to the expected certs
+	createdDirName := "configTestRes"
+	relativePathForCreatedDirName := path.Join("..", "..", createdDirName)
+	err = compareFiles(path.Join(tempDir, "crypto", "admin", "admin.pem"), path.Join(relativePathForCreatedDirName, "admins", "admin.pem"))
 	require.NoError(t, err)
-	err = compareFiles("../testdata/crypto/server/server.pem", "../../configTestRes/nodes/orion-server1.pem")
+	err = compareFiles(path.Join(tempDir, "crypto", "node", "node.pem"), path.Join(relativePathForCreatedDirName, "nodes", "server1.pem"))
 	require.NoError(t, err)
-	err = compareFiles("../testdata/crypto/CA/CA.pem", "../../configTestRes/rootCAs/rootCA0.pem")
+	err = compareFiles(path.Join(tempDir, "crypto", "CA", "CA.pem"), path.Join(relativePathForCreatedDirName, "rootCAs", "rootCA0.pem"))
 	require.NoError(t, err)
 
-	expectedConfigRes, err := readSharedConfig("../../configTestRes/shared_cluster_config.yml")
+	// extract server endpoint and compare to the endpoint received by Get Config command
+	expectedConfigRes, err := readConnConfig(testConfigFilePath)
 	if err != nil {
 		errors.Wrapf(err, "failed to read expected shared configuration")
 	}
 
-	sharedConfigRes, err := readSharedConfig("../../configTestRes/shared_cluster_config.yml")
+	actualSharedConfigRes, err := readSharedConfigYaml(path.Join(relativePathForCreatedDirName, "shared_cluster_config.yml"))
 	if err != nil {
 		errors.Wrapf(err, "failed to read shared configuration")
 	}
 
-	require.Equal(t, expectedConfigRes.Nodes[0].NodeID, sharedConfigRes.Nodes[0].NodeID)
-	require.Equal(t, expectedConfigRes.Nodes[0].Port, sharedConfigRes.Nodes[0].Port)
-	require.Equal(t, expectedConfigRes.Nodes[0].Host, sharedConfigRes.Nodes[0].Host)
+	require.Equal(t, expectedConfigRes.ConnectionConfig.ReplicaSet[0].ID, actualSharedConfigRes.Nodes[0].NodeID)
+	url, err := url.Parse(expectedConfigRes.ConnectionConfig.ReplicaSet[0].Endpoint)
+	if err != nil {
+		errors.Wrapf(err, "failed to parse server endpoint")
+	}
+	require.Equal(t, url.Host, actualSharedConfigRes.Nodes[0].Host+":"+strconv.Itoa(int(actualSharedConfigRes.Nodes[0].Port)))
+
+	if err := os.RemoveAll(relativePathForCreatedDirName); err != nil {
+		errors.Wrapf(err, "failed to cleanup directory: %s", relativePathForCreatedDirName)
+	}
 }
 
-func SetupTestServer(t *testing.T) (*server.BCDBHTTPServer, error) {
-	serverLocalConfig, err := readLocalConfig(path.Join("../testdata/config-local/config.yml"))
-	if err != nil {
-		return nil, errors.Wrap(err, "error while unmarshaling local config")
-	}
-
-	serverSharedConfig, err := readSharedConfig(serverLocalConfig.Bootstrap.File)
-	if err != nil {
-		return nil, errors.Wrap(err, "error while unmarshaling shared config")
-	}
-
-	serverConfig := &config.Configurations{
-		LocalConfig:  serverLocalConfig,
-		SharedConfig: serverSharedConfig,
-		JoinBlock:    nil,
-	}
-
-	server, err := server.New(serverConfig)
-	return server, err
-}
-
-func StartTestServer(t *testing.T, s *server.BCDBHTTPServer) {
-	err := s.Start()
+func TestSetConfigCommand(t *testing.T) {
+	// 1. Create crypto material and start server
+	tempDir, err := ioutil.TempDir(os.TempDir(), "ExampleTest")
 	require.NoError(t, err)
-	require.Eventually(t, func() bool { return s.IsLeader() == nil }, 30*time.Second, 100*time.Millisecond)
+
+	testServer, _, _, err := util.SetupTestEnv(t, tempDir, uint32(6003))
+	require.NoError(t, err)
+	defer testServer.Stop()
+	util.StartTestServer(t, testServer)
+
+	// 2. Check cas command response
+	rootCmd := InitializeOrionCli()
+	testConfigFilePath := path.Join(tempDir, "config.yml")
+	rootCmd.SetArgs([]string{"config", "set", "-c", testConfigFilePath})
+	err = rootCmd.Execute()
+	require.Error(t, err)
+	require.Equal(t, err.Error(), "not implemented yet")
 }
 
-func readLocalConfig(localConfigFile string) (*config.LocalConfiguration, error) {
+func readConnConfig(localConfigFile string) (*CliConnectionConfig, error) {
 	if localConfigFile == "" {
 		return nil, errors.New("path to the local configuration file is empty")
 	}
@@ -129,14 +137,14 @@ func readLocalConfig(localConfigFile string) (*config.LocalConfiguration, error)
 		return nil, errors.Wrapf(err, "error reading local config file: %s", localConfigFile)
 	}
 
-	localConf := &config.LocalConfiguration{}
+	localConf := &CliConnectionConfig{}
 	if err := v.UnmarshalExact(localConf); err != nil {
 		return nil, errors.Wrapf(err, "unable to unmarshal local config file: '%s' into struct", localConfigFile)
 	}
 	return localConf, nil
 }
 
-func readSharedConfig(sharedConfigFile string) (*config.SharedConfiguration, error) {
+func readSharedConfigYaml(sharedConfigFile string) (*SharedConfiguration, error) {
 	if sharedConfigFile == "" {
 		return nil, errors.New("path to the shared configuration file is empty")
 	}
@@ -148,7 +156,7 @@ func readSharedConfig(sharedConfigFile string) (*config.SharedConfiguration, err
 		return nil, errors.Wrapf(err, "error reading shared config file: %s", sharedConfigFile)
 	}
 
-	sharedConf := &config.SharedConfiguration{}
+	sharedConf := &SharedConfiguration{}
 	if err := v.UnmarshalExact(sharedConf); err != nil {
 		return nil, errors.Wrapf(err, "unable to unmarshal shared config file: '%s' into struct", sharedConfigFile)
 	}

@@ -14,7 +14,10 @@ func rootCmd() *cobra.Command {
 
 func InitializeOrionCli() *cobra.Command {
 	cmd := rootCmd()
-	cmd.AddCommand(VersionCmd())
+	cmd.AddCommand(versionCmd())
 	cmd.AddCommand(configCmd())
+	cmd.AddCommand(adminCmd())
+	cmd.AddCommand(nodeCmd())
+	cmd.AddCommand(casCmd())
 	return cmd
 }

@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func AdminCmd() *cobra.Command {
+func adminCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "admin",
 		Short: "manage administrators",

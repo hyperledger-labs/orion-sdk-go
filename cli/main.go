@@ -4,8 +4,9 @@
 package main
 
 import (
-	"github.com/hyperledger-labs/orion-sdk-go/cli/commands"
 	"os"
+
+	"github.com/hyperledger-labs/orion-sdk-go/cli/commands"
 )
 
 func main() {
