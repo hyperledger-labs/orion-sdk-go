@@ -2,6 +2,12 @@ package commands
 
 import (
 	"encoding/pem"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"strconv"
+
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	orionconfig "github.com/hyperledger-labs/orion-server/config"
@@ -11,10 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"os"
-	"path"
-	"strconv"
 )
 
 const (
@@ -33,8 +35,10 @@ type cliConfigParams struct {
 	session       bcdb.DBSession
 }
 
-var params cliConfigParams
-var getClusterConfigPath string
+var (
+	params               cliConfigParams
+	getClusterConfigPath string
+)
 
 func configCmd() *cobra.Command {
 	configCmd := &cobra.Command{
@@ -63,6 +67,7 @@ func getConfigCmd() *cobra.Command {
 	getConfigCmd.PersistentFlags().StringVarP(&getClusterConfigPath, "cluster-config-path", "p", "", "set the absolute path to which the server configuration will be saved")
 	getConfigCmd.MarkPersistentFlagRequired("cluster-config-path")
 
+	fmt.Println()
 	return getConfigCmd
 }
 
@@ -70,7 +75,9 @@ func setConfigCmd() *cobra.Command {
 	setConfigCmd := &cobra.Command{
 		Use:   "set",
 		Short: "Set cluster configuration",
-		RunE:  setConfig,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return errors.New("not implemented yet")
+		},
 	}
 	return setConfigCmd
 }
@@ -101,34 +108,6 @@ func getConfig(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to create cluster config yaml file")
 	}
-
-	return nil
-}
-
-func setConfig(cmd *cobra.Command, args []string) error {
-	_, err := orionconfig.Read(params.cliConfigPath)
-	if err != nil {
-		return err
-	}
-
-	err = params.CreateDbAndOpenSession()
-	if err != nil {
-		return err
-	}
-
-	tx, err := params.session.ConfigTx()
-	if err != nil {
-		return errors.Wrapf(err, "failed to instanciate a config TX")
-	}
-	defer abort(tx)
-	// TODO: set the cluster configuration
-	//err := tx.SetClusterConfig()
-	//if err != nil {
-	//	return errors.Wrapf(err, "failed to fetch cluster config")
-	//}
-
-	//configCmd.SilenceUsage = true
-	//configCmd.Printf(params.cliConfigPath)
 
 	return nil
 }
@@ -282,10 +261,10 @@ func parseAndSaveCerts(clusterConfig *types.ClusterConfig, getClusterConfigPath 
 }
 
 // buildSharedClusterConfig builds the shared configuration from a clusterConfig
-func buildSharedClusterConfig(clusterConfig *types.ClusterConfig, configYamlFilePath string) *orionconfig.SharedConfiguration {
-	var nodesSharedConfiguration []*orionconfig.NodeConf
+func buildSharedClusterConfig(clusterConfig *types.ClusterConfig, configYamlFilePath string) *SharedConfiguration {
+	var nodesSharedConfiguration []*NodeConf
 	for _, node := range clusterConfig.Nodes {
-		nodeSharedConfiguration := &orionconfig.NodeConf{
+		nodeSharedConfiguration := &NodeConf{
 			NodeID:          node.GetId(),
 			Host:            node.GetAddress(),
 			Port:            node.GetPort(),
@@ -294,9 +273,9 @@ func buildSharedClusterConfig(clusterConfig *types.ClusterConfig, configYamlFile
 		nodesSharedConfiguration = append(nodesSharedConfiguration, nodeSharedConfiguration)
 	}
 
-	var membersSharedConfiguration []*orionconfig.PeerConf
+	var membersSharedConfiguration []*PeerConf
 	for _, member := range clusterConfig.ConsensusConfig.Members {
-		memberSharedConfiguration := &orionconfig.PeerConf{
+		memberSharedConfiguration := &PeerConf{
 			NodeId:   member.GetNodeId(),
 			RaftId:   member.GetRaftId(),
 			PeerHost: member.GetPeerHost(),
@@ -305,9 +284,9 @@ func buildSharedClusterConfig(clusterConfig *types.ClusterConfig, configYamlFile
 		membersSharedConfiguration = append(membersSharedConfiguration, memberSharedConfiguration)
 	}
 
-	var observersSharedConfiguration []*orionconfig.PeerConf
+	var observersSharedConfiguration []*PeerConf
 	for _, observer := range clusterConfig.ConsensusConfig.Observers {
-		observerSharedConfiguration := &orionconfig.PeerConf{
+		observerSharedConfiguration := &PeerConf{
 			NodeId:   observer.GetNodeId(),
 			RaftId:   observer.GetRaftId(),
 			PeerHost: observer.GetPeerHost(),
@@ -334,13 +313,22 @@ func buildSharedClusterConfig(clusterConfig *types.ClusterConfig, configYamlFile
 		intermediateCACertsPathSharedConfiguration = append(intermediateCACertsPathSharedConfiguration, intermediateCACertPathSharedConfiguration)
 	}
 
-	sharedConfiguration := &orionconfig.SharedConfiguration{
+	var adminsSharedConfiguration []*AdminConf
+	for i, admin := range clusterConfig.Admins {
+		adminSharedConfiguration := &AdminConf{
+			ID:              admin.GetId(),
+			CertificatePath: path.Join(getClusterConfigPath, ConfigDirName, "admins", clusterConfig.Admins[i].GetId()+".pem"),
+		}
+		adminsSharedConfiguration = append(adminsSharedConfiguration, adminSharedConfiguration)
+	}
+
+	sharedConfiguration := &SharedConfiguration{
 		Nodes: nodesSharedConfiguration,
-		Consensus: &orionconfig.ConsensusConf{
+		Consensus: &ConsensusConf{
 			Algorithm: clusterConfig.ConsensusConfig.Algorithm,
 			Members:   membersSharedConfiguration,
 			Observers: observersSharedConfiguration,
-			RaftConfig: &orionconfig.RaftConf{
+			RaftConfig: &RaftConf{
 				TickInterval:         clusterConfig.ConsensusConfig.RaftConfig.TickInterval,
 				ElectionTicks:        clusterConfig.ConsensusConfig.RaftConfig.ElectionTicks,
 				HeartbeatTicks:       clusterConfig.ConsensusConfig.RaftConfig.HeartbeatTicks,
@@ -352,11 +340,8 @@ func buildSharedClusterConfig(clusterConfig *types.ClusterConfig, configYamlFile
 			RootCACertsPath:         rootCACertsPathSharedConfiguration,
 			IntermediateCACertsPath: intermediateCACertsPathSharedConfiguration,
 		},
-		Admin: orionconfig.AdminConf{
-			ID:              clusterConfig.Admins[0].Id,
-			CertificatePath: path.Join(getClusterConfigPath, ConfigDirName, "admins", clusterConfig.Admins[0].Id+".pem"),
-		},
-		Ledger: orionconfig.LedgerConf{StateMerklePatriciaTrieDisabled: clusterConfig.LedgerConfig.StateMerklePatriciaTrieDisabled},
+		Admin:  adminsSharedConfiguration,
+		Ledger: LedgerConf{StateMerklePatriciaTrieDisabled: clusterConfig.LedgerConfig.StateMerklePatriciaTrieDisabled},
 	}
 
 	return sharedConfiguration

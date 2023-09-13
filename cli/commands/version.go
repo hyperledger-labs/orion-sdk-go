@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 )
 
-func VersionCmd() *cobra.Command {
+func versionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Args:  cobra.NoArgs,

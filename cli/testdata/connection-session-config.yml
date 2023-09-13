@@ -1,7 +1,7 @@
 connectionConfig:
   replicaSet:
-    - id: "orion-server1"
-      endpoint: "http://127.0.0.1:6001"
+    - id: "server1"
+      endpoint: "http://127.0.0.1:6003"
   rootCAs: "../testdata/crypto/CA/CA.pem"
 
 sessionConfig:

@@ -1,6 +1,10 @@
 # Config Orion via CLI
 
-This command-line tool provides you a simple way to config an orion database server.
+This command-line tool provides a simple way to config an orion database server.
+
+## Building the tool
+1. Run from `orion-sdk` root folder
+2. Run `make binary` to create an executable file named bcdbadmin under `bin` directory.
 
 ## Commands
 
@@ -11,7 +15,7 @@ We provide real-world examples demonstrating how to use the CLI tool for various
 
 ### Version Command
 This command prints the version of the CLI tool.
-1. Run from 'orion-sdk' root folder
+1. Run from `orion-sdk` root folder.
 2. Run `bin/bcdbadmin version`. This command has no flags.
 
 
@@ -20,17 +24,17 @@ This command prints the version of the CLI tool.
 This command enables to config an orion server or ask for the configuration of an orion server. 
 
 #### Get Config Command
-1. Run from 'orion-sdk' root folder
+1. Run from 'orion-sdk' root folder.
 2. For Get Config Run `bin/bcdbadmin config get [args]`.
 
    Replace `[args]` with flags.
 
 ###
 ##### Flags
-| Flags                       | Description                                                       |
-|-----------------------------|-------------------------------------------------------------------|
- | `-c, --cli-config-path`     | the absolute path of CLI connection configuration file            |
-| `-p, --cluster-config-path` | the absolute path to which the server configuration will be saved |
+| Flags                       | Description                                                         |
+|-----------------------------|---------------------------------------------------------------------|
+| `-c, --cli-config-path`     | the absolute or relative path of CLI connection configuration file  |
+| `-p, --cluster-config-path` | the absolute path to which the server configuration will be saved   |
 
 Both flags are necessary flags. If any flag is missing, the cli will raise an error.
 
@@ -38,7 +42,7 @@ Both flags are necessary flags. If any flag is missing, the cli will raise an er
 ##### Example:
 
 Running 
-`bin/bcdbadmin config get -c "A/connection-session-config.yaml" -p "A/B/C"`
-reads the connection and session details needed for connecting to a server from `A/connection-session-config.yaml` and 
+`bin/bcdbadmin config get -c "connection-session-config.yaml" -p "A/B/C"`
+reads the connection and session details needed for connecting to a server from `connection-session-config.yaml` and 
 sends a config TX.
 It creates a directory in `A/B/C` with the respective certificates and a yaml file, named shared_cluster_config.yaml, that includes the cluster configuration.
