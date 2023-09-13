@@ -34,9 +34,10 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	tx, err := session.ConfigTx()
 	require.NoError(t, err)
 
-	clusterConfig, err := tx.GetClusterConfig()
+	clusterConfig, version, err := tx.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfig)
+	require.NotNil(t, version)
 
 	require.Equal(t, 1, len(clusterConfig.Nodes))
 	require.Equal(t, "testNode1", clusterConfig.Nodes[0].Id)
@@ -65,12 +66,13 @@ func TestConfigTxContext_GetClusterConfig(t *testing.T) {
 	clusterConfig.Admins = nil
 	clusterConfig.CertAuthConfig = nil
 	clusterConfig.ConsensusConfig = nil
-	clusterConfigAgain, err := tx.GetClusterConfig()
+	clusterConfigAgain, version, err := tx.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfigAgain.Nodes, "it is a deep copy")
 	require.NotNil(t, clusterConfigAgain.Admins, "it is a deep copy")
 	require.NotNil(t, clusterConfigAgain.CertAuthConfig, "it is a deep copy")
 	require.NotNil(t, clusterConfigAgain.ConsensusConfig, "it is a deep copy")
+	require.NotNil(t, version)
 }
 
 func TestConfigTxContext_GetClusterConfigTimeout(t *testing.T) {
@@ -123,9 +125,12 @@ func TestConfigTxContext_SetClusterConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, tx1.TxID())
 
-		clusterConfig, err := tx1.GetClusterConfig()
+		clusterConfig, version, err := tx1.GetClusterConfig()
 		require.NoError(t, err)
 		require.NotNil(t, clusterConfig)
+		require.NotNil(t, version)
+		require.Equal(t, version.BlockNum, uint64(1))
+		require.Equal(t, version.TxNum, uint64(0))
 
 		// These Raft parameters will not have an effect on the operation of the test node until it is restarted, but
 		// the config will be committed.
@@ -144,9 +149,12 @@ func TestConfigTxContext_SetClusterConfig(t *testing.T) {
 		require.Equal(t, receipt.GetHeader().GetValidationInfo()[receipt.TxIndex].Flag, types.Flag_VALID)
 
 		tx2, err := session.ConfigTx()
-		clusterConfig2, err := tx2.GetClusterConfig()
+		clusterConfig2, version, err := tx2.GetClusterConfig()
 		require.Equal(t, snapshotIntervalSize, clusterConfig2.GetConsensusConfig().GetRaftConfig().SnapshotIntervalSize)
 		require.Equal(t, maxInflightBlocks, clusterConfig2.GetConsensusConfig().GetRaftConfig().MaxInflightBlocks)
+		require.NotNil(t, version)
+		require.Equal(t, version.BlockNum, uint64(2))
+		require.Equal(t, version.TxNum, uint64(0))
 	})
 
 	// Setting a new config and update on it
@@ -156,9 +164,10 @@ func TestConfigTxContext_SetClusterConfig(t *testing.T) {
 		tx, err := session.ConfigTx()
 		require.NoError(t, err)
 
-		config, err := tx.GetClusterConfig()
+		config, version, err := tx.GetClusterConfig()
 		require.NoError(t, err)
 		require.NotNil(t, config)
+		require.NotNil(t, version)
 
 		config.ConsensusConfig.RaftConfig.MaxInflightBlocks++
 		err = tx.SetClusterConfig(config)
@@ -182,9 +191,10 @@ func TestConfigTxContext_SetClusterConfig(t *testing.T) {
 		tx1, err := session.ConfigTx()
 		require.NoError(t, err)
 
-		clusterConfig, err := tx1.GetClusterConfig()
+		clusterConfig, version, err := tx1.GetClusterConfig()
 		require.NoError(t, err)
 		require.NotNil(t, clusterConfig)
+		require.NotNil(t, version)
 
 		// A node without a corresponding peer
 		clusterConfig.Nodes = append(clusterConfig.Nodes,
@@ -226,9 +236,10 @@ func TestConfigTxContext_SetClusterConfig(t *testing.T) {
 		tx, err := session.ConfigTx()
 		require.NoError(t, err)
 
-		config, err := tx.GetClusterConfig()
+		config, version, err := tx.GetClusterConfig()
 		require.NoError(t, err)
 		require.NotNil(t, config)
+		require.NotNil(t, version)
 
 		config.ConsensusConfig.RaftConfig.MaxInflightBlocks++
 		err = tx.SetClusterConfig(config)
@@ -249,9 +260,10 @@ func TestConfigTxContext_SetClusterConfig(t *testing.T) {
 		tx, err := session.ConfigTx()
 		require.NoError(t, err)
 
-		config, err := tx.GetClusterConfig()
+		config, version, err := tx.GetClusterConfig()
 		require.NoError(t, err)
 		require.NotNil(t, config)
+		require.NotNil(t, version)
 
 		err = tx.AddAdmin(&types.Admin{Id: "admin-alias", Certificate: admin2Cert.Raw})
 		require.NoError(t, err)
@@ -314,8 +326,9 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 
 	tx2, err := session1.ConfigTx()
 	require.NoError(t, err)
-	clusterConfig, err := tx2.GetClusterConfig()
+	clusterConfig, version, err := tx2.GetClusterConfig()
 	require.NoError(t, err)
+	require.NotNil(t, version)
 	require.NotNil(t, clusterConfig)
 	require.Len(t, clusterConfig.Admins, 2)
 
@@ -328,7 +341,8 @@ func TestConfigTxContext_AddAdmin(t *testing.T) {
 	session2 := openUserSession(t, bcdb, "admin2", clientCryptoDir)
 	tx3, err := session2.ConfigTx()
 	require.NoError(t, err)
-	clusterConfig2, err := tx3.GetClusterConfig()
+	clusterConfig2, version, err := tx3.GetClusterConfig()
+	require.NotNil(t, version)
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfig2)
 }
@@ -443,9 +457,10 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 
 	tx, err := session1.ConfigTx()
 	require.NoError(t, err)
-	clusterConfig, err := tx.GetClusterConfig()
+	clusterConfig, version, err := tx.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfig)
+	require.NotNil(t, version)
 	require.Len(t, clusterConfig.Admins, 3)
 
 	// Remove an admin
@@ -467,9 +482,10 @@ func TestConfigTxContext_DeleteAdmin(t *testing.T) {
 	// verify tx was successfully committed
 	tx3, err := session2.ConfigTx()
 	require.NoError(t, err)
-	clusterConfig, err = tx3.GetClusterConfig()
+	clusterConfig, version, err = tx3.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfig)
+	require.NotNil(t, version)
 	require.Len(t, clusterConfig.Admins, 2)
 	found, index := AdminExists("admin2", clusterConfig.Admins)
 	require.True(t, found)
@@ -535,9 +551,10 @@ func TestConfigTxContext_UpdateAdmin(t *testing.T) {
 
 	tx, err := session2.ConfigTx()
 	require.NoError(t, err)
-	clusterConfig, err := tx.GetClusterConfig()
+	clusterConfig, version, err := tx.GetClusterConfig()
 	require.NoError(t, err)
 	require.NotNil(t, clusterConfig)
+	require.NotNil(t, version)
 	require.Len(t, clusterConfig.Admins, 2)
 
 	found, index := AdminExists("admin", clusterConfig.Admins)
@@ -600,8 +617,9 @@ func TestConfigTxContext_UpdateCAConfig(t *testing.T) {
 	tx2, err := session.ConfigTx()
 	require.NoError(t, err)
 	require.NotNil(t, tx1)
-	clusterConfig, err := tx2.GetClusterConfig()
+	clusterConfig, version, err := tx2.GetClusterConfig()
 	require.NoError(t, err)
+	require.NotNil(t, version)
 	caConf := clusterConfig.GetCertAuthConfig()
 	caConf.Roots = append(caConf.Roots, certRootCA2.Raw)
 	caConf.Intermediates = append(caConf.Intermediates, certIntCA2.Raw)
@@ -616,8 +634,9 @@ func TestConfigTxContext_UpdateCAConfig(t *testing.T) {
 	tx3, err := session.ConfigTx()
 	require.NoError(t, err)
 	require.NotNil(t, tx1)
-	clusterConfig2, err := tx3.GetClusterConfig()
+	clusterConfig2, version, err := tx3.GetClusterConfig()
 	require.NoError(t, err)
+	require.NotNil(t, version)
 	require.Len(t, clusterConfig2.GetCertAuthConfig().GetIntermediates(), 1)
 	require.Len(t, clusterConfig2.GetCertAuthConfig().GetRoots(), 2)
 }
@@ -655,8 +674,9 @@ func TestConfigTxContext_UpdateRaftConfig(t *testing.T) {
 	tx2, err := session.ConfigTx()
 	require.NoError(t, err)
 	require.NotNil(t, tx1)
-	clusterConfig, err := tx2.GetClusterConfig()
+	clusterConfig, version, err := tx2.GetClusterConfig()
 	require.NoError(t, err)
+	require.NotNil(t, version)
 	raftConf := clusterConfig.GetConsensusConfig().GetRaftConfig()
 	raftConf.MaxInflightBlocks++
 	err = tx2.UpdateRaftConfig(raftConf)
@@ -670,8 +690,9 @@ func TestConfigTxContext_UpdateRaftConfig(t *testing.T) {
 	tx3, err := session.ConfigTx()
 	require.NoError(t, err)
 	require.NotNil(t, tx1)
-	clusterConfig2, err := tx3.GetClusterConfig()
+	clusterConfig2, version, err := tx3.GetClusterConfig()
 	require.NoError(t, err)
+	require.NotNil(t, version)
 	require.Equal(t, raftConf.MaxInflightBlocks, clusterConfig2.GetConsensusConfig().GetRaftConfig().GetMaxInflightBlocks())
 }
 
@@ -697,8 +718,9 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 		tx, err := session.ConfigTx()
 		require.NoError(t, err)
 
-		config, err := tx.GetClusterConfig()
+		config, version, err := tx.GetClusterConfig()
 		require.NoError(t, err)
+		require.NotNil(t, version)
 		node1 := config.Nodes[0]
 		node1.Port++
 		nodeId := node1.Id
@@ -708,9 +730,10 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 
 		assertTxFinality(t, TxFinality(i), tx, session)
 
-		config, err = tx.GetClusterConfig()
+		config, version, err = tx.GetClusterConfig()
 		require.EqualError(t, err, ErrTxSpent.Error())
 		require.Nil(t, config)
+		require.NotNil(t, version)
 
 		err = tx.AddClusterNode(&types.NodeConfig{}, nil)
 		require.EqualError(t, err, ErrTxSpent.Error())
@@ -730,8 +753,9 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 			tx, err = session.ConfigTx()
 			require.NoError(t, err)
 
-			config, err := tx.GetClusterConfig()
+			config, version, err := tx.GetClusterConfig()
 			require.NoError(t, err)
+			require.NotNil(t, version)
 			node1 := config.Nodes[0]
 			require.Equal(t, nodeId, node1.Id)
 			require.Equal(t, nodePort, node1.Port)
