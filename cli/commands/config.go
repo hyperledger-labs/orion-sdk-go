@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 )
 
@@ -50,12 +51,17 @@ func getConfigCmd() *cobra.Command {
 
 func setConfigCmd() *cobra.Command {
 	setConfigCmd := &cobra.Command{
-		Use:   "set",
-		Short: "Set cluster configuration",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return errors.New("not implemented yet")
-		},
+		Use:     "set",
+		Short:   "Set cluster configuration",
+		Example: "cli config set -d <path-to-connection-and-session-config> -c <path-to-new-cluster-config>",
+		RunE:    setConfig,
 	}
+
+	setConfigCmd.PersistentFlags().StringP("cluster-config-path", "c", "", "set the absolute or relative path of the new server configuration file")
+	if err := setConfigCmd.MarkPersistentFlagRequired("cluster-config-path"); err != nil {
+		panic(err.Error())
+	}
+
 	return setConfigCmd
 }
 
@@ -106,6 +112,75 @@ func getConfig(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func setConfig(cmd *cobra.Command, args []string) error {
+	cliConfigPath, err := cmd.Flags().GetString("db-connection-config-path")
+	if err != nil {
+		return errors.Wrapf(err, "failed to fetch the path of CLI connection configuration file")
+	}
+
+	newClusterConfigPath, err := cmd.Flags().GetString("cluster-config-path")
+	if err != nil {
+		return errors.Wrapf(err, "failed to fetch the new server configuration path")
+	}
+
+	lastVersion, err := readVersionYaml(path.Join(newClusterConfigPath, "version.yml"))
+	if err != nil {
+		return errors.Wrapf(err, "failed to read the version yaml file")
+	}
+
+	params := cliConfigParams{
+		cliConfigPath: cliConfigPath,
+		cliConfig:     cliConnectionConfig{},
+		db:            nil,
+		session:       nil,
+	}
+
+	err = params.CreateDbAndOpenSession()
+	if err != nil {
+		return err
+	}
+
+	tx, err := params.session.ConfigTx()
+	if err != nil {
+		return errors.Wrapf(err, "failed to instanciate a config TX")
+	}
+	defer abort(tx)
+
+	_, version, err := tx.GetClusterConfig()
+	if err != nil {
+		return errors.Wrapf(err, "failed to fetch cluster config")
+	}
+
+	// Check that the version in the version.yaml file is the same version as recieved by GetClusterConfig TX
+	if version != lastVersion {
+		errors.New("Cluster configuration cannot be updated since the version is not up to date")
+	}
+
+	// Read the new shared configuration and build the new cluster config
+	newSharedConfig, err := readSharedConfigYaml(path.Join(newClusterConfigPath, "new_cluster_config.yml"))
+	if err != nil {
+		return errors.Wrapf(err, "failed to read the new cluster configuration file")
+	}
+
+	newConfig, err := buildClusterConfig(newSharedConfig)
+	if err != nil {
+		return errors.Wrapf(err, "failed to build the cluster configuration from the shared configuration")
+	}
+
+	// Set cluster configuration to the new one
+	err = tx.SetClusterConfig(newConfig)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set the cluster config")
+	}
+
+	_, _, err = tx.Commit(true)
+	if err != nil {
+		return errors.Wrapf(err, "failed to commit tx")
+	}
+
+	return nil
+}
+
 func abort(tx bcdb.TxContext) {
 	_ = tx.Abort()
 }
@@ -124,6 +199,10 @@ func WriteClusterConfigToYaml(clusterConfig *types.ClusterConfig, version *types
 	}
 
 	err = os.WriteFile(path.Join(configYamlFilePath, "shared_cluster_config.yml"), c, 0644)
+	if err != nil {
+		return err
+	}
+
 	err = os.WriteFile(path.Join(configYamlFilePath, "version.yml"), v, 0644)
 	if err != nil {
 		return err
@@ -291,4 +370,147 @@ func buildSharedClusterConfig(clusterConfig *types.ClusterConfig, configYamlFile
 	}
 
 	return sharedConfiguration
+}
+
+// readVersionYaml reads the version from the file and returns it.
+func readVersionYaml(versionFile string) (*types.Version, error) {
+	if versionFile == "" {
+		return nil, errors.New("path to the shared configuration file is empty")
+	}
+
+	v := viper.New()
+	v.SetConfigFile(versionFile)
+
+	if err := v.ReadInConfig(); err != nil {
+		return nil, errors.Wrapf(err, "error reading version file: %s", versionFile)
+	}
+
+	version := &types.Version{}
+	if err := v.UnmarshalExact(version); err != nil {
+		return nil, errors.Wrapf(err, "unable to unmarshal version file: '%s' into struct", version)
+	}
+	return version, nil
+}
+
+// readSharedConfigYaml reads the shared config from the file and returns it.
+func readSharedConfigYaml(sharedConfigFile string) (*SharedConfiguration, error) {
+	if sharedConfigFile == "" {
+		return nil, errors.New("path to the shared configuration file is empty")
+	}
+
+	v := viper.New()
+	v.SetConfigFile(sharedConfigFile)
+
+	if err := v.ReadInConfig(); err != nil {
+		return nil, errors.Wrapf(err, "error reading shared config file: %s", sharedConfigFile)
+	}
+
+	sharedConf := &SharedConfiguration{}
+	if err := v.UnmarshalExact(sharedConf); err != nil {
+		return nil, errors.Wrapf(err, "unable to unmarshal shared config file: '%s' into struct", sharedConfigFile)
+	}
+	return sharedConf, nil
+}
+
+// buildClusterConfig builds a cluster configuration from a shared configuration
+func buildClusterConfig(sharedConfig *SharedConfiguration) (*types.ClusterConfig, error) {
+	var nodesConfig []*types.NodeConfig
+	for _, node := range sharedConfig.Nodes {
+		cert, err := os.ReadFile(node.CertificatePath)
+		pemBlock, _ := pem.Decode(cert)
+		cert = pemBlock.Bytes
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable read the certificate of node '%s'", node.NodeID)
+		}
+		nodeConfig := &types.NodeConfig{
+			Id:          node.NodeID,
+			Address:     node.Host,
+			Port:        node.Port,
+			Certificate: cert,
+		}
+		nodesConfig = append(nodesConfig, nodeConfig)
+	}
+
+	var adminsConfig []*types.Admin
+	for _, admin := range sharedConfig.Admin {
+		cert, err := os.ReadFile(admin.CertificatePath)
+		pemBlock, _ := pem.Decode(cert)
+		cert = pemBlock.Bytes
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable read the certificate of admin '%s'", admin.ID)
+		}
+		adminConfig := &types.Admin{
+			Id:          admin.ID,
+			Certificate: cert,
+		}
+		adminsConfig = append(adminsConfig, adminConfig)
+	}
+
+	var rootCACertsConfig [][]byte
+	for i, rootCACertPath := range sharedConfig.CAConfig.RootCACertsPath {
+		rootCACertConfig, err := os.ReadFile(rootCACertPath)
+		pemBlock, _ := pem.Decode(rootCACertConfig)
+		rootCACertConfig = pemBlock.Bytes
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable read the certificate of rootCA '%d'", i)
+		}
+		rootCACertsConfig = append(rootCACertsConfig, rootCACertConfig)
+	}
+
+	var intermediateCACertsConfig [][]byte
+	for i, intermediateCACertPath := range sharedConfig.CAConfig.IntermediateCACertsPath {
+		intermediateCACertConfig, err := os.ReadFile(intermediateCACertPath)
+		pemBlock, _ := pem.Decode(intermediateCACertConfig)
+		intermediateCACertConfig = pemBlock.Bytes
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable read the certificate of intermediateCA '%d'", i)
+		}
+		intermediateCACertsConfig = append(intermediateCACertsConfig, intermediateCACertConfig)
+	}
+
+	var membersConfig []*types.PeerConfig
+	for _, member := range sharedConfig.Consensus.Members {
+		memberConfig := &types.PeerConfig{
+			NodeId:   member.NodeId,
+			RaftId:   member.RaftId,
+			PeerHost: member.PeerHost,
+			PeerPort: member.PeerPort,
+		}
+		membersConfig = append(membersConfig, memberConfig)
+	}
+
+	var observersConfig []*types.PeerConfig
+	for _, observer := range sharedConfig.Consensus.Observers {
+		observerConfig := &types.PeerConfig{
+			NodeId:   observer.NodeId,
+			RaftId:   observer.RaftId,
+			PeerHost: observer.PeerHost,
+			PeerPort: observer.PeerPort,
+		}
+		observersConfig = append(observersConfig, observerConfig)
+	}
+
+	clusterConfig := &types.ClusterConfig{
+		Nodes:  nodesConfig,
+		Admins: adminsConfig,
+		CertAuthConfig: &types.CAConfig{
+			Roots:         rootCACertsConfig,
+			Intermediates: intermediateCACertsConfig,
+		},
+		ConsensusConfig: &types.ConsensusConfig{
+			Algorithm: sharedConfig.Consensus.Algorithm,
+			Members:   membersConfig,
+			Observers: observersConfig,
+			RaftConfig: &types.RaftConfig{
+				TickInterval:         sharedConfig.Consensus.RaftConfig.TickInterval,
+				ElectionTicks:        sharedConfig.Consensus.RaftConfig.ElectionTicks,
+				HeartbeatTicks:       sharedConfig.Consensus.RaftConfig.HeartbeatTicks,
+				MaxInflightBlocks:    sharedConfig.Consensus.RaftConfig.MaxInflightBlocks,
+				SnapshotIntervalSize: sharedConfig.Consensus.RaftConfig.SnapshotIntervalSize,
+			},
+		},
+		LedgerConfig: &types.LedgerConfig{StateMerklePatriciaTrieDisabled: sharedConfig.Ledger.StateMerklePatriciaTrieDisabled},
+	}
+
+	return clusterConfig, nil
 }

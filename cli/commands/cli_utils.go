@@ -24,7 +24,7 @@ type cliConfigParams struct {
 func (c *cliConfigParams) CreateDbAndOpenSession() error {
 	var err error
 	if err = c.cliConfig.ReadAndConstructCliConnConfig(c.cliConfigPath); err != nil {
-		return errors.Wrapf(err, "failed to read CLI configuration file")
+		return errors.Wrapf(err, "failed to read CLI connection configuration file")
 	}
 
 	c.db, err = bcdb.Create(&c.cliConfig.ConnectionConfig)
@@ -43,18 +43,18 @@ func (c *cliConfigParams) CreateDbAndOpenSession() error {
 // ReadAndConstructCliConnConfig read unmarshal the yaml config file into a cliConnectionConfig object
 func (c *cliConnectionConfig) ReadAndConstructCliConnConfig(filePath string) error {
 	if filePath == "" {
-		return errors.New("path to the shared configuration file is empty")
+		return errors.New("path to the connection configuration file is empty")
 	}
 
 	v := viper.New()
 	v.SetConfigFile(filePath)
 
 	if err := v.ReadInConfig(); err != nil {
-		return errors.Wrapf(err, "error reading shared config file: %s", filePath)
+		return errors.Wrapf(err, "error reading connection config file: %s", filePath)
 	}
 
 	if err := v.UnmarshalExact(c); err != nil {
-		return errors.Wrapf(err, "unable to unmarshal shared config file: '%s' into struct", filePath)
+		return errors.Wrapf(err, "unable to unmarshal connection config file: '%s' into struct", filePath)
 	}
 
 	clientLogger, err := logger.New(
