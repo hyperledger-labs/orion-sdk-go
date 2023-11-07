@@ -390,6 +390,8 @@ func ResponseSelector(envelop ResponseEnvelop) (ResponseWithHeader, error) {
 		return envelop.(*types.GetDataRangeResponseEnvelope).GetResponse(), nil
 	case *types.GetTxResponseEnvelope:
 		return envelop.(*types.GetTxResponseEnvelope).GetResponse(), nil
+	case *types.GetConfigBlockResponseEnvelope:
+		return envelop.(*types.GetConfigBlockResponseEnvelope).GetResponse(), nil
 
 	default:
 		return nil, errors.Errorf("unknown response type %T", t)
