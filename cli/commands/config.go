@@ -28,7 +28,7 @@ func configCmd() *cobra.Command {
 		panic(err.Error())
 	}
 
-	configCmd.AddCommand(getConfigCmd(), setConfigCmd())
+	configCmd.AddCommand(getConfigCmd(), setConfigCmd(), getLastConfigBlockCmd(), getClusterStatusCmd())
 
 	return configCmd
 }
@@ -63,6 +63,33 @@ func setConfigCmd() *cobra.Command {
 	}
 
 	return setConfigCmd
+}
+
+func getLastConfigBlockCmd() *cobra.Command {
+	getLastConfigBlockCmd := &cobra.Command{
+		Use:     "getLastConfigBlock",
+		Short:   "Get last configuration block",
+		Example: "cli config getLastConfigBlock -d <path-to-connection-and-session-config> -c <path-to-last-config-block-output>",
+		RunE:    getLastConfigBlock,
+	}
+
+	getLastConfigBlockCmd.PersistentFlags().StringP("last-config-block-path", "c", "", "set the absolute or relative path of the last configuration block file")
+	if err := getLastConfigBlockCmd.MarkPersistentFlagRequired("last-config-block-path"); err != nil {
+		panic(err.Error())
+	}
+
+	return getLastConfigBlockCmd
+}
+
+func getClusterStatusCmd() *cobra.Command {
+	getClusterStatusCmd := &cobra.Command{
+		Use:     "getClusterStatus",
+		Short:   "Get cluster status",
+		Example: "cli config getClusterStatus -d <path-to-connection-and-session-config>",
+		RunE:    getClusterStatus,
+	}
+
+	return getClusterStatusCmd
 }
 
 func getConfig(cmd *cobra.Command, args []string) error {
@@ -178,6 +205,86 @@ func setConfig(cmd *cobra.Command, args []string) error {
 		return errors.Wrapf(err, "failed to commit tx")
 	}
 
+	return nil
+}
+
+func getLastConfigBlock(cmd *cobra.Command, args []string) error {
+	cliConfigPath, err := cmd.Flags().GetString("db-connection-config-path")
+	if err != nil {
+		return errors.Wrapf(err, "failed to fetch the path of CLI connection configuration file")
+	}
+
+	getLastConfigBlockPath, err := cmd.Flags().GetString("last-config-block-path")
+	if err != nil {
+		return errors.Wrapf(err, "failed to fetch the path to which the last configuration block will be saved")
+	}
+
+	params := cliConfigParams{
+		cliConfigPath: cliConfigPath,
+		cliConfig:     cliConnectionConfig{},
+		db:            nil,
+		session:       nil,
+	}
+
+	err = params.CreateDbAndOpenSession()
+	if err != nil {
+		return err
+	}
+
+	tx, err := params.session.ConfigTx()
+	if err != nil {
+		return errors.Wrapf(err, "failed to instanciate a config TX")
+	}
+	defer abort(tx)
+
+	blk, err := tx.GetLastConfigBlock()
+	if err != nil {
+		return errors.Wrapf(err, "failed to fetch the last config block")
+	}
+
+	err = os.MkdirAll(getLastConfigBlockPath, 0755)
+	if err != nil {
+		errors.Wrapf(err, "failed to create output directory")
+	}
+
+	err = os.WriteFile(path.Join(getLastConfigBlockPath, "last_config_block.yml"), blk, 0644)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create last config block yaml file")
+	}
+
+	return nil
+}
+
+func getClusterStatus(cmd *cobra.Command, args []string) error {
+	cliConfigPath, err := cmd.Flags().GetString("db-connection-config-path")
+	if err != nil {
+		return errors.Wrapf(err, "failed to fetch the path of CLI connection configuration file")
+	}
+
+	params := cliConfigParams{
+		cliConfigPath: cliConfigPath,
+		cliConfig:     cliConnectionConfig{},
+		db:            nil,
+		session:       nil,
+	}
+
+	err = params.CreateDbAndOpenSession()
+	if err != nil {
+		return err
+	}
+
+	tx, err := params.session.ConfigTx()
+	if err != nil {
+		return errors.Wrapf(err, "failed to instanciate a config TX")
+	}
+	defer abort(tx)
+
+	status, err := tx.GetClusterStatus()
+	if err != nil {
+		return errors.Wrapf(err, "failed to fetch the cluster status")
+	}
+
+	cmd.Printf("Cluster status is: %s\n", status)
 	return nil
 }
 
