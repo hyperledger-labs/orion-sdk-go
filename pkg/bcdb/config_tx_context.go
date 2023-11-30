@@ -80,6 +80,9 @@ type ConfigTxContext interface {
 	// pending config was set is permitted. Those methods are applied to the pending config (e.g. AddAdmin() will add
 	// an admin, etc.).
 	SetClusterConfig(newConfig *types.ClusterConfig) error
+
+	// GetLastConfigBlock returns the last config block.
+	GetLastConfigBlock() ([]byte, error)
 }
 
 type configTxContext struct {
@@ -345,6 +348,26 @@ func (c *configTxContext) SetClusterConfig(newConfig *types.ClusterConfig) error
 	c.logger.Debugf("Set pending config: %+v", c.newConfig)
 
 	return nil
+}
+
+func (c *configTxContext) GetLastConfigBlock() ([]byte, error) {
+	configResponseEnv := &types.GetConfigBlockResponseEnvelope{}
+	path := constants.GetLastConfigBlock
+	err := c.handleRequest(
+		path,
+		&types.GetConfigBlockQuery{
+			UserId: c.userID,
+		},
+		configResponseEnv,
+	)
+	if err != nil {
+		c.logger.Errorf("failed to execute cluster config query path %s, due to %s", path, err)
+		return nil, err
+	}
+
+	confResp := configResponseEnv.GetResponse()
+
+	return confResp.GetBlock(), nil
 }
 
 func (c *configTxContext) queryClusterConfig() error {

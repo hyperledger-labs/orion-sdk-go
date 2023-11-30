@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
 	sdkConfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
@@ -761,4 +763,96 @@ func TestConfigTx_CommitAbortFinality(t *testing.T) {
 			require.Equal(t, nodePort, node1.Port)
 		}
 	}
+}
+
+func TestGetLastConfigBlock(t *testing.T) {
+	cryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
+	testServer, _, _, err := SetupTestServer(t, cryptoDir)
+	defer func() {
+		if testServer != nil {
+			_ = testServer.Stop()
+		}
+	}()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+
+	serverPort, err := testServer.Port()
+	require.NoError(t, err)
+
+	bcdb := createDBInstance(t, cryptoDir, serverPort)
+	session := openUserSession(t, bcdb, "admin", cryptoDir)
+
+	t.Run("GetLastConfigBlock returns genesis config block", func(t *testing.T) {
+		tx, err := session.ConfigTx()
+		require.NoError(t, err)
+
+		txBlk, err := tx.GetLastConfigBlock()
+		require.NoError(t, err)
+		require.NotNil(t, txBlk)
+
+		var block = &types.Block{}
+		err = proto.Unmarshal(txBlk, block)
+		require.NoError(t, err)
+		require.NotNil(t, block)
+		require.Equal(t, uint64(1), block.GetHeader().GetBaseHeader().GetNumber())
+		require.Equal(t, 1, len(block.GetConfigTxEnvelope().GetPayload().GetNewConfig().GetNodes()))
+	})
+
+	t.Run("GetLastConfigBlock returns the last config block", func(t *testing.T) {
+		// 1. tx1 - set raft config MaxInflightBlocks param
+		tx, err := session.ConfigTx()
+		require.NoError(t, err)
+
+		clusterConfig, version, err := tx.GetClusterConfig()
+		require.NoError(t, err)
+		require.NotNil(t, version)
+		raftConf := clusterConfig.GetConsensusConfig().GetRaftConfig()
+		raftConf.MaxInflightBlocks++
+		err = tx.UpdateRaftConfig(raftConf)
+		require.NoError(t, err)
+
+		txID, receiptEnv, err := tx.Commit(true)
+		require.NoError(t, err)
+		require.True(t, txID != "")
+		require.NotNil(t, receiptEnv)
+
+		txBlk, err := tx.GetLastConfigBlock()
+		require.NoError(t, err)
+		require.NotNil(t, txBlk)
+
+		// check the last config block
+		var block = &types.Block{}
+		err = proto.Unmarshal(txBlk, block)
+		require.NoError(t, err)
+		require.NotNil(t, block)
+		require.Equal(t, uint64(2), block.GetHeader().GetBaseHeader().GetNumber())
+		require.Equal(t, 1, len(block.GetConfigTxEnvelope().GetPayload().GetNewConfig().GetNodes()))
+
+		// 2. tx2 - set raft config HeartbeatTicks param
+		tx, err = session.ConfigTx()
+		require.NoError(t, err)
+
+		clusterConfig, version, err = tx.GetClusterConfig()
+		require.NoError(t, err)
+		require.NotNil(t, version)
+		raftConf = clusterConfig.GetConsensusConfig().GetRaftConfig()
+		raftConf.HeartbeatTicks++
+		err = tx.UpdateRaftConfig(raftConf)
+		require.NoError(t, err)
+
+		txID, receiptEnv, err = tx.Commit(true)
+		require.NoError(t, err)
+		require.True(t, txID != "")
+		require.NotNil(t, receiptEnv)
+
+		txBlk, err = tx.GetLastConfigBlock()
+		require.NoError(t, err)
+		require.NotNil(t, txBlk)
+
+		// check the last config block
+		err = proto.Unmarshal(txBlk, block)
+		require.NoError(t, err)
+		require.NotNil(t, block)
+		require.Equal(t, uint64(3), block.GetHeader().GetBaseHeader().GetNumber())
+	})
 }
