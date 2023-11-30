@@ -18,5 +18,8 @@ jobs:
       with:
         go-version: 1.19
 
+    - name: Ports Detection
+      run: netstat -lntu
+
     - name: Test
       run: make test
