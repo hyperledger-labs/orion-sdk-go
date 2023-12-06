@@ -856,3 +856,32 @@ func TestGetLastConfigBlock(t *testing.T) {
 		require.Equal(t, uint64(3), block.GetHeader().GetBaseHeader().GetNumber())
 	})
 }
+
+func TestGetClusterStatus(t *testing.T) {
+	cryptoDir := testutils.GenerateTestCrypto(t, []string{"admin", "server"})
+	testServer, _, _, err := SetupTestServer(t, cryptoDir)
+	defer func() {
+		if testServer != nil {
+			_ = testServer.Stop()
+		}
+	}()
+	require.NoError(t, err)
+	StartTestServer(t, testServer)
+
+	serverPort, err := testServer.Port()
+	require.NoError(t, err)
+
+	bcdb := createDBInstance(t, cryptoDir, serverPort)
+	session := openUserSession(t, bcdb, "admin", cryptoDir)
+
+	t.Logf("Get cluster status")
+	tx, err := session.ConfigTx()
+	require.NoError(t, err)
+
+	status, err := tx.GetClusterStatus()
+	require.NoError(t, err)
+	require.NotNil(t, status)
+
+	require.Equal(t, 1, len(status.GetNodes()))
+	require.Equal(t, 1, len(status.GetActive()))
+}

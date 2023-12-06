@@ -1,12 +1,24 @@
 package commands
 
 import (
+	"bytes"
+	"encoding/pem"
+	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/golang/protobuf/proto"
+	sdkconfig "github.com/hyperledger-labs/orion-sdk-go/pkg/config"
+	"github.com/hyperledger-labs/orion-server/config"
+	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
+	"github.com/hyperledger-labs/orion-server/test/setup"
 
 	"github.com/hyperledger-labs/orion-sdk-go/examples/util"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
@@ -37,7 +49,7 @@ func TestCheckCertsEncoderIsValid(t *testing.T) {
 	session, err := bcdb.Session(&c.SessionConfig)
 	require.NoError(t, err)
 
-	// 3. get cluster configration
+	// 3. get cluster configuration
 	tx, err := session.ConfigTx()
 	require.NoError(t, err)
 
@@ -54,7 +66,7 @@ func TestCheckCertsEncoderIsValid(t *testing.T) {
 	err = parseAndSaveCerts(clusterConfig, parsedCertsDir)
 	require.NoError(t, err)
 
-	// 5. compare the generated certs with the certs recieved from the tx
+	// 5. compare the generated certs with the certs received from the tx
 	err = compareFiles(path.Join(tempDir, "crypto", "admin", "admin.pem"), path.Join(parsedCertsDir, "admins", "admin.pem"))
 	require.NoError(t, err)
 	err = compareFiles(path.Join(tempDir, "crypto", "node", "node.pem"), path.Join(parsedCertsDir, "nodes", "server1.pem"))
@@ -83,7 +95,7 @@ func TestCheckCertsDecoderIsValid(t *testing.T) {
 	session, err := bcdb.Session(&c.SessionConfig)
 	require.NoError(t, err)
 
-	// 3. get cluster configration
+	// 3. get cluster configuration
 	tx, err := session.ConfigTx()
 	require.NoError(t, err)
 
@@ -324,6 +336,335 @@ func TestSetConfigCommand_UpdateParam(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, newClusterConfig.ConsensusConfig.RaftConfig.SnapshotIntervalSize, lastSnapshotIntervalSize)
+}
+
+func TestInvalidFlagsGetLastConfigBlockCommand(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		expectedErrMsg string
+	}{
+		{
+			name:           "No Flags",
+			args:           []string{"config", "getLastConfigBlock"},
+			expectedErrMsg: "required flag(s) \"db-connection-config-path\", \"last-config-block-path\" not set",
+		},
+		{
+			name:           "Missing Cli DB Connection Config Flag",
+			args:           []string{"config", "getLastConfigBlock", "-c", "/path/to/cluster-config.yaml"},
+			expectedErrMsg: "required flag(s) \"db-connection-config-path\" not set",
+		},
+		{
+			name:           "Missing Last Config Block Flag",
+			args:           []string{"config", "getLastConfigBlock", "-d", "/path/to/cli-db-connection-config.yaml"},
+			expectedErrMsg: "required flag(s) \"last-config-block-path\" not set",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rootCmd := InitializeOrionCli()
+			rootCmd.SetArgs(tt.args)
+			err := rootCmd.Execute()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.expectedErrMsg)
+		})
+	}
+}
+
+func TestGetLastConfigBlockCommand(t *testing.T) {
+	// 1. Create crypto material and start server
+	tempDir, err := os.MkdirTemp(os.TempDir(), "Cli-Get-Last-Config-Block-Test")
+	require.NoError(t, err)
+
+	testServer, _, _, err := util.SetupTestEnv(t, tempDir, uint32(6003))
+	require.NoError(t, err)
+	defer testServer.Stop()
+	util.StartTestServer(t, testServer)
+
+	// 2. Get last config block from the server by the CLI GetLastConfigBlock command
+	rootCmd := InitializeOrionCli()
+
+	pwd, err := os.Getwd()
+	require.NoError(t, err)
+	testDbConnectionConfigFilePath := path.Join(tempDir, "config.yml")
+	pathForLastConfigBlockOutput, err := os.MkdirTemp(os.TempDir(), "TestOutput")
+	defer os.RemoveAll(pathForLastConfigBlockOutput)
+	require.NoError(t, err)
+	relativePathForLastConfigBlockOutput := path.Join("..", "..", pathForLastConfigBlockOutput)
+
+	rootCmd.SetArgs([]string{"config", "getLastConfigBlock", "-d", testDbConnectionConfigFilePath, "-c", filepath.Join(pwd, relativePathForLastConfigBlockOutput)})
+	err = rootCmd.Execute()
+	require.NoError(t, err)
+
+	// 3. Check the server response
+	blk, err := os.ReadFile(path.Join(relativePathForLastConfigBlockOutput, "last_config_block.yml"))
+	if err != nil {
+		errors.Wrapf(err, "failed to read last config block file")
+	}
+	require.NotNil(t, blk)
+}
+
+func TestInvalidFlagsGetClusterStatusCommand(t *testing.T) {
+	rootCmd := InitializeOrionCli()
+	rootCmd.SetArgs([]string{"config", "getClusterStatus"})
+	err := rootCmd.Execute()
+	require.Error(t, err)
+	require.EqualError(t, err, "required flag(s) \"db-connection-config-path\" not set")
+}
+
+func TestGetClusterStatusCommand(t *testing.T) {
+	// 1. Create crypto material and start server
+	tempDir, err := os.MkdirTemp(os.TempDir(), "Cli-Get-Cluster-Status-Test")
+	require.NoError(t, err)
+
+	testServer, _, _, err := util.SetupTestEnv(t, tempDir, uint32(6003))
+	require.NoError(t, err)
+	defer testServer.Stop()
+	util.StartTestServer(t, testServer)
+
+	// 2. Get cluster status by the CLI GetClusterStatus command
+	rootCmd := InitializeOrionCli()
+	output := new(bytes.Buffer)
+	rootCmd.SetOut(output)
+
+	testDbConnectionConfigFilePath := path.Join(tempDir, "config.yml")
+	rootCmd.SetArgs([]string{"config", "getClusterStatus", "-d", testDbConnectionConfigFilePath})
+	err = rootCmd.Execute()
+	require.NoError(t, err)
+	require.NotNil(t, output)
+
+	idx := strings.Index(output.String(), "header:")
+	extractedOutput := output.String()[idx : len(output.Bytes())-1]
+	status := &types.GetClusterStatusResponse{}
+	err = proto.UnmarshalText(extractedOutput, status)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(status.GetNodes()))
+	require.Equal(t, 1, len(status.GetActive()))
+}
+
+// Start a 3-node cluster.
+// Add the 4th node using the CLI
+func TestSetConfigCommand_ClusterAddNode(t *testing.T) {
+	// create crypto material and start 3-node cluster
+	dir, err := os.MkdirTemp("", "cluster-test")
+	require.NoError(t, err)
+	fmt.Printf("the path for cluster material is: %s", dir)
+	nPort := uint32(6581)
+	pPort := uint32(6681)
+	setupConfig := &setup.Config{
+		NumberOfServers:     3,
+		TestDirAbsolutePath: dir,
+		BDBBinaryPath:       "../../bin/bdb",
+		CmdTimeout:          10 * time.Second,
+		BaseNodePort:        nPort,
+		BasePeerPort:        pPort,
+	}
+	c, err := setup.NewCluster(setupConfig)
+	require.NoError(t, err)
+	defer c.ShutdownAndCleanup()
+
+	require.NoError(t, c.Start())
+
+	require.Eventually(t, func() bool { return c.AgreedLeader(t, 0, 1, 2) >= 0 }, 30*time.Second, time.Second)
+
+	// create connection configuration file
+	connConfig := &sdkconfig.ConnectionConfig{
+		RootCAs: []string{path.Join(setupConfig.TestDirAbsolutePath, "ca", testutils.RootCAFileName+".pem")},
+		ReplicaSet: []*sdkconfig.Replica{
+			{
+				ID:       "node-1",
+				Endpoint: c.Servers[0].URL(),
+			},
+			{
+				ID:       "node-2",
+				Endpoint: c.Servers[1].URL(),
+			},
+			{
+				ID:       "node-3",
+				Endpoint: c.Servers[2].URL(),
+			},
+		},
+	}
+
+	sessionConfig := &sdkconfig.SessionConfig{
+		UserConfig: &sdkconfig.UserConfig{
+			UserID:         "admin",
+			CertPath:       path.Join(path.Join(setupConfig.TestDirAbsolutePath, "users"), "admin.pem"),
+			PrivateKeyPath: path.Join(path.Join(setupConfig.TestDirAbsolutePath, "users"), "admin.key"),
+		},
+		TxTimeout:    10 * time.Second,
+		QueryTimeout: 20 * time.Second,
+	}
+
+	cliConnectionConfig := &util.Config{
+		ConnectionConfig: *connConfig,
+		SessionConfig:    *sessionConfig,
+	}
+
+	marshaledCliConnConfig, err := yaml.Marshal(cliConnectionConfig)
+	require.NoError(t, err)
+
+	err = os.WriteFile(path.Join(dir, "connection_config.yml"), marshaledCliConnConfig, 0644)
+	require.NoError(t, err)
+
+	// get current cluster configuration
+	rootCmd := InitializeOrionCli()
+
+	pwd, err := os.Getwd()
+	require.NoError(t, err)
+	testConnConfigFilePath := path.Join(dir, "connection_config.yml")
+	getConfigDirPath, err := os.MkdirTemp(os.TempDir(), "GetConfig_ClusterTest#1")
+	defer os.RemoveAll(getConfigDirPath)
+	require.NoError(t, err)
+	getConfigDirRelativePath := path.Join("..", "..", getConfigDirPath)
+
+	rootCmd.SetArgs([]string{"config", "get", "-d", testConnConfigFilePath, "-c", path.Join(pwd, getConfigDirRelativePath)})
+	err = rootCmd.Execute()
+	require.NoError(t, err)
+
+	sharedConfigYaml, err := readSharedConfigYaml(path.Join(getConfigDirRelativePath, "shared_cluster_config.yml"))
+	require.NoError(t, err)
+	require.Equal(t, 3, len(sharedConfigYaml.Nodes))
+
+	// create the 4th node
+	newServer, newPeer, newNode, err := createNewServer(c, setupConfig, 3)
+	require.NoError(t, err)
+	require.NotNil(t, newServer)
+	require.NotNil(t, newPeer)
+	require.NotNil(t, newNode)
+	require.NoError(t, newServer.CreateConfigFile(&config.LocalConfiguration{}))
+
+	newNodeConf := &NodeConf{
+		NodeID:          newNode.GetId(),
+		Host:            newNode.GetAddress(),
+		Port:            newNode.GetPort(),
+		CertificatePath: path.Join(dir, "node-4", "crypto", "server.pem"),
+	}
+
+	newPeerConf := &PeerConf{
+		NodeId:   newPeer.GetNodeId(),
+		RaftId:   newPeer.GetRaftId(),
+		PeerHost: newPeer.GetPeerHost(),
+		PeerPort: newPeer.GetPeerPort(),
+	}
+
+	// add the 4th node to the shared configuration, create a new shared configuration file
+	newSharedConfiguration := &SharedConfiguration{
+		Nodes: append(sharedConfigYaml.Nodes, newNodeConf),
+		Consensus: &ConsensusConf{
+			Algorithm:  sharedConfigYaml.Consensus.Algorithm,
+			Members:    append(sharedConfigYaml.Consensus.Members, newPeerConf),
+			Observers:  sharedConfigYaml.Consensus.Observers,
+			RaftConfig: sharedConfigYaml.Consensus.RaftConfig,
+		},
+		CAConfig: sharedConfigYaml.CAConfig,
+		Admin:    sharedConfigYaml.Admin,
+		Ledger:   sharedConfigYaml.Ledger,
+	}
+	marshaledNewSharedConfiguration, err := yaml.Marshal(newSharedConfiguration)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(pwd, getConfigDirRelativePath, "new_cluster_config.yml"), marshaledNewSharedConfiguration, 0644)
+	require.NoError(t, err)
+
+	// set the new cluster config
+	rootCmd.SetArgs([]string{"config", "set", "-d", testConnConfigFilePath, "-c", filepath.Join(pwd, getConfigDirRelativePath)})
+	err = rootCmd.Execute()
+	require.NoError(t, err)
+
+	// Get cluster configuration again
+	getConfigDirPath, err = os.MkdirTemp(os.TempDir(), "GetConfig_ClusterTest#2")
+	defer os.RemoveAll(getConfigDirPath)
+	require.NoError(t, err)
+	getConfigDirRelativePath = path.Join("..", "..", getConfigDirPath)
+
+	rootCmd.SetArgs([]string{"config", "get", "-d", testConnConfigFilePath, "-c", path.Join(pwd, getConfigDirRelativePath)})
+	err = rootCmd.Execute()
+	require.NoError(t, err)
+
+	// check nodes and members have 4 elements
+	newSharedConfigYaml, err := readSharedConfigYaml(path.Join(getConfigDirRelativePath, "shared_cluster_config.yml"))
+	require.NoError(t, err)
+	require.Equal(t, 4, len(newSharedConfigYaml.Nodes))
+	require.Equal(t, 4, len(newSharedConfigYaml.Consensus.Members))
+
+	// get last config block via the cli getLastConfigBlock command
+	rootCmd.SetArgs([]string{"config", "getLastConfigBlock", "-d", testConnConfigFilePath, "-c", filepath.Join(pwd, getConfigDirRelativePath)})
+	err = rootCmd.Execute()
+	require.NoError(t, err)
+
+	block, err := os.ReadFile(path.Join(getConfigDirRelativePath, "last_config_block.yml"))
+	require.NoError(t, err)
+	require.NotNil(t, block)
+
+	// write the last config block to the boostrap file path of the 4th node and check the config.yml has the right properties
+	err = os.WriteFile(newServer.BootstrapFilePath(), block, 0644)
+	require.NoError(t, err)
+
+	config, err := config.Read(newServer.ConfigFilePath())
+	require.NoError(t, err)
+	require.NotNil(t, config.LocalConfig)
+	require.Nil(t, config.SharedConfig)
+	require.NotNil(t, config.JoinBlock)
+
+	c.AddNewServerToCluster(newServer)
+
+	// start the 4th node
+	c.StartServer(newServer)
+
+	leaderIndex := -1
+	require.Eventually(t, func() bool {
+		leaderIndex = c.AgreedLeader(t, 0, 1, 2, 3)
+		return leaderIndex >= 0
+	}, 30*time.Second, 100*time.Millisecond)
+
+	// get cluster status
+	output := new(bytes.Buffer)
+	rootCmd.SetOut(output)
+
+	rootCmd.SetArgs([]string{"config", "getClusterStatus", "-d", testConnConfigFilePath})
+	err = rootCmd.Execute()
+	require.NoError(t, err)
+	require.NotNil(t, output)
+
+	idx := strings.Index(output.String(), "header:")
+	extractedOutput := output.String()[idx : len(output.Bytes())-1]
+	status := &types.GetClusterStatusResponse{}
+	err = proto.UnmarshalText(extractedOutput, status)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(status.GetNodes()))
+	require.Equal(t, 4, len(status.GetActive()))
+}
+
+func createNewServer(c *setup.Cluster, conf *setup.Config, serverNum int) (*setup.Server, *types.PeerConfig, *types.NodeConfig, error) {
+	newServer, err := setup.NewServer(uint64(serverNum), conf.TestDirAbsolutePath, conf.BaseNodePort, conf.BasePeerPort, conf.CheckRedirectFunc, c.GetLogger(), "join", math.MaxUint64)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	clusterCaPrivKey, clusterRootCAPemCert := c.GetKeyAndCA()
+	decca, _ := pem.Decode(clusterRootCAPemCert)
+	newServer.CreateCryptoMaterials(clusterRootCAPemCert, clusterCaPrivKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	server0 := c.Servers[0]
+	newServer.SetAdmin(server0.AdminID(), server0.AdminCertPath(), server0.AdminKeyPath(), server0.AdminSigner())
+
+	newPeer := &types.PeerConfig{
+		NodeId:   "node-" + strconv.Itoa(serverNum+1),
+		RaftId:   uint64(serverNum + 1),
+		PeerHost: "127.0.0.1",
+		PeerPort: conf.BasePeerPort + uint32(serverNum),
+	}
+
+	newNode := &types.NodeConfig{
+		Id:          "node-" + strconv.Itoa(serverNum+1),
+		Address:     "127.0.0.1",
+		Port:        conf.BaseNodePort + uint32(serverNum),
+		Certificate: decca.Bytes,
+	}
+
+	return newServer, newPeer, newNode, nil
 }
 
 func readConnConfig(localConfigFile string) (*cliConnectionConfig, error) {

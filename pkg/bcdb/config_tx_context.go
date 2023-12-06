@@ -83,6 +83,8 @@ type ConfigTxContext interface {
 
 	// GetLastConfigBlock returns the last config block.
 	GetLastConfigBlock() ([]byte, error)
+
+	GetClusterStatus() (*types.GetClusterStatusResponse, error)
 }
 
 type configTxContext struct {
@@ -368,6 +370,26 @@ func (c *configTxContext) GetLastConfigBlock() ([]byte, error) {
 	confResp := configResponseEnv.GetResponse()
 
 	return confResp.GetBlock(), nil
+}
+
+func (c *configTxContext) GetClusterStatus() (*types.GetClusterStatusResponse, error) {
+	clusterStatusResponseEnv := &types.GetClusterStatusResponseEnvelope{}
+	path := constants.GetClusterStatus
+	err := c.handleRequest(
+		path,
+		&types.GetConfigBlockQuery{
+			UserId: c.userID,
+		},
+		clusterStatusResponseEnv,
+	)
+	if err != nil {
+		c.logger.Errorf("failed to execute cluster config query path %s, due to %s", path, err)
+		return nil, err
+	}
+
+	resp := clusterStatusResponseEnv.GetResponse()
+
+	return resp, nil
 }
 
 func (c *configTxContext) queryClusterConfig() error {

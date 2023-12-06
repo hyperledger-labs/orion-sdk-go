@@ -19,7 +19,7 @@ func TestDataContext_ExecuteDbTxExample(t *testing.T) {
 
 	testConfigFile := path.Join(tempDir, "config.yml")
 
-	testServer, _, _, err := util.SetupTestEnv(t, tempDir, uint32(6003))
+	testServer, _, _, err := util.SetupTestEnv(t, tempDir, uint32(6001))
 	require.NoError(t, err)
 	defer testServer.Stop()
 	util.StartTestServer(t, testServer)
